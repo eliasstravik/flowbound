@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en" data-recommended="1">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Flowbound</title>
+<style>:root{color-scheme:light dark;--bg:#fff;--fg:#0a0a0a;--sub:#525252;--muted:#737373;--line:rgb(10 10 10/.08);--line2:rgb(10 10 10/.14);--fill:#f5f5f5;--accent:#c2410c;--side:#fafafa;--ok:#16a34a;--warn:#d97706;--bad:#dc2626;--run:#2563eb}
+@media(prefers-color-scheme:dark){:root{--bg:#0a0a0a;--fg:#fafafa;--sub:#d4d4d4;--muted:#a3a3a3;--line:rgb(255 255 255/.09);--line2:rgb(255 255 255/.16);--fill:#1c1c1c;--accent:#fb923c;--side:#111}}
+*{box-sizing:border-box}[hidden]{display:none!important}html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.75 InterVariable,ui-sans-serif,system-ui,sans-serif;font-feature-settings:"cv02","cv03","cv04","cv11";-webkit-font-smoothing:antialiased}
+@media(min-width:640px){body{font-size:14px;line-height:1.7143}}
+button,textarea,input,select{font:inherit;color:inherit;letter-spacing:inherit}button{cursor:pointer}
+:focus-visible{outline:2px solid var(--fg);outline-offset:2px}
+body{display:grid;justify-items:center;align-content:start;padding:24px 20px}
+.now{outline:2px solid var(--accent);outline-offset:3px;border-radius:12px}
+.app{width:100%;max-width:1100px;border:1px solid var(--line2);border-radius:12px;display:grid;grid-template-columns:auto minmax(0,1fr);background:var(--bg)}.app>main{grid-column:2}
+.side{width:200px;background:var(--side);border-right:1px solid var(--line);padding:16px 10px;border-radius:12px 0 0 12px}
+.brand{display:flex;align-items:center;gap:8px;padding:0 8px 14px;font-weight:600}
+.pill{font-size:12px;font-weight:500;border:1px solid var(--line2);border-radius:99px;padding:0 8px;color:var(--sub);white-space:nowrap}
+.pill i{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--warn);margin-right:5px;vertical-align:1px}
+nav button{display:flex;justify-content:space-between;align-items:center;width:100%;min-height:44px;text-align:left;border:0;background:none;padding:0 10px;border-radius:8px;color:var(--sub)}
+nav button[aria-current]{background:var(--fill);color:var(--fg)}
+nav .count{font-size:12px;background:var(--fg);color:var(--bg);border-radius:99px;padding:0 7px}
+nav .sep{height:1px;background:var(--line);margin:8px 10px}
+main{padding:24px 28px;min-width:0}
+h1{font-size:20px;line-height:1.4;margin:0 0 16px;font-weight:600}
+h2{font-size:16px;margin:24px 0 6px;font-weight:600}
+.rows{list-style:none;margin:0;padding:0}.rows li{display:flex;gap:12px;align-items:center;border-top:1px solid var(--line);padding:9px 0}
+.rows li:last-child{border-bottom:1px solid var(--line)}.rows .name{font-weight:500}.rows .why{color:var(--muted);flex:1;min-width:0}.rows .when{color:var(--muted);font-size:12px;white-space:nowrap}
+.st{white-space:nowrap}.st:before{content:"";display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:6px;background:var(--c,var(--ok))}
+.st.run{--c:var(--run)}.st.bad{--c:var(--bad)}.st.warn{--c:var(--warn)}.st.none{--c:var(--line2)}
+.muted{color:var(--muted)}.sm{font-size:12px}
+.bar{height:4px;background:var(--fill);border-radius:4px;width:140px}.bar i{display:block;height:4px;border-radius:4px;background:var(--fg);width:var(--w)}
+.publish{margin:8px 10px 0;font-size:12px;color:var(--sub);border:1px solid var(--line2);border-radius:8px;padding:8px 10px}
+.tools{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 12px}
+.input{border:1px solid var(--line2);border-radius:8px;padding:0 12px;min-height:44px;background:var(--bg);min-width:0;flex:1;max-width:320px}
+.btn{border:1px solid var(--line2);border-radius:8px;padding:0 12px;min-height:44px;background:var(--bg);display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.btn.on{background:var(--fill);border-color:var(--fg)}.btn.primary{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+table{width:100%;border-collapse:collapse}th{text-align:left;font-weight:500;color:var(--muted);white-space:nowrap;padding:8px 12px 8px 0;border-bottom:1px solid var(--line)}
+td{padding:10px 12px 10px 0;border-bottom:1px solid var(--line);vertical-align:top}
+tr.link{cursor:pointer}tr.link:hover td{background:var(--fill)}
+.wide{overflow-x:auto}
+.chip{display:inline-block;font-size:12px;border-radius:6px;padding:0 6px;background:var(--fill);color:var(--sub);margin-left:6px;white-space:nowrap}.chip.bad{color:var(--bad)}
+.desc{color:var(--muted);font-size:13px}
+.folder td{font-weight:600}
+@media(max-width:760px){.app{grid-template-columns:1fr}.app>main{grid-column:auto}.side{width:auto}.side{border-right:0;border-bottom:1px solid var(--line);border-radius:12px 12px 0 0;padding:8px}
+.top{display:flex!important;justify-content:space-between;align-items:center}.side nav{display:none}.side.open nav{display:block}.brand{padding:0 8px}.desk{display:none!important}
+.menu{min-width:44px;min-height:44px;border:1px solid var(--line2);border-radius:8px;background:var(--bg)}main{padding:20px 16px}.rows li{flex-wrap:wrap;gap:2px 10px}.rows .why{flex-basis:100%;order:3}
+.hide-phone{display:none}.tools .input{flex-basis:100%;max-width:none}}
+.top{display:none}
+</style>
+<body>
+<div class="app">
+  <aside class="side" id="side">
+    <div class="top"><div class="brand">Flowbound <span class="pill"><i></i>Your computer</span></div><button class="menu" data-control aria-label="Menu" onclick="side.classList.toggle('open')">☰</button></div>
+    <div class="brand desk">Flowbound <span class="pill"><i></i>Your computer</span></div>
+    <nav id="nav"></nav>
+  </aside>
+  <main id="main"></main>
+</div>
+<script>
+let openFolder=null;
+const FICON=`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-3px;margin-right:8px;color:var(--muted)"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>`;
+function wfRow(w){return `<tr class="link"><td><div><b>${w.name}</b></div><div class="desc">${w.desc}</div></td></tr>`}
+function fSum(f){return `${WF.filter(w=>w.folder===f).length} workflows`}
+const HEAD=``;
+const SEARCH=`<div class="tools"><input class="input" placeholder="Search all workflows" data-control></div>`;
+const STEP={keys:["1","2","3"],page:"Workflows",over:{
+ "Workflows":k=>{
+  if(k==="1"){
+   if(openFolder){
+    return `<div class="crumb"><button class="lnk" data-control data-up>Workflows</button> <span class="muted">/</span> <b>${openFolder}</b></div><h1>${openFolder}</h1>${SEARCH}<div class="wide"><table>${HEAD}${WF.filter(w=>w.folder===openFolder).map(wfRow).join('')}</table></div>`;
+   }
+   return `<h1>Workflows</h1>${SEARCH}<div class="wide"><table>${HEAD}${FOLDERS.map(f=>`<tr class="link" data-open="${f}"><td >${FICON}<b>${f}</b><div class="desc" style="margin-left:24px">${fSum(f)}</div></td></tr>`).join('')}${WF.filter(w=>!w.folder).map(wfRow).join('')}</table></div>`;
+  }
+  if(k==="2"){
+   const sel=openFolder||"All workflows";
+   const list=["All workflows",...FOLDERS];
+   const ws=sel==="All workflows"?WF:WF.filter(w=>w.folder===sel);
+   return `<h1>Workflows</h1><div class="split"><div class="fpanel">${list.map(f=>`<button class="fbtn" data-control data-pick="${f}" ${f===sel?'aria-current="true"':''}>${f==="All workflows"?'':FICON}${f}<span class="muted">${f==="All workflows"?WF.length:WF.filter(w=>w.folder===f).length}</span></button>`).join('')}</div><div class="flist">${SEARCH}<div class="wide"><table>${HEAD}${ws.map(wfRow).join('')}</table></div></div></div>`;
+  }
+  return `<h1>Workflows</h1>${SEARCH}<div class="wide"><table>${HEAD}${FOLDERS.map(f=>`<tr class="grp"><td ><span class="muted">▾</span> ${FICON}<b>${f}</b> <span class="muted">${WF.filter(w=>w.folder===f).length}</span></td></tr>${WF.filter(w=>w.folder===f).map(wfRow).join('')}`).join('')}<tr class="grp"><td ><span class="muted">▾</span> <b>Other</b> <span class="muted">1</span></td></tr>${WF.filter(w=>!w.folder).map(wfRow).join('')}</table></div>`;
+ }}};
+window.wire=()=>{
+ main.querySelectorAll('[data-open]').forEach(r=>r.onclick=()=>{openFolder=r.dataset.open;render()});
+ main.querySelectorAll('[data-up]').forEach(r=>r.onclick=()=>{openFolder=null;render()});
+ main.querySelectorAll('[data-pick]').forEach(r=>r.onclick=()=>{openFolder=r.dataset.pick==="All workflows"?null:r.dataset.pick;render()});
+};
+window.reset=()=>{openFolder=null};
+const st2=document.createElement('style');st2.textContent=`.crumb{margin:0 0 4px}.lnk{border:0;background:none;padding:0;min-height:44px;color:var(--sub);text-decoration:underline;text-underline-offset:3px}
+.split{display:grid;grid-template-columns:200px 1fr;gap:20px}.fpanel{display:flex;flex-direction:column;gap:2px}.fbtn{display:flex;align-items:center;min-height:44px;border:0;background:none;border-radius:8px;padding:0 10px;text-align:left;color:var(--sub)}.fbtn span{margin-left:auto;font-size:12px}.fbtn[aria-current]{background:var(--fill);color:var(--fg)}
+.grp td{background:var(--fill);padding-left:8px}
+@media(max-width:760px){.split{grid-template-columns:1fr}.fpanel{flex-direction:row;overflow-x:auto;gap:6px}.fbtn{white-space:nowrap;border:1px solid var(--line2)}}`;document.head.append(st2);
+
+const K=STEP.keys;
+function cur(){const k=new URLSearchParams(location.hash.slice(1)).get('option');return K.includes(k)?k:document.documentElement.dataset.recommended}
+function apply(){const k=cur();document.documentElement.dataset.option=k;document.querySelectorAll('[data-for]').forEach(e=>e.toggleAttribute('hidden',!e.dataset.for.split(' ').includes(k)));if(window.onOption)onOption(k)}
+addEventListener('hashchange',apply);
+/* fictional data */
+const WF=[
+ {name:"Build TAM list",folder:"TAM mapping",desc:"Pulls every company that fits the ICP into one list.",start:"When asked",last:["ok","Done","2 days ago"]},
+ {name:"Score accounts",folder:"TAM mapping",desc:"Scores each company against the ICP with a model.",start:"When asked",last:["bad","Failed","yesterday"],flags:[["Key missing","bad"]]},
+ {name:"Find sales heads",folder:"TAM mapping",desc:"Finds the head of sales at each company, then a work email.",start:"Every Monday 08:00",last:["run","Running · 57 of 200","now"]},
+ {name:"Find champions",folder:"Champion tracking",desc:"Finds past users of the product among your customers' contacts.",start:"When asked",last:["ok","Done","1 week ago"]},
+ {name:"Track job changes",folder:"Champion tracking",desc:"Checks each champion's job every week.",start:"Every Friday 07:00",last:["ok","Done","5 days ago"]},
+ {name:"New leads",folder:"Inbound",desc:"Takes each lead from the website form and saves it.",start:"Webhook new-leads",last:["ok","Done","3 h ago"]},
+ {name:"Add to CRM",folder:"Inbound",desc:"Writes finished contacts to the CRM.",start:"After New leads",last:["none","Never run",""],flags:[["Needs a yes","warn"]]},
+ {name:"Tidy companies",folder:"",desc:"Cleans names and domains in a list. Free.",start:"When asked",last:["ok","Done","1 h ago"]}];
+const FOLDERS=["TAM mapping","Champion tracking","Inbound"];
+const NAV=[["Home",2],["Workflows"],["Runs"],["Data"],"-",["Keys"],["Permissions"]];
+const attention=`<ul class="rows"><li><span class="name">Find sales heads</span><span class="why">Waits for your yes: 180 rows, about $0.90</span><span class="st warn">Waiting</span><span class="when">2 min ago</span></li><li><span class="name">Score accounts</span><span class="why">Needs a BlitzAPI key</span><span class="st bad">Blocked</span><span class="when">today</span></li></ul>`;
+const recent=`<ul class="rows"><li><span class="name">Find sales heads</span><span class="why"></span><span class="st run">Running · 57 of 200</span><span class="when">now</span></li><li><span class="name">Tidy companies</span><span class="why"></span><span class="st">Done</span><span class="when">1 h ago</span></li><li><span class="name">Score accounts</span><span class="why"></span><span class="st bad">Failed</span><span class="when">yesterday</span></li></ul>`;
+const spend=`<ul class="rows"><li><span class="name">All workflows</span><span class="why"></span><div class="bar" style="--w:21%"><i></i></div><span><b>$4.20</b> <span class="muted">of $20</span></span></li></ul>`;
+const PAGES={
+ "Home":()=>`<h1>Home</h1><h2>Needs attention</h2>${attention}<h2>Recent runs</h2>${recent}<h2>Spend this month</h2>${spend}`,
+ 
+};
+let page=STEP.page||"Home";
+function render(){
+ const k=cur();
+ nav.innerHTML=NAV.map(i=>i==="-"?'<div class="sep"></div>':`<button data-control ${i[0]===page?'aria-current="page"':''} data-p="${i[0]}">${i[0]}${i[1]?`<span class="count">${i[1]}</span>`:''}</button>`).join('')+'<div class="publish">2 changes not live · <u>Publish</u></div>';
+ nav.querySelectorAll('button').forEach(b=>b.onclick=()=>{page=b.dataset.p;side.classList.remove('open');render()});
+ const over=STEP.over&&STEP.over[page];
+ main.innerHTML=over?`<div class="now">${over(k)}</div>`:PAGES[page]?PAGES[page]():`<h1>${page}</h1>`;
+ if(window.wire)wire(k);
+}
+window.onOption=()=>{if(window.reset)reset();render()};
+apply();
+</script>
+</body>
+</html>

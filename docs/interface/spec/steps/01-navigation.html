@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en" data-recommended="1">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Flowbound</title>
+<style>:root{color-scheme:light dark;--bg:#fff;--fg:#0a0a0a;--sub:#525252;--muted:#737373;--line:rgb(10 10 10/.08);--line2:rgb(10 10 10/.14);--fill:#f5f5f5;--accent:#c2410c;--side:#fafafa;--ok:#16a34a;--warn:#d97706;--bad:#dc2626;--run:#2563eb}
+@media(prefers-color-scheme:dark){:root{--bg:#0a0a0a;--fg:#fafafa;--sub:#d4d4d4;--muted:#a3a3a3;--line:rgb(255 255 255/.09);--line2:rgb(255 255 255/.16);--fill:#1c1c1c;--accent:#fb923c;--side:#111}}
+*{box-sizing:border-box}[hidden]{display:none!important}html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.75 InterVariable,ui-sans-serif,system-ui,sans-serif;font-feature-settings:"cv02","cv03","cv04","cv11";-webkit-font-smoothing:antialiased}
+@media(min-width:640px){body{font-size:14px;line-height:1.7143}}
+button,textarea,input{font:inherit;color:inherit;letter-spacing:inherit}button{cursor:pointer}
+:focus-visible{outline:2px solid var(--fg);outline-offset:2px}
+body{display:grid;justify-items:center;align-content:start;padding:24px 20px}
+.now{outline:2px solid var(--accent);outline-offset:3px;border-radius:12px}
+.app{width:100%;max-width:1100px;border:1px solid var(--line2);border-radius:12px;display:grid;grid-template-columns:auto minmax(0,1fr);background:var(--bg)}.app>main{grid-column:2}
+.side{width:200px;background:var(--side);border-right:1px solid var(--line);padding:16px 10px;border-radius:12px 0 0 12px}
+.brand{display:flex;align-items:center;gap:8px;padding:0 8px 14px;font-weight:600}
+.pill{font-size:12px;font-weight:500;border:1px solid var(--line2);border-radius:99px;padding:0 8px;color:var(--sub)}
+.pill i{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--warn);margin-right:5px;vertical-align:1px}
+nav button{display:flex;justify-content:space-between;align-items:center;width:100%;min-height:44px;text-align:left;border:0;background:none;padding:0 10px;border-radius:8px;color:var(--sub)}
+nav button[aria-current]{background:var(--fill);color:var(--fg)}
+nav .count{font-size:12px;background:var(--fg);color:var(--bg);border-radius:99px;padding:0 7px}
+nav .sep{height:1px;background:var(--line);margin:8px 10px}
+main{padding:24px 28px;min-width:0}
+h1{font-size:20px;line-height:1.4;margin:0 0 16px;font-weight:600}
+h2{font-size:16px;margin:24px 0 6px;font-weight:600}
+.rows{list-style:none;margin:0;padding:0}.rows li{display:flex;gap:12px;align-items:center;border-top:1px solid var(--line);padding:9px 0}
+.rows li:last-child{border-bottom:1px solid var(--line)}.rows .name{font-weight:500}.rows .why{color:var(--muted);flex:1;min-width:0}.rows .when{color:var(--muted);font-size:12px}
+.st{white-space:nowrap}.st:before{content:"";display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:6px;background:var(--c,var(--ok))}
+.muted{color:var(--muted)}
+.bar{height:4px;background:var(--fill);border-radius:4px;width:140px}.bar i{display:block;height:4px;border-radius:4px;background:var(--fg);width:var(--w)}
+.top{display:none}
+.publish{margin:8px 10px 0;font-size:12px;color:var(--sub);border:1px solid var(--line2);border-radius:8px;padding:8px 10px}
+@media(max-width:760px){.app{grid-template-columns:1fr}.app>main{grid-column:auto}.side{width:auto}.side{border-right:0;border-bottom:1px solid var(--line);border-radius:12px 12px 0 0;padding:8px}
+.top{display:flex;justify-content:space-between;align-items:center}.side nav{display:none}.side.open nav{display:block}.brand{padding:0 8px}
+.menu{min-width:44px;min-height:44px;border:1px solid var(--line2);border-radius:8px;background:var(--bg)}main{padding:20px 16px}.rows li{flex-wrap:wrap;gap:2px 10px}.rows .why{flex-basis:100%;order:3}}
+</style>
+<body>
+<div class="app now">
+  <aside class="side" id="side">
+    <div class="top"><div class="brand">Flowbound <span class="pill"><i></i>Your computer</span></div><button class="menu" data-control aria-label="Menu" onclick="side.classList.toggle('open')">☰</button></div>
+    <div class="brand" data-desk>Flowbound <span class="pill"><i></i>Your computer</span></div>
+    <nav id="nav"></nav>
+  </aside>
+  <main id="main"></main>
+</div>
+<script>
+const K=["1","2","3"];
+function cur(){const k=new URLSearchParams(location.hash.slice(1)).get('option');return K.includes(k)?k:document.documentElement.dataset.recommended}
+function apply(){const k=cur();document.documentElement.dataset.option=k;document.querySelectorAll('[data-for]').forEach(e=>e.toggleAttribute('hidden',!e.dataset.for.split(' ').includes(k)));if(window.onOption)onOption(k)}
+addEventListener('hashchange',apply);
+const NAV={
+ "1":[["Overview",2],["Workflows"],["Runs"],["Data"],"-",["Keys"],["Permissions"]],
+ "2":[["Needs you",2],["Runs"],["Tables"],["Workflows"],["Changes"],["Keys"],["Permissions"]],
+ "3":[["Overview",2],["Chat"],["Context"],["Workflows"],["Runs"],["Data"],["Connections"]]};
+let page=null;
+const attention=`<ul class="rows"><li><span class="name">Find sales heads</span><span class="why">Waits for your yes: 180 rows, about $0.90</span><span class="st" style="--c:var(--warn)">Waiting</span><span class="when">2 min ago</span></li><li><span class="name">Score accounts</span><span class="why">Needs a BlitzAPI key</span><span class="st" style="--c:var(--bad)">Blocked</span><span class="when">today</span></li></ul>`;
+const recent=`<ul class="rows"><li><span class="name">Find sales heads</span><span class="why"></span><span class="st" style="--c:var(--run)">Running · 57 of 200</span><span class="when">now</span></li><li><span class="name">Tidy companies</span><span class="why"></span><span class="st">Done</span><span class="when">1 h ago</span></li><li><span class="name">Find sales heads</span><span class="why"></span><span class="st" style="--c:var(--bad)">Failed</span><span class="when">yesterday</span></li></ul>`;
+const spend=`<ul class="rows"><li><span class="name">All workflows</span><span class="why"></span><div class="bar" style="--w:21%"><i></i></div><span><b>$4.20</b> <span class="muted">of $20</span></span></li></ul>`;
+function home(k){
+ if(k==="2")return `<h1>Needs you</h1><p class="muted" style="margin:0 0 8px">What waits for a person. Each says the one thing to do.</p>${attention}`;
+ return `<h1>Overview</h1><h2>Needs attention</h2>${attention}<h2>Recent runs</h2>${recent}<h2>Spend this month</h2>${spend}`;
+}
+function render(k){
+ const items=NAV[k];if(!page||!items.some(i=>i[0]===page))page=items[0][0];
+ nav.innerHTML=items.map(i=>i==="-"?'<div class="sep"></div>':`<button data-control ${i[0]===page?'aria-current="page"':''} data-p="${i[0]}">${i[0]}${i[1]?`<span class="count">${i[1]}</span>`:''}</button>`).join('')+(k==="1"?'<div class="publish">2 changes not live · <u>Publish</u></div>':'');
+ nav.querySelectorAll('button').forEach(b=>b.onclick=()=>{page=b.dataset.p;side.classList.remove('open');render(cur())});
+ main.innerHTML=page===items[0][0]?home(k):`<h1>${page}</h1>`;
+}
+document.querySelectorAll('[data-desk]').forEach(e=>e.classList.add('desk'));
+const st=document.createElement('style');st.textContent='@media(max-width:760px){.desk{display:none!important}}';document.head.append(st);
+window.onOption=k=>{page=null;render(k)};
+apply();
+</script>
+</body>
+</html>

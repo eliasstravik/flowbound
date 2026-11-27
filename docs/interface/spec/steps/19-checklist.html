@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="en" data-recommended="1">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Flowbound</title>
+<style>:root{color-scheme:light dark;--bg:#fff;--fg:#0a0a0a;--sub:#525252;--muted:#737373;--line:rgb(10 10 10/.08);--line2:rgb(10 10 10/.14);--fill:#f5f5f5;--accent:#c2410c;--side:#fafafa;--ok:#16a34a;--warn:#d97706;--bad:#dc2626;--run:#2563eb}
+@media(prefers-color-scheme:dark){:root{--bg:#0a0a0a;--fg:#fafafa;--sub:#d4d4d4;--muted:#a3a3a3;--line:rgb(255 255 255/.09);--line2:rgb(255 255 255/.16);--fill:#1c1c1c;--accent:#fb923c;--side:#111}}
+*{box-sizing:border-box}[hidden]{display:none!important}html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.75 InterVariable,ui-sans-serif,system-ui,sans-serif;font-feature-settings:"cv02","cv03","cv04","cv11";-webkit-font-smoothing:antialiased}
+@media(min-width:640px){body{font-size:14px;line-height:1.7143}}
+button,textarea,input,select{font:inherit;color:inherit;letter-spacing:inherit}button{cursor:pointer}
+:focus-visible{outline:2px solid var(--fg);outline-offset:2px}
+body{display:grid;justify-items:center;align-content:start;padding:24px 20px}
+.now{outline:2px solid var(--accent);outline-offset:3px;border-radius:12px}
+.app{width:100%;max-width:1100px;border:1px solid var(--line2);border-radius:12px;display:grid;grid-template-columns:auto minmax(0,1fr);background:var(--bg)}.app>main{grid-column:2}
+.side{width:200px;background:var(--side);border-right:1px solid var(--line);padding:16px 10px;border-radius:12px 0 0 12px}
+.brand{display:flex;align-items:center;gap:8px;padding:0 8px 14px;font-weight:600}
+.pill{font-size:12px;font-weight:500;border:1px solid var(--line2);border-radius:99px;padding:0 8px;color:var(--sub);white-space:nowrap}
+.pill i{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--warn);margin-right:5px;vertical-align:1px}
+nav button{display:flex;justify-content:space-between;align-items:center;width:100%;min-height:44px;text-align:left;border:0;background:none;padding:0 10px;border-radius:8px;color:var(--sub)}
+nav button[aria-current]{background:var(--fill);color:var(--fg)}
+nav .count{font-size:12px;background:var(--fg);color:var(--bg);border-radius:99px;padding:0 7px}
+nav .sep{height:1px;background:var(--line);margin:8px 10px}
+main{padding:24px 28px;min-width:0}
+h1{font-size:20px;line-height:1.4;margin:0 0 16px;font-weight:600}
+h2{font-size:16px;margin:24px 0 6px;font-weight:600}
+.rows{list-style:none;margin:0;padding:0}.rows li{display:flex;gap:12px;align-items:center;border-top:1px solid var(--line);padding:9px 0}
+.rows li:last-child{border-bottom:1px solid var(--line)}.rows .name{font-weight:500}.rows .why{color:var(--muted);flex:1;min-width:0}.rows .when{color:var(--muted);font-size:12px;white-space:nowrap}
+.st{white-space:nowrap}.st:before{content:"";display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:6px;background:var(--c,var(--ok))}
+.st.run{--c:var(--run)}.st.bad{--c:var(--bad)}.st.warn{--c:var(--warn)}.st.none{--c:var(--line2)}
+.muted{color:var(--muted)}.sm{font-size:12px}
+.bar{height:4px;background:var(--fill);border-radius:4px;width:140px}.bar i{display:block;height:4px;border-radius:4px;background:var(--fg);width:var(--w)}
+.publish{margin:8px 10px 0;font-size:12px;color:var(--sub);border:1px solid var(--line2);border-radius:8px;padding:8px 10px}
+.tools{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 12px}
+.input{border:1px solid var(--line2);border-radius:8px;padding:0 12px;min-height:44px;background:var(--bg);min-width:0;flex:1;max-width:320px}
+.btn{border:1px solid var(--line2);border-radius:8px;padding:0 12px;min-height:44px;background:var(--bg);display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.btn.on{background:var(--fill);border-color:var(--fg)}.btn.primary{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+table{width:100%;border-collapse:collapse}th{text-align:left;font-weight:500;color:var(--muted);white-space:nowrap;padding:8px 12px 8px 0;border-bottom:1px solid var(--line)}
+td{padding:10px 12px 10px 0;border-bottom:1px solid var(--line);vertical-align:top}
+tr.link{cursor:pointer}tr.link:hover td{background:var(--fill)}
+.wide{overflow-x:auto}
+.chip{display:inline-block;font-size:12px;border-radius:6px;padding:0 6px;background:var(--fill);color:var(--sub);margin-left:6px;white-space:nowrap}.chip.bad{color:var(--bad)}
+.desc{color:var(--muted);font-size:13px}
+.folder td{font-weight:600}.crumb{margin:0 0 4px}.lnk{border:0;background:none;padding:0;min-height:44px;min-width:44px;color:var(--sub);text-decoration:underline;text-underline-offset:3px}
+@media(max-width:760px){.app{grid-template-columns:1fr}.app>main{grid-column:auto}.side{width:auto}.side{border-right:0;border-bottom:1px solid var(--line);border-radius:12px 12px 0 0;padding:8px}
+.top{display:flex!important;justify-content:space-between;align-items:center}.side nav{display:none}.side.open nav{display:block}.brand{padding:0 8px}.desk{display:none!important}
+.menu{min-width:44px;min-height:44px;border:1px solid var(--line2);border-radius:8px;background:var(--bg)}main{padding:20px 16px}.rows li{flex-wrap:wrap;gap:2px 10px}.rows .why{flex-basis:100%;order:3}
+.hide-phone{display:none}.tools .input{flex-basis:100%;max-width:none}}
+.top{display:none}
+</style>
+<body>
+<div class="daysw" id="daysw"><button class="btn on" data-control data-day="0">Normal day</button><button class="btn" data-control data-day="1">First day</button></div>
+<div class="app">
+  <aside class="side" id="side">
+    <div class="top"><div class="brand">Flowbound <span class="pill"><i></i>Your computer</span></div><button class="menu" data-control aria-label="Menu" onclick="side.classList.toggle('open')">☰</button></div>
+    <div class="brand desk">Flowbound <span class="pill"><i></i>Your computer</span></div>
+    <nav id="nav"></nav>
+  </aside>
+  <main id="main"></main>
+</div>
+<script>
+const STEP={keys:["1","2"],page:"Home",over:{
+ "Home":k=>{
+  const items=[["Set up Flowbound","Done when Flowbound first starts.",true,""],["Connect an agent","Done when an agent first connects.",false,"Agents"],["Run the free sample","Done when the Sample contacts workflow has run once: four made-up companies, $0.",false,"Workflows"],["Add a connection","Done when you save your first key.",false,"Connections"]];
+  const list=k==="1"?`<ol class="check2">${items.map(i=>`<li class="${i[2]?'done':''}">${i[3]?`<button class="lnk" data-control data-golist="${i[3]}">${i[0]}</button>`:`<span>${i[0]}</span>`}<div class="desc">${i[1]}</div></li>`).join('')}</ol>`
+   :`<ol class="check2">${items.map(i=>`<li class="${i[2]?'done':''}"><span>${i[0]}</span></li>`).join('')}</ol><p class="desc">Ticked on their own; no links.</p>`;
+  return `<h1>Home</h1>${HINT}<h2>Get started</h2>${list}<h2>Recent runs</h2><p class="muted">No runs yet.</p>`;
+ }}};
+window.wire=()=>{main.querySelectorAll('[data-golist]').forEach(b=>b.onclick=()=>{page=b.dataset.golist;firstDay=true;render()})};
+window.reset=()=>{page="Home";firstDay=true};
+const st19=document.createElement('style');st19.textContent=`.check2{padding-left:20px}.check2 li{padding:4px 0 8px;border-bottom:1px solid var(--line)}.check2 li.done>span,.check2 li.done>.lnk{color:var(--muted);text-decoration:line-through}`;document.head.append(st19);
+
+const K=STEP.keys;
+function cur(){const k=new URLSearchParams(location.hash.slice(1)).get('option');return K.includes(k)?k:document.documentElement.dataset.recommended}
+function apply(){const k=cur();document.documentElement.dataset.option=k;document.querySelectorAll('[data-for]').forEach(e=>e.toggleAttribute('hidden',!e.dataset.for.split(' ').includes(k)));if(window.onOption)onOption(k)}
+addEventListener('hashchange',apply);
+/* fictional data */
+const WF=[
+ {name:"Build TAM list",folder:"TAM mapping/Nordics",desc:"Pulls every company that fits the ICP into one list.",start:"When asked",last:["ok","Done","2 days ago"]},
+ {name:"Score accounts",folder:"TAM mapping",desc:"Scores each company against the ICP with a model.",start:"When asked",last:["bad","Failed","yesterday"]},
+ {name:"Find sales heads",folder:"TAM mapping",desc:"Finds the head of sales at each company, then a work email.",start:"Every Monday 08:00",last:["run","Running · 57 of 200","now"]},
+ {name:"Find champions",folder:"Champion tracking",desc:"Finds past users of the product among your customers' contacts.",start:"When asked",last:["ok","Done","1 week ago"]},
+ {name:"Track job changes",folder:"Champion tracking",desc:"Checks each champion's job every week.",start:"Every Friday 07:00",last:["ok","Done","5 days ago"]},
+ {name:"New leads",folder:"Inbound",desc:"Takes each lead from the website form and saves it.",start:"Webhook new-leads",last:["ok","Done","3 h ago"]},
+ {name:"Add to CRM",folder:"Inbound",desc:"Writes finished contacts to the CRM.",start:"After New leads",last:["none","Never run",""],flags:[["Needs a yes","warn"]]},
+ {name:"Tidy companies",folder:"",desc:"Cleans names and domains in a list. Free.",start:"When asked",last:["ok","Done","1 h ago"]}];
+const FOLDERS=["TAM mapping","TAM mapping/Nordics","Champion tracking","Inbound"];
+const NAV=[["Home",2],["Workflows"],["Runs"],["Schedules"],["Data"],["Context"],"-",["Connections"],["Agents"],["Permissions"]];
+const attention=`<ul class="rows"><li><span class="name">Find sales heads</span><span class="why">Waits for your yes</span><span class="st warn">Waiting</span><span class="when">2 min ago</span></li><li><span class="name">Build TAM list</span><span class="why">Needs a Firecrawl connection</span><span class="st bad">Blocked</span><span class="when">today</span></li></ul>`;
+const recent=`<ul class="rows"><li><span class="name">Find sales heads</span><span class="why"></span><span class="st run">Running · 57 of 200</span><span class="when">now</span></li><li><span class="name">Tidy companies</span><span class="why"></span><span class="st">Done</span><span class="when">1 h ago</span></li><li><span class="name">Score accounts</span><span class="why"></span><span class="st bad">Failed</span><span class="when">yesterday</span></li></ul>`;
+const spend=`<ul class="rows"><li><span class="name">All workflows</span><span class="why"></span><div class="bar" style="--w:21%"><i></i></div><span><b>$4.20</b> <span class="muted">of $50</span></span></li></ul>`;
+const CODE=`// For each company: find its head of sales, then a work email.
+export async function findSalesHeads(company) {
+  "use workflow"
+  const head = await findHead(company)
+  if (!head) return null
+  const email = await findEmail(head)
+  return { head: head.name, title: head.title, email }
+}
+
+// Find the head of sales
+async function findHead(company) {
+  "use step"
+  const res = await use("blitzapi").fetch\u0028"/v2/head", { body: { company: company.domain } })
+  return res.pick("person")
+}
+
+// Find their work email
+async function findEmail(head) {
+  "use step"
+  const res = await use("blitzapi").fetch\u0028"/v2/email", { body: { linkedin_url: head.linkedin } })
+  return res.pick("email")
+}
+
+export const diagram = \`
+flowchart TD
+  a[Companies from your target list] --> b[Find the head of sales]
+  b --> c{Found someone?}
+  c -- yes --> d[Find their work email]
+  d --> e[Save name, title and email]
+  click b findHead
+  click d findEmail
+\``;
+let mark=null;
+function codeBox(only){const L=CODE.split('\n');let a=0,b=L.length;if(only){a=L.findIndex(l=>l.includes('function '+only))-1;b=L.findIndex((l,i)=>i>a+1&&l==='}')+1}
+ return `<div class="codebox">${L.slice(a,b).map((l,i)=>`<div class="ln"><span>${a+i+1}</span><code>${l.replace(/</g,'&lt;')||' '}</code></div>`).join('')}</div>`}
+function canvas(nodes,edgeLabels){
+ return `<div class="canvas">${nodes.map((n,i)=>`${i?`<div class="edge">${edgeLabels[i]?`<span>${edgeLabels[i]}</span>`:''}</div>`:''}<div class="node ${n.k==='Decision'?'dec':''}" data-control tabindex="0" ${n.m?`data-mark="${n.m}"`:''}><span class="kind k-${n.k}">${n.k}</span><div>${n.t}</div></div>`).join('')}<div class="zoom"><button data-control>−</button><button data-control>+</button><button data-control>Fit</button></div></div>`;
+}
+function wfDiagram(){return `<div class="canvas" style="padding:16px">${MER}<div class="zoom"><button data-control>−</button><button data-control>+</button><button data-control>Fit</button></div></div><div class="tools" style="margin-top:8px"><button class="btn" data-control data-mark="findHead">Find the head of sales</button><button class="btn" data-control data-mark="findEmail">Find their work email</button></div>`+(mark?`<p class="desc" style="margin:12px 0 4px">The code behind “${mark==='findHead'?'Find the head of sales':'Find their work email'}”</p>${codeBox(mark)}`:'')}
+const WFHEAD=`<div class="hdr"><button class="btn" data-control>Open in editor ↗</button><button class="btn" data-control>Open in workflow UI ↗</button></div><div class="crumb"><button class="lnk" data-control data-go="">Workflows</button> <span class="muted">/</span> <button class="lnk" data-control data-go="TAM mapping">TAM mapping</button> <span class="muted">/</span> <b>Find sales heads</b></div><h1>Find sales heads</h1><p class="desc" style="margin:-10px 0 16px">Finds the head of sales at each company, then a work email.</p>`;
+const libcss=document.createElement('style');libcss.textContent=`
+.codebox{border:1px solid var(--line2);border-radius:10px;font:12px/1.7 ui-monospace,monospace;overflow-x:auto;padding:8px 0}.ln{display:flex;white-space:pre}.ln span{width:34px;flex:none;text-align:right;padding-right:10px;color:var(--muted)}
+.canvas{position:relative;border:1px solid var(--line);border-radius:10px;padding:24px 16px 64px;display:flex;flex-direction:column;align-items:center;background-image:radial-gradient(var(--line2) 1px,transparent 1px);background-size:16px 16px}
+.node{width:240px;max-width:100%;border:1px solid var(--line2);border-radius:10px;background:var(--bg);padding:8px 12px}.node.dec{border-style:dashed}.node[data-mark]{cursor:pointer}
+.kind{font-size:11px;border-radius:4px;padding:0 6px;background:var(--fill);color:var(--sub)}.k-Input{color:#2563eb}.k-Output{color:#16a34a}.k-Decision{color:#c2410c}
+.edge{height:32px;border-left:1px solid var(--muted);position:relative}.edge span{position:absolute;left:-14px;top:6px;font-size:11px;background:var(--bg);border:1px solid var(--line2);border-radius:4px;padding:0 4px}
+.zoom{position:absolute;right:10px;bottom:10px;display:flex;border:1px solid var(--line2);border-radius:8px;background:var(--bg)}.zoom button{min-width:44px;min-height:44px;border:0;background:none;color:var(--muted)}
+code{font:12px ui-monospace,monospace}`;document.head.append(libcss);
+
+let tab="Diagram";
+const RUNS_MINI=`<ul class="rows"><li data-gorun style="cursor:pointer"><span class="name">27 Nov</span><span class="why"></span><span class="st run">Running · 57 of 200</span></li><li><span class="name">20 Nov</span><span class="why"></span><span class="st">Done</span></li><li><span class="name">13 Nov</span><span class="why"></span><span class="st bad">Failed</span></li></ul>`;
+const DATA_MINI=`<div class="wide"><table><thead><tr><th>company</th><th>head</th><th>title</th><th>email</th></tr></thead><tr><td>Northwind</td><td>Jonas Berg</td><td>VP Sales</td><td>jonas@northwind.example</td></tr><tr><td>Bluebird</td><td>Sara Holm</td><td>Head of Sales</td><td>sara@bluebird.example</td></tr></table></div>`;
+const tabcss=document.createElement('style');tabcss.textContent=`.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin:0 0 16px;overflow-x:auto}.tabs button{border:0;background:none;min-height:44px;padding:0 12px;color:var(--muted);border-bottom:2px solid transparent}.tabs button[aria-current]{color:var(--fg);border-color:var(--fg)}`;document.head.append(tabcss);
+function wfPage(){const T=["Diagram","Code","Runs","Data"];const body={Diagram:wfDiagram(),Code:codeBox(),Runs:RUNS_MINI,Data:`<p class="desc" style="margin:0 0 8px">Reads <code>target_list</code> · fills <code>sales_heads</code></p>`+TOOLS+GRID}[tab];return WFHEAD+STARTS+`<div class="tabs">${T.map(t=>`<button data-control data-tab="${t}" ${t===tab?'aria-current="true"':''}>${t}</button>`).join('')}</div>`+body}
+
+let rowOpen="Northwind";
+const ROWS=[["Northwind","ok","Done","$0.004",[["Find the head of sales","BlitzAPI · $0.002",0,32],["Found someone?","yes",32,2],["Find their work email","BlitzAPI · $0.002",34,41]]],
+ ["Bluebird","ok","Done","free",[["Find the head of sales","already known · 12 days old · free",0,3],["Found someone?","yes",3,1],["Find their work email","already known · free",4,3]]],
+ ["Ironclad","bad","Failed","$0",[["Find the head of sales","BlitzAPI said 422: no company called Ironclad. Nothing spent.",0,28,1]]],
+ ["Redwood","run","Running","$0.002",[["Find the head of sales","BlitzAPI · $0.002",0,30],["Found someone?","yes",30,2],["Find their work email","waiting for BlitzAPI…",32,20,2]]]];
+const RUNHEAD=`<div class="crumb"><span class="muted">Runs /</span> <b>Find sales heads, 27 Nov</b></div><h1>Find sales heads, 27 Nov <span class="st run" style="font-size:14px;font-weight:400">Running</span></h1>
+<div class="stats"><div><span>Done</span><b>57 of 200</b></div><div><span>Failed</span><b>3</b></div><div><span>Spent</span><b>$0.21 of $5.00</b></div><div><span>Started</span><b>08:00 · schedule</b></div></div>`;
+function trace(r){return `<div class="trace">${r[4].map(s=>`<div class="tr"><div class="tn">${s[0]}<div class="desc">${s[1]}</div></div><div class="tb"><i class="${s[4]===1?'bad':s[4]===2?'run':''}" style="--l:${s[2]}%;--w:${Math.max(s[3],2)}%"></i></div></div>`).join('')}<div class="axis"><span>0 ms</span><span>400 ms</span><span>800 ms</span></div></div>`}
+const runcss=document.createElement('style');runcss.textContent=`.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:0 0 16px}.stats div{display:grid}.stats span{color:var(--muted);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.stats b{font-variant-numeric:tabular-nums;font-weight:600}
+@media(max-width:760px){.stats{grid-template-columns:1fr 1fr}}
+.trace{border:1px solid var(--line);border-radius:10px;padding:8px 12px;margin:4px 0}.tr{display:grid;grid-template-columns:minmax(0,220px) 1fr;gap:12px;align-items:center;padding:6px 0;border-bottom:1px solid var(--line)}.tn{font-size:13px}
+.tb{position:relative;height:16px;background:var(--fill);border-radius:4px}.tb i{position:absolute;left:var(--l);width:var(--w);top:2px;bottom:2px;border-radius:3px;background:var(--ok)}.tb i.bad{background:var(--bad)}.tb i.run{background:var(--run)}
+.axis{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-left:232px}@media(max-width:760px){.tr{grid-template-columns:1fr}.axis{margin-left:0}}`;document.head.append(runcss);
+
+function runPage(){return RUNHEAD.replace('<span class="muted">Runs /</span>','<button class="lnk" data-control data-runs>Runs</button> <span class="muted">/</span>')+`<div class="tools"><button class="btn" data-control>Stop</button><button class="btn" data-control>Open in workflow UI ↗</button></div><h2>Rows</h2><div class="wide"><table><thead><tr><th>Row</th><th>Status</th><th>Cost</th></tr></thead>${ROWS.map(r=>`<tr class="link" data-row="${r[0]}"><td><b>${r[0]}</b></td><td><span class="st ${r[1]}">${r[2]}</span></td><td>${r[3]}</td></tr>${rowOpen===r[0]?`<tr><td colspan="3">${trace(r)}</td></tr>`:''}`).join('')}</table></div><p class="desc">Tap a row for its steps.</p>`}
+let runOpen=STEP.run||null;
+
+const TABLES_FLAT=[["Yours",[["sales_heads",57,"results of Find sales heads"],["target_list",200,"a list, from targets.csv"],["champions",34,"results of Find champions"]]],["Flowbound's own",[["runs",41,"every run"],["facts",311,"every answer bought: source, age, cost"],["calls",622,"every provider call and its price"]]]];
+const TABLES_FOLD=[["TAM mapping",[["target_list",200,"a list, from targets.csv"],["sales_heads",57,"results of Find sales heads"]]],["TAM mapping / Nordics",[["nordic_tam",1240,"results of Build TAM list"]]],["Champion tracking",[["champions",34,"results of Find champions"],["job_changes",6,"results of Track job changes"]]],["Inbound",[["leads",88,"from the new-leads webhook"]]],["Flowbound's own",[["runs",41,"every run"],["facts",311,"every answer bought"],["calls",622,"every provider call"]]]];
+let TABLES=TABLES_FOLD;
+let tbl="sales_heads",tblOpen=false,listOpen=false;
+const SRC=(s)=>`<div class="src">${s}</div>`;
+const GRID=`<div class="wide"><table class="grid"><thead><tr><th>company</th><th>head</th><th>title</th><th>email</th></tr></thead>
+<tr><td>Northwind</td><td>Jonas Berg${SRC("BlitzAPI · today · $0.002")}</td><td>VP Sales${SRC("BlitzAPI · today · $0.002")}</td><td>jonas@northwind.example${SRC("BlitzAPI · today · $0.002")}</td></tr>
+<tr><td>Bluebird</td><td>Sara Holm${SRC("already known · 12 days old · free")}</td><td>Head of Sales${SRC("already known · 12 days old · free")}</td><td>sara@bluebird.example${SRC("already known · 12 days old · free")}</td></tr>
+<tr><td>Ironclad</td><td class="muted">not found${SRC("BlitzAPI · today · $0")}</td><td></td><td></td></tr>
+<tr><td>Redwood</td><td>Maya Lind${SRC("BlitzAPI · today · $0.002")}</td><td>CRO${SRC("BlitzAPI · today · $0.002")}</td><td class="muted">…</td></tr></table></div><div class="tools" style="margin-top:8px;align-items:center"><span class="desc">1 to 50 of 57</span><button class="btn" data-control>Previous</button><button class="btn" data-control>Next</button></div>`;
+const TOOLS=`<div class="tools"><input class="input" placeholder="Search this table" data-control><button class="btn" data-control>Download CSV</button><button class="btn" data-control>Open in Drizzle Studio ↗</button></div>`;
+function LIST1(){return `<h1>Data</h1><button class="btn tpick" data-control data-pick-t><code>${tbl}</code> ▾</button><div class="dsplit"><div class="tlist ${listOpen?'open':''}">${TABLES.map(([g,ts])=>`<div class="tg">${g}</div>${ts.map(t=>`<button class="tbtn" data-control data-tbl="${t[0]}" ${t[0]===tbl?'aria-current="true"':''}><code>${t[0]}</code><span>${t[1]}</span></button>`).join('')}`).join('')}</div><div class="dmain">${TOOLS}${GRID}</div></div>`}
+const datacss=document.createElement('style');datacss.textContent=`.dsplit{display:grid;grid-template-columns:200px minmax(0,1fr);gap:20px}.dsplit>div{min-width:0}.tg{font-size:12px;color:var(--muted);margin:8px 10px 2px}.tbtn{display:flex;width:100%;align-items:center;min-height:40px;border:0;background:none;border-radius:8px;padding:0 10px;text-align:left}.tbtn span{margin-left:auto;font-size:12px;color:var(--muted)}.tbtn[aria-current]{background:var(--fill)}
+.src{font-size:11px;color:var(--muted);white-space:nowrap}.grid td{white-space:nowrap}select.input{max-width:260px}
+.tpick{display:none}@media(max-width:760px){.dsplit{grid-template-columns:1fr}.tpick{display:inline-flex;margin:0 0 12px}.tlist{display:none;border:1px solid var(--line2);border-radius:10px;padding:4px;margin-bottom:12px}.tlist.open{display:block}.tbtn{min-height:44px}}`;document.head.append(datacss);
+
+
+const STARTS=`<div class="starts"><div><span class="muted">Starts</span> Every Monday 08:00 (Stockholm) · next in 3 days</div><div><span class="muted">Also</span> When you or your agent asks</div></div>`;
+const STARTS_HOOK=`<div class="starts"><div><span class="muted">Starts</span> Webhook <code>https://acme.example/hooks/new-leads</code> <button class="btn" data-control>Copy</button></div><div class="muted sm">Signed with the secret on the Connections page · last delivery 3 h ago</div></div>`;
+const SCHED_LIST=`<div class="wide"><table><thead><tr><th>Workflow</th><th>Starts</th><th>Next</th></tr></thead>
+<tr><td><b>Find sales heads</b><div class="desc">TAM mapping</div></td><td>Every Monday 08:00</td><td>in 3 days</td></tr>
+<tr><td><b>Track job changes</b><div class="desc">Champion tracking</div></td><td>Every Friday 07:00</td><td>tomorrow</td></tr>
+<tr><td><b>New leads</b><div class="desc">Inbound</div></td><td>Webhook new-leads</td><td>on each delivery</td></tr></table></div>`;
+const schedcss=document.createElement('style');schedcss.textContent=`.starts{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin:0 0 12px;display:grid;gap:2px}.starts .muted{display:inline-block;min-width:56px}.starts code{word-break:break-all}`;document.head.append(schedcss);
+
+
+const CTX=[["Company","company.md",`<h2 style="margin-top:0">Acme</h2><p>Acme sells payroll software to small Nordic companies. Customers keep it for years; most come through accountants.</p><h3>What we sell</h3><ul><li>Payroll for 5 to 200 employees</li><li>Sweden, Norway, Denmark</li></ul>`],
+ ["ICP: Nordic SaaS","icps/nordic-saas.md",`<h2 style="margin-top:0">Nordic SaaS</h2><p>Software companies in the Nordics with 20 to 200 employees and a sales team.</p><ul><li><b>Industry</b> software</li><li><b>Size</b> 20 to 200</li><li><b>Region</b> SE, NO, DK, FI</li><li><b>Not</b> agencies, consultancies</li></ul>`],
+ ["Persona: Head of Sales","personas/head-of-sales.md",`<h2 style="margin-top:0">Head of Sales</h2><p>Runs a team of 3 to 20 sellers. Cares about quota and ramp time.</p><ul><li><b>Titles</b> Head of Sales, VP Sales, CRO</li></ul>`],
+ ["Voice","voice.md",`<h2 style="margin-top:0">How we write</h2><p>Short, plain, no buzzwords. One ask per email.</p>`]];
+let ctx=0,ctxOpen=null;
+const CTX2=[["company.md","What Acme sells and to whom",CTX[0][2]],["nordic-saas-icp.md","Who we sell to in the Nordics",CTX[1][2]],["pricing.md","Our plans and what we never discount",`<h2 style="margin-top:0">Pricing</h2><p>Three plans. We never discount the first year.</p>`],["case-studies.md","Three customers who said yes",`<h2 style="margin-top:0">Case studies</h2><p>Northwind cut payroll time by half.</p>`],["voice.md","How we write",CTX[3][2]]];
+const ctxcss=document.createElement('style');ctxcss.textContent=`.prose h2{font-size:18px}.prose h3{font-size:15px;margin:16px 0 4px}.prose ul{padding-left:20px}.card{border:1px solid var(--line2);border-radius:10px;padding:12px}.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px}`;document.head.append(ctxcss);
+
+function ctxPage(){
+   if(ctxOpen!==null) return `<div class="crumb"><button class="lnk" data-control data-ctxup>Context</button> <span class="muted">/</span> <b>${CTX2[ctxOpen][0]}</b></div><div class="tools"><span class="desc"><code>context/${CTX2[ctxOpen][0]}</code></span><button class="btn" data-control>Open in editor ↗</button></div><div class="prose">${CTX2[ctxOpen][2]}</div>`;
+   return `<h1>Context</h1><p class="desc" style="margin:-8px 0 12px">Anything your agent should know, as files and folders. Your agent writes them; workflows and chats use them.</p><div class="tools"><input class="input" placeholder="Search context" data-control></div><div class="wide"><table>${["Market research","Competitors"].map(f=>`<tr class="link"><td>${FICON}<b>${f}</b><div class="desc" style="margin-left:24px">${f==="Market research"?"3 files":"5 files"}</div></td></tr>`).join('')}${CTX2.map((c,i)=>`<tr class="link" data-ctxo="${i}"><td><b>${c[0]}</b><div class="desc">${c[1]}</div></td></tr>`).join('')}</table></div>`;
+  }
+const HINT=`<div class="hint">Talk to Flowbound from your own agent: Claude, ChatGPT, Claude Code, Codex. <u data-goagents style="cursor:pointer">Connect one</u></div>`;
+const hintcss=document.createElement('style');hintcss.textContent=`.hint{border:1px solid var(--line2);border-radius:10px;padding:10px 12px;margin:0 0 8px}`;document.head.append(hintcss);
+
+const KEYS=[["HubSpot","HUBSPOT_TOKEN","Add to CRM","ok","Set"],["BlitzAPI","BLITZAPI_KEY","Find sales heads, Find champions","ok","Set"],["Firecrawl","FIRECRAWL_KEY","Build TAM list","bad","Missing"],["Anthropic","ANTHROPIC_API_KEY","Score accounts","ok","Set"],["Webhook new-leads","NEW_LEADS_SECRET","New leads","ok","Set"]];
+function connPage(){return `<h1>Connections</h1><p class="desc" style="margin:-8px 0 12px">Keys your workflows use, each with a name you choose. Never typed in a chat; your agent uses them and never sees them.</p><div class="tools"><button class="btn primary" data-control>Add connection</button></div><div class="wide"><table><thead><tr><th>Service</th><th class="hide-phone">Used by</th><th>Status</th></tr></thead>${KEYS.map(r=>`<tr><td><b>${r[0]}</b><div class="desc"><code>${r[1]}</code></div><div class="desc show-phone">${r[2]}</div></td><td class="hide-phone">${r[2]}</td><td><span class="st ${r[3]}">${r[4]}</span><div style="margin-top:6px"><button class="btn" data-control>${r[3]==="bad"?"Add":"Change"}</button></div></td></tr>`).join('')}</table></div>`;}
+const conncss=document.createElement('style');conncss.textContent=`.show-phone{display:none}@media(max-width:760px){.show-phone{display:block}}.logo{width:32px;height:32px;border-radius:8px;background:var(--fill);display:grid;place-items:center;font-weight:600;margin-bottom:6px}`;document.head.append(conncss);
+
+const YESCARD=`<div class="decision"><div class="sm muted">Waits for a yes · 2 min ago</div><b>Run “Find champions” on 180 rows, about $0.90 from BlitzAPI, stop at $5.00?</b><div class="desc">Tell your agent yes, and it passes it on.</div><div class="tools" style="margin:8px 0 0"><button class="btn" data-control data-gorun>Open run</button></div></div>`;
+const yescss=document.createElement('style');yescss.textContent=`.decision{border:1px solid var(--warn);border-radius:10px;padding:12px;margin:0 0 8px}`;document.head.append(yescss);
+let firstDay=false;
+const CHECK=`<h2>Get started</h2><ol class="check"><li class="done">Set up Flowbound</li><li>Connect an agent</li><li>Run the free sample</li><li>Add a connection</li></ol><h2>Recent runs</h2><p class="muted">No runs yet.</p>`;
+const checkcss=document.createElement('style');checkcss.textContent=`.check{padding-left:20px}.check li{padding:6px 0;border-bottom:1px solid var(--line)}.check li.done{color:var(--muted);text-decoration:line-through}.daysw{display:flex;gap:6px;margin:0 0 12px;width:100%;max-width:1100px}`;document.head.append(checkcss);
+
+const CHANGES=`<h1>Changes</h1><p class="desc" style="margin:-8px 0 12px">Saved here, not live yet. Ask your agent to publish them.</p><div class="wide"><table><thead><tr><th>Change</th><th>By</th><th>When</th></tr></thead><tr><td><b>Find sales heads</b><div class="desc">Also finds a phone number</div></td><td>Maya's agent</td><td>10 min ago</td></tr><tr><td><b>context/pricing.md</b><div class="desc">New file</div></td><td>Your agent</td><td>1 h ago</td></tr></table></div>`;
+const PEOPLE=(btn)=>`<h2 style="margin-top:0">Allowed domains</h2><p class="desc">Anyone with these work addresses may sign in, as a Viewer.</p><div class="chipsrow"><span class="chip2">acme.com</span><span class="chip2">acme.ca</span>${btn?'<button class="btn" data-control>Add domain</button>':''}</div><h2>People</h2><div class="wide"><table><thead><tr><th>Person</th><th>Role</th></tr></thead><tr><td><b>Ann</b><div class="desc">ann@acme.com</div></td><td>Owner</td></tr><tr><td><b>Jo (invited)</b><div class="desc">jo@partner-agency.example</div></td><td>Member</td></tr><tr><td><b>Maya</b><div class="desc">maya@acme.com</div></td><td>Member${btn?`<div style="margin-top:6px"><button class="btn" data-control>Change role</button> <button class="btn" data-control>Remove</button></div>`:''}</td></tr></table></div>${btn?`<div class="tools" style="margin-top:12px"><button class="btn" data-control>Invite by email</button></div>`:'<p class="desc">To add, change or remove someone, ask your agent.</p>'}`;
+const hdrcss=document.createElement('style');hdrcss.textContent=`.hdr{float:right;display:flex;gap:8px;margin-left:12px}@media(max-width:760px){.hdr{float:none;margin:0 0 8px;flex-wrap:wrap}}`;document.head.append(hdrcss);
+const pplcss=document.createElement('style');pplcss.textContent=`.chipsrow{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.chip2{border:1px solid var(--line2);border-radius:99px;padding:4px 10px;font-size:13px}`;document.head.append(pplcss);
+
+const MER=`<svg viewBox="0 0 420 430" width="100%" style="max-width:460px;display:block;margin:0 auto;font:13px InterVariable,system-ui,sans-serif" role="img" aria-label="Diagram">
+<defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="currentColor"/></marker></defs>
+<g fill="none" stroke="currentColor" stroke-opacity=".55">
+<path d="M210 46v28" marker-end="url(#ar)"/><path d="M210 112v24" marker-end="url(#ar)"/>
+<path d="M170 176H95v58" marker-end="url(#ar)"/><path d="M250 176h75v58" marker-end="url(#ar)"/>
+<path d="M95 272v52h80" marker-end="url(#ar)"/><path d="M325 272v52h-80" marker-end="url(#ar)"/></g>
+<g fill="var(--bg)" stroke="currentColor" stroke-opacity=".35"><rect x="110" y="10" width="200" height="36" rx="6"/><rect x="110" y="76" width="200" height="36" rx="6"/>
+<path d="M210 138l44 38-44 38-44-38z"/><rect x="10" y="236" width="170" height="36" rx="6" data-mark="findEmail"/><rect x="240" y="236" width="170" height="36" rx="6"/><rect x="175" y="306" width="70" height="36" rx="18"/></g>
+<g fill="currentColor" text-anchor="middle"><text x="210" y="33">Companies from your list</text><text x="210" y="99">Find the head of sales</text><text x="210" y="180">Found?</text>
+<text x="95" y="259">Find their work email</text><text x="325" y="259">Mark as not found</text><text x="210" y="329">Save</text>
+<text x="120" y="168" font-size="11" fill-opacity=".7">yes</text><text x="300" y="168" font-size="11" fill-opacity=".7">no</text></g></svg>`;
+
+const HOW=`<h2>Connect an agent</h2><div class="wide"><table><tr><td><b>Claude, ChatGPT</b><div class="desc">Add this address as a connector, then sign in</div></td><td><code>https://flowbound.acme.com/mcp</code> <button class="btn" data-control>Copy</button></td></tr><tr><td><b>Claude Code, Codex</b><div class="desc">Run once in a terminal</div></td><td><code>npx flowbound connect https://flowbound.acme.com</code> <button class="btn" data-control>Copy</button></td></tr></table></div>`;
+const LIST=`<h2>Connected</h2><div class="wide"><table><thead><tr><th>Agent</th><th>For</th><th>Last used</th></tr></thead><tr><td><b>Claude</b></td><td>Ann</td><td>2 min ago<div><button class="btn" data-control>Remove</button></div></td></tr><tr><td><b>Codex</b></td><td>Maya</td><td>yesterday<div><button class="btn" data-control>Remove</button></div></td></tr></table></div>`;
+
+function waitPage(){return `<div class="crumb"><button class="lnk" data-control data-runs>Runs</button> <span class="muted">/</span> <b>Find champions, 27 Nov</b></div><h1>Find champions, 27 Nov <span class="st warn" style="font-size:14px;font-weight:400">Waiting for a yes</span></h1><div class="decision"><b>Run on 180 rows, about $0.90 from BlitzAPI, stop at $5.00?</b><div class="desc">The 10-row try-out found 9 champions for $0.04. Tell your agent yes, and it passes it on.</div></div><div class="stats"><div><span>Done</span><b>0 of 180</b></div><div><span>Failed</span><b>0</b></div><div><span>Spent</span><b>$0 of $5.00</b></div><div><span>Asked</span><b>08:00 · schedule</b></div></div><div class="tools"><button class="btn" data-control>Stop</button><button class="btn" data-control>Open in workflow UI ↗</button></div><h2>Rows</h2><p class="muted">No rows run yet.</p>`}
+
+const PAGES={
+ "Home":()=>firstDay?`<h1>Home</h1>${HINT}${CHECK}`:`<h1>Home</h1>${HINT}<h2>Needs attention</h2>${YESCARD}${attention.replace(/<li><span class="name">Find sales heads.*?<\/li>/,'')}<h2>Recent runs</h2>${recent}<h2>Spend this month</h2>${spend}`,
+ "Workflows":()=>{
+ if(wfOpen) return wfPage();
+ const here=wfPath.join('/');
+ const kids=FOLDERS.filter(f=>{const i=f.lastIndexOf('/');return (i<0?'':f.slice(0,i))===here});
+ const crumbs=wfPath.length?`<div class="crumb"><button class="lnk" data-control data-go="">Workflows</button>${wfPath.map((p,i)=>i<wfPath.length-1?` <span class="muted">/</span> <button class="lnk" data-control data-go="${wfPath.slice(0,i+1).join('/')}">${p}</button>`:` <span class="muted">/</span> <b>${p}</b>`).join('')}</div>`:'';
+ const count=f=>{const n=WF.filter(w=>w.folder===f||w.folder.startsWith(f+'/')).length,s=FOLDERS.filter(x=>x.startsWith(f+'/')&&x.split('/').length===f.split('/').length+1).length;return [s?`${s} folder${s>1?'s':''}`:'',`${n} workflow${n>1?'s':''}`].filter(Boolean).join(' · ')};
+ return `${crumbs}<h1>${wfPath.length?wfPath[wfPath.length-1]:'Workflows'}</h1><div class="tools"><input class="input" placeholder="Search all workflows" data-control></div><div class="wide"><table>${kids.map(f=>`<tr class="link" data-go="${f}"><td>${FICON}<b>${f.split('/').pop()}</b><div class="desc" style="margin-left:24px">${count(f)}</div></td></tr>`).join('')}${WF.filter(w=>w.folder===here).map(w=>`<tr class="link" ${w.name==='Find sales heads'?'data-wf="find-sales-heads"':''}><td><div><b>${w.name}</b></div><div class="desc">${w.desc}</div></td></tr>`).join('')}</table></div>`;
+},
+"Runs":()=>runOpen==="wait"?waitPage():runOpen?runPage():`<h1>Runs</h1><ul class="rows"><li class="link" data-gowait style="cursor:pointer"><span class="name">Find champions</span><span class="why">Champion tracking</span><span class="st warn">Waiting for a yes</span><span class="when">today 08:00</span></li><li class="link" data-run="1" style="cursor:pointer"><span class="name">Find sales heads</span><span class="why">TAM mapping</span><span class="st run">Running · 57 of 200</span><span class="when">today 08:00</span></li><li><span class="name">Tidy companies</span><span class="why"></span><span class="st">Done</span><span class="when">today 07:12</span></li><li><span class="name">Score accounts</span><span class="why">TAM mapping</span><span class="st bad">Failed</span><span class="when">yesterday</span></li></ul>`,
+"Data":()=>LIST1(),
+"Schedules":()=>`<h1>Schedules</h1><p class="desc" style="margin:-8px 0 12px">Every schedule and webhook, in one place.</p>${SCHED_LIST}`,
+"Context":()=>ctxPage(),
+"Connections":()=>connPage(),
+"Permissions":()=>`<h1>Permissions</h1><div class="tabs">${["Rules","People"].map(t=>`<button data-control data-ptab="${t}" ${t===ptab?'aria-current="true"':''}>${t}</button>`).join('')}</div>${ptab==="Rules"?'<ul class="rows"><li><span class="name">Mode</span><span class="why">Auto inside caps</span></li><li><span class="name">Cap</span><span class="why">$5 a run · $50 a month</span></li><li><span class="name">Score accounts</span><span class="why">Ask every time</span></li></ul>':PEOPLE(true)}`,
+"Changes":()=>CHANGES,
+"Agents":()=>`<h1>Agents</h1><p class="desc" style="margin:-8px 0 12px">The agents that talk to Flowbound for you. Each acts as its person and can never do more.</p>${HOW}${LIST}`,
+
+};
+let page=STEP.page||"Home";let ptab="Rules";let wfPath=STEP.path||[];let wfOpen=STEP.wf||null;
+const FICON=`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-3px;margin-right:8px;color:var(--muted)"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>`;
+function render(){
+ const k=cur();
+ nav.innerHTML=NAV.map(i=>i==="-"?'<div class="sep"></div>':`<button data-control ${i[0]===page?'aria-current="page"':''} data-p="${i[0]}">${i[0]}${i[1]?`<span class="count">${i[1]}</span>`:''}</button>`).join('')+'<div class="publish">2 changes not live · <u>See them</u></div>';
+ nav.querySelectorAll('button').forEach(b=>b.onclick=()=>{page=b.dataset.p;wfOpen=null;runOpen=null;wfPath=[];side.classList.remove('open');render()});
+ const over=STEP.over&&STEP.over[page];
+ const EMPTY={Workflows:"No workflows yet. Ask your agent to build one, or run the free sample.",Runs:"No runs yet.",Schedules:"Nothing runs on a schedule or a webhook yet.",Data:"No tables yet. A workflow's results land here.",Context:"Nothing here yet. Ask your agent to write down what it should know.",Connections:"No connections yet. Add the first one a workflow needs.",Changes:"Nothing waiting to go live."};
+ if(firstDay&&EMPTY[page]&&!over){main.innerHTML=`<h1>${page}</h1><p class="muted">${EMPTY[page]}</p>`;return}
+ main.innerHTML=over?`<div class="now">${over(k)}</div>`:PAGES[page]?PAGES[page]():`<h1>${page}</h1>`;
+ main.querySelectorAll('[data-go]').forEach(r=>r.onclick=e=>{e.stopPropagation();wfOpen=null;mark=null;wfPath=r.dataset.go?r.dataset.go.split('/'):[];render()});
+ main.querySelectorAll('[data-wf]').forEach(r=>r.onclick=()=>{wfOpen=r.dataset.wf;mark=null;render()});
+ main.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{tab=b.dataset.tab;mark=null;render()});
+ main.querySelectorAll('[data-row]').forEach(r=>r.onclick=()=>{rowOpen=rowOpen===r.dataset.row?null:r.dataset.row;render()});
+ main.querySelectorAll('[data-run]').forEach(r=>r.onclick=()=>{runOpen=1;render()});
+ main.querySelectorAll('[data-runs]').forEach(r=>r.onclick=()=>{runOpen=null;render()});
+ main.querySelectorAll('[data-tbl]').forEach(b=>b.onclick=()=>{tbl=b.dataset.tbl;listOpen=false;render()});main.querySelectorAll('[data-pick-t]').forEach(b=>b.onclick=()=>{listOpen=!listOpen;render()});
+ main.querySelectorAll('[data-ctxo]').forEach(b=>b.onclick=()=>{ctxOpen=+b.dataset.ctxo;render()});main.querySelectorAll('[data-ctxup]').forEach(b=>b.onclick=()=>{ctxOpen=null;render()});
+ main.querySelectorAll('[data-gorun]').forEach(b=>b.onclick=()=>{page='Runs';runOpen=b.closest('.decision')?'wait':1;render()});
+ main.querySelectorAll('[data-goagents]').forEach(b=>b.onclick=()=>{page='Agents';render()});
+ main.querySelectorAll('[data-gowait]').forEach(b=>b.onclick=()=>{runOpen='wait';render()});
+ main.querySelectorAll('[data-mark]').forEach(b=>b.onclick=()=>{mark=mark===b.dataset.mark?null:b.dataset.mark;render()});
+ daysw.querySelectorAll('[data-day]').forEach(b=>{b.classList.toggle('on',(b.dataset.day==='1')===firstDay);b.onclick=()=>{firstDay=b.dataset.day==='1';page='Home';render()}});
+ main.querySelectorAll('[data-ptab]').forEach(b=>b.onclick=()=>{ptab=b.dataset.ptab;render()});nav.querySelectorAll('.publish u').forEach(u=>{u.style.cursor='pointer';u.onclick=()=>{page='Changes';render()}});
+ if(window.wire)wire(k);
+}
+window.onOption=()=>{if(window.reset)reset();render()};
+apply();
+</script>
+</body>
+</html>

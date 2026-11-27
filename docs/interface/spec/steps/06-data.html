@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="en" data-recommended="1">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Flowbound</title>
+<style>:root{color-scheme:light dark;--bg:#fff;--fg:#0a0a0a;--sub:#525252;--muted:#737373;--line:rgb(10 10 10/.08);--line2:rgb(10 10 10/.14);--fill:#f5f5f5;--accent:#c2410c;--side:#fafafa;--ok:#16a34a;--warn:#d97706;--bad:#dc2626;--run:#2563eb}
+@media(prefers-color-scheme:dark){:root{--bg:#0a0a0a;--fg:#fafafa;--sub:#d4d4d4;--muted:#a3a3a3;--line:rgb(255 255 255/.09);--line2:rgb(255 255 255/.16);--fill:#1c1c1c;--accent:#fb923c;--side:#111}}
+*{box-sizing:border-box}[hidden]{display:none!important}html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.75 InterVariable,ui-sans-serif,system-ui,sans-serif;font-feature-settings:"cv02","cv03","cv04","cv11";-webkit-font-smoothing:antialiased}
+@media(min-width:640px){body{font-size:14px;line-height:1.7143}}
+button,textarea,input,select{font:inherit;color:inherit;letter-spacing:inherit}button{cursor:pointer}
+:focus-visible{outline:2px solid var(--fg);outline-offset:2px}
+body{display:grid;justify-items:center;align-content:start;padding:24px 20px}
+.now{outline:2px solid var(--accent);outline-offset:3px;border-radius:12px}
+.app{width:100%;max-width:1100px;border:1px solid var(--line2);border-radius:12px;display:grid;grid-template-columns:auto minmax(0,1fr);background:var(--bg)}.app>main{grid-column:2}
+.side{width:200px;background:var(--side);border-right:1px solid var(--line);padding:16px 10px;border-radius:12px 0 0 12px}
+.brand{display:flex;align-items:center;gap:8px;padding:0 8px 14px;font-weight:600}
+.pill{font-size:12px;font-weight:500;border:1px solid var(--line2);border-radius:99px;padding:0 8px;color:var(--sub);white-space:nowrap}
+.pill i{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--warn);margin-right:5px;vertical-align:1px}
+nav button{display:flex;justify-content:space-between;align-items:center;width:100%;min-height:44px;text-align:left;border:0;background:none;padding:0 10px;border-radius:8px;color:var(--sub)}
+nav button[aria-current]{background:var(--fill);color:var(--fg)}
+nav .count{font-size:12px;background:var(--fg);color:var(--bg);border-radius:99px;padding:0 7px}
+nav .sep{height:1px;background:var(--line);margin:8px 10px}
+main{padding:24px 28px;min-width:0}
+h1{font-size:20px;line-height:1.4;margin:0 0 16px;font-weight:600}
+h2{font-size:16px;margin:24px 0 6px;font-weight:600}
+.rows{list-style:none;margin:0;padding:0}.rows li{display:flex;gap:12px;align-items:center;border-top:1px solid var(--line);padding:9px 0}
+.rows li:last-child{border-bottom:1px solid var(--line)}.rows .name{font-weight:500}.rows .why{color:var(--muted);flex:1;min-width:0}.rows .when{color:var(--muted);font-size:12px;white-space:nowrap}
+.st{white-space:nowrap}.st:before{content:"";display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:6px;background:var(--c,var(--ok))}
+.st.run{--c:var(--run)}.st.bad{--c:var(--bad)}.st.warn{--c:var(--warn)}.st.none{--c:var(--line2)}
+.muted{color:var(--muted)}.sm{font-size:12px}
+.bar{height:4px;background:var(--fill);border-radius:4px;width:140px}.bar i{display:block;height:4px;border-radius:4px;background:var(--fg);width:var(--w)}
+.publish{margin:8px 10px 0;font-size:12px;color:var(--sub);border:1px solid var(--line2);border-radius:8px;padding:8px 10px}
+.tools{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 12px}
+.input{border:1px solid var(--line2);border-radius:8px;padding:0 12px;min-height:44px;background:var(--bg);min-width:0;flex:1;max-width:320px}
+.btn{border:1px solid var(--line2);border-radius:8px;padding:0 12px;min-height:44px;background:var(--bg);display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.btn.on{background:var(--fill);border-color:var(--fg)}.btn.primary{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+table{width:100%;border-collapse:collapse}th{text-align:left;font-weight:500;color:var(--muted);white-space:nowrap;padding:8px 12px 8px 0;border-bottom:1px solid var(--line)}
+td{padding:10px 12px 10px 0;border-bottom:1px solid var(--line);vertical-align:top}
+tr.link{cursor:pointer}tr.link:hover td{background:var(--fill)}
+.wide{overflow-x:auto}
+.chip{display:inline-block;font-size:12px;border-radius:6px;padding:0 6px;background:var(--fill);color:var(--sub);margin-left:6px;white-space:nowrap}.chip.bad{color:var(--bad)}
+.desc{color:var(--muted);font-size:13px}
+.folder td{font-weight:600}.crumb{margin:0 0 4px}.lnk{border:0;background:none;padding:0;min-height:44px;color:var(--sub);text-decoration:underline;text-underline-offset:3px}
+@media(max-width:760px){.app{grid-template-columns:1fr}.app>main{grid-column:auto}.side{width:auto}.side{border-right:0;border-bottom:1px solid var(--line);border-radius:12px 12px 0 0;padding:8px}
+.top{display:flex!important;justify-content:space-between;align-items:center}.side nav{display:none}.side.open nav{display:block}.brand{padding:0 8px}.desk{display:none!important}
+.menu{min-width:44px;min-height:44px;border:1px solid var(--line2);border-radius:8px;background:var(--bg)}main{padding:20px 16px}.rows li{flex-wrap:wrap;gap:2px 10px}.rows .why{flex-basis:100%;order:3}
+.hide-phone{display:none}.tools .input{flex-basis:100%;max-width:none}}
+.top{display:none}
+</style>
+<body>
+<div class="app">
+  <aside class="side" id="side">
+    <div class="top"><div class="brand">Flowbound <span class="pill"><i></i>Your computer</span></div><button class="menu" data-control aria-label="Menu" onclick="side.classList.toggle('open')">☰</button></div>
+    <div class="brand desk">Flowbound <span class="pill"><i></i>Your computer</span></div>
+    <nav id="nav"></nav>
+  </aside>
+  <main id="main"></main>
+</div>
+<script>
+const TABLES_FLAT=[["Yours",[["sales_heads",57,"results of Find sales heads"],["target_list",200,"a list, from targets.csv"],["champions",34,"results of Find champions"]]],["Flowbound's own",[["runs",41,"every run"],["facts",311,"every answer bought: source, age, cost"],["calls",622,"every provider call and its price"]]]];
+const TABLES_FOLD=[["TAM mapping",[["target_list",200,"a list, from targets.csv"],["sales_heads",57,"results of Find sales heads"]]],["TAM mapping / Nordics",[["nordic_tam",1240,"results of Build TAM list"]]],["Champion tracking",[["champions",34,"results of Find champions"],["job_changes",6,"results of Track job changes"]]],["Inbound",[["leads",88,"from the new-leads webhook"]]],["Flowbound's own",[["runs",41,"every run"],["facts",311,"every answer bought"],["calls",622,"every provider call"]]]];
+let TABLES=TABLES_FOLD;
+let tbl="sales_heads",tblOpen=false,listOpen=false;
+const SRC=(s)=>`<div class="src">${s}</div>`;
+const GRID=`<div class="wide"><table class="grid"><thead><tr><th>company</th><th>head</th><th>title</th><th>email</th></tr></thead>
+<tr><td>Northwind</td><td>Jonas Berg${SRC("BlitzAPI · today · $0.002")}</td><td>VP Sales${SRC("BlitzAPI · today · $0.002")}</td><td>jonas@northwind.example${SRC("BlitzAPI · today · $0.002")}</td></tr>
+<tr><td>Bluebird</td><td>Sara Holm${SRC("already known · 12 days old · free")}</td><td>Head of Sales${SRC("already known · 12 days old · free")}</td><td>sara@bluebird.example${SRC("already known · 12 days old · free")}</td></tr>
+<tr><td>Ironclad</td><td class="muted">not found${SRC("BlitzAPI · today · $0")}</td><td></td><td></td></tr>
+<tr><td>Redwood</td><td>Maya Lind${SRC("BlitzAPI · today · $0.002")}</td><td>CRO${SRC("BlitzAPI · today · $0.002")}</td><td class="muted">…</td></tr></table></div><p class="desc">1 to 4 of 57</p>`;
+const TOOLS=`<div class="tools"><input class="input" placeholder="Search this table" data-control><button class="btn" data-control>Download CSV</button><button class="btn" data-control>Open in Drizzle Studio ↗</button></div>`;
+function LIST1(){return `<h1>Data</h1><button class="btn tpick" data-control data-pick-t><code>${tbl}</code> ▾</button><div class="dsplit"><div class="tlist ${listOpen?'open':''}">${TABLES.map(([g,ts])=>`<div class="tg">${g}</div>${ts.map(t=>`<button class="tbtn" data-control data-tbl="${t[0]}" ${t[0]===tbl?'aria-current="true"':''}><code>${t[0]}</code><span>${t[1]}</span></button>`).join('')}`).join('')}</div><div class="dmain">${TOOLS}${GRID}</div></div>`}
+const STEP={keys:["1","2","3"],page:"Data",over:{
+ "Data":k=>{
+  TABLES=k==="2"?TABLES_FLAT:TABLES_FOLD;
+  if(k==="1"||k==="2") return LIST1();
+  return WFHEAD+`<div class="tabs"><button data-control>Diagram</button><button data-control>Code</button><button data-control>Runs</button><button data-control aria-current="true">Data</button></div><p class="desc" style="margin:0 0 8px">Reads <code>target_list</code> · fills <code>sales_heads</code></p>${TOOLS}${GRID}<p class="desc">Every table is also on the Data page, in one flat list.</p>`;
+ }}};
+window.wire=()=>{main.querySelectorAll('[data-tbl]').forEach(b=>b.onclick=()=>{tbl=b.dataset.tbl;listOpen=false;render()});main.querySelectorAll('[data-pick-t]').forEach(b=>b.onclick=()=>{listOpen=!listOpen;render()});main.querySelectorAll('[data-open-t]').forEach(b=>b.onclick=()=>{tblOpen=true;render()});main.querySelectorAll('[data-back]').forEach(b=>b.onclick=()=>{tblOpen=false;render()})};
+window.reset=()=>{tbl="sales_heads";tblOpen=false;listOpen=false};
+const st6=document.createElement('style');st6.textContent=`.dsplit{display:grid;grid-template-columns:200px minmax(0,1fr);gap:20px}.dsplit>div{min-width:0}.tg{font-size:12px;color:var(--muted);margin:8px 10px 2px}.tbtn{display:flex;width:100%;align-items:center;min-height:40px;border:0;background:none;border-radius:8px;padding:0 10px;text-align:left}.tbtn span{margin-left:auto;font-size:12px;color:var(--muted)}.tbtn[aria-current]{background:var(--fill)}
+.src{font-size:11px;color:var(--muted);white-space:nowrap}.grid td{white-space:nowrap}select.input{max-width:260px}
+.tpick{display:none}@media(max-width:760px){.dsplit{grid-template-columns:1fr}.tpick{display:inline-flex;margin:0 0 12px}.tlist{display:none;border:1px solid var(--line2);border-radius:10px;padding:4px;margin-bottom:12px}.tlist.open{display:block}.tbtn{min-height:44px}}`;document.head.append(st6);
+
+const K=STEP.keys;
+function cur(){const k=new URLSearchParams(location.hash.slice(1)).get('option');return K.includes(k)?k:document.documentElement.dataset.recommended}
+function apply(){const k=cur();document.documentElement.dataset.option=k;document.querySelectorAll('[data-for]').forEach(e=>e.toggleAttribute('hidden',!e.dataset.for.split(' ').includes(k)));if(window.onOption)onOption(k)}
+addEventListener('hashchange',apply);
+/* fictional data */
+const WF=[
+ {name:"Build TAM list",folder:"TAM mapping/Nordics",desc:"Pulls every company that fits the ICP into one list.",start:"When asked",last:["ok","Done","2 days ago"]},
+ {name:"Score accounts",folder:"TAM mapping",desc:"Scores each company against the ICP with a model.",start:"When asked",last:["bad","Failed","yesterday"],flags:[["Key missing","bad"]]},
+ {name:"Find sales heads",folder:"TAM mapping",desc:"Finds the head of sales at each company, then a work email.",start:"Every Monday 08:00",last:["run","Running · 57 of 200","now"]},
+ {name:"Find champions",folder:"Champion tracking",desc:"Finds past users of the product among your customers' contacts.",start:"When asked",last:["ok","Done","1 week ago"]},
+ {name:"Track job changes",folder:"Champion tracking",desc:"Checks each champion's job every week.",start:"Every Friday 07:00",last:["ok","Done","5 days ago"]},
+ {name:"New leads",folder:"Inbound",desc:"Takes each lead from the website form and saves it.",start:"Webhook new-leads",last:["ok","Done","3 h ago"]},
+ {name:"Add to CRM",folder:"Inbound",desc:"Writes finished contacts to the CRM.",start:"After New leads",last:["none","Never run",""],flags:[["Needs a yes","warn"]]},
+ {name:"Tidy companies",folder:"",desc:"Cleans names and domains in a list. Free.",start:"When asked",last:["ok","Done","1 h ago"]}];
+const FOLDERS=["TAM mapping","TAM mapping/Nordics","Champion tracking","Inbound"];
+const NAV=[["Home",2],["Workflows"],["Runs"],["Data"],"-",["Keys"],["Permissions"]];
+const attention=`<ul class="rows"><li><span class="name">Find sales heads</span><span class="why">Waits for your yes: 180 rows, about $0.90</span><span class="st warn">Waiting</span><span class="when">2 min ago</span></li><li><span class="name">Score accounts</span><span class="why">Needs a BlitzAPI key</span><span class="st bad">Blocked</span><span class="when">today</span></li></ul>`;
+const recent=`<ul class="rows"><li><span class="name">Find sales heads</span><span class="why"></span><span class="st run">Running · 57 of 200</span><span class="when">now</span></li><li><span class="name">Tidy companies</span><span class="why"></span><span class="st">Done</span><span class="when">1 h ago</span></li><li><span class="name">Score accounts</span><span class="why"></span><span class="st bad">Failed</span><span class="when">yesterday</span></li></ul>`;
+const spend=`<ul class="rows"><li><span class="name">All workflows</span><span class="why"></span><div class="bar" style="--w:21%"><i></i></div><span><b>$4.20</b> <span class="muted">of $20</span></span></li></ul>`;
+const CODE=`// For each company: find its head of sales, then a work email.
+export async function findSalesHeads(company) {
+  "use workflow"
+  const head = await findHead(company)
+  if (!head) return null
+  const email = await findEmail(head)
+  return { head: head.name, title: head.title, email }
+}
+
+// Find the head of sales
+async function findHead(company) {
+  "use step"
+  const res = await use("blitzapi").fetch\u0028"/v2/head", { body: { company: company.domain } })
+  return res.pick("person")
+}
+
+// Find their work email
+async function findEmail(head) {
+  "use step"
+  const res = await use("blitzapi").fetch\u0028"/v2/email", { body: { linkedin_url: head.linkedin } })
+  return res.pick("email")
+}
+
+export const diagram = \`
+flowchart TD
+  a[Companies from your target list] --> b[Find the head of sales]
+  b --> c{Found someone?}
+  c -- yes --> d[Find their work email]
+  d --> e[Save name, title and email]
+  click b findHead
+  click d findEmail
+\``;
+let mark=null;
+function codeBox(only){const L=CODE.split('\n');let a=0,b=L.length;if(only){a=L.findIndex(l=>l.includes('function '+only))-1;b=L.findIndex((l,i)=>i>a+1&&l==='}')+1}
+ return `<div class="codebox">${L.slice(a,b).map((l,i)=>`<div class="ln"><span>${a+i+1}</span><code>${l.replace(/</g,'&lt;')||' '}</code></div>`).join('')}</div>`}
+function canvas(nodes,edgeLabels){
+ return `<div class="canvas">${nodes.map((n,i)=>`${i?`<div class="edge">${edgeLabels[i]?`<span>${edgeLabels[i]}</span>`:''}</div>`:''}<div class="node ${n.k==='Decision'?'dec':''}" data-control tabindex="0" ${n.m?`data-mark="${n.m}"`:''}><span class="kind k-${n.k}">${n.k}</span><div>${n.t}</div></div>`).join('')}<div class="zoom"><button data-control>−</button><button data-control>+</button><button data-control>Fit</button></div></div>`;
+}
+function wfDiagram(){return canvas([{k:"Input",t:"Companies from your target list"},{k:"Action",t:"Find the head of sales",m:"findHead"},{k:"Decision",t:"Found someone?"},{k:"Action",t:"Find their work email",m:"findEmail"},{k:"Output",t:"Save name, title and email"}],["","","","yes",""])+(mark?`<p class="desc" style="margin:12px 0 4px">The code behind “${mark==='findHead'?'Find the head of sales':'Find their work email'}”</p>${codeBox(mark)}`:'')}
+const WFHEAD=`<div class="crumb"><button class="lnk" data-control data-go="">Workflows</button> <span class="muted">/</span> <button class="lnk" data-control data-go="TAM mapping">TAM mapping</button> <span class="muted">/</span> <b>Find sales heads</b></div><h1>Find sales heads</h1><p class="desc" style="margin:-10px 0 16px">Finds the head of sales at each company, then a work email.</p>`;
+const libcss=document.createElement('style');libcss.textContent=`
+.codebox{border:1px solid var(--line2);border-radius:10px;font:12px/1.7 ui-monospace,monospace;overflow-x:auto;padding:8px 0}.ln{display:flex;white-space:pre}.ln span{width:34px;flex:none;text-align:right;padding-right:10px;color:var(--muted)}
+.canvas{position:relative;border:1px solid var(--line);border-radius:10px;padding:24px 16px 64px;display:flex;flex-direction:column;align-items:center;background-image:radial-gradient(var(--line2) 1px,transparent 1px);background-size:16px 16px}
+.node{width:240px;max-width:100%;border:1px solid var(--line2);border-radius:10px;background:var(--bg);padding:8px 12px}.node.dec{border-style:dashed}.node[data-mark]{cursor:pointer}
+.kind{font-size:11px;border-radius:4px;padding:0 6px;background:var(--fill);color:var(--sub)}.k-Input{color:#2563eb}.k-Output{color:#16a34a}.k-Decision{color:#c2410c}
+.edge{height:32px;border-left:1px solid var(--muted);position:relative}.edge span{position:absolute;left:-14px;top:6px;font-size:11px;background:var(--bg);border:1px solid var(--line2);border-radius:4px;padding:0 4px}
+.zoom{position:absolute;right:10px;bottom:10px;display:flex;border:1px solid var(--line2);border-radius:8px;background:var(--bg)}.zoom button{min-width:44px;min-height:44px;border:0;background:none;color:var(--muted)}
+code{font:12px ui-monospace,monospace}`;document.head.append(libcss);
+
+let tab="Diagram";
+const RUNS_MINI=`<ul class="rows"><li><span class="name">27 Nov</span><span class="why"></span><span class="st run">Running · 57 of 200</span></li><li><span class="name">20 Nov</span><span class="why"></span><span class="st">Done</span></li><li><span class="name">13 Nov</span><span class="why"></span><span class="st bad">Failed</span></li></ul>`;
+const DATA_MINI=`<div class="wide"><table><thead><tr><th>company</th><th>head</th><th>title</th><th>email</th></tr></thead><tr><td>Northwind</td><td>Jonas Berg</td><td>VP Sales</td><td>jonas@northwind.example</td></tr><tr><td>Bluebird</td><td>Sara Holm</td><td>Head of Sales</td><td>sara@bluebird.example</td></tr></table></div>`;
+const tabcss=document.createElement('style');tabcss.textContent=`.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin:0 0 16px;overflow-x:auto}.tabs button{border:0;background:none;min-height:44px;padding:0 12px;color:var(--muted);border-bottom:2px solid transparent}.tabs button[aria-current]{color:var(--fg);border-color:var(--fg)}`;document.head.append(tabcss);
+function wfPage(){const T=["Diagram","Code","Runs","Data"];const body={Diagram:wfDiagram(),Code:codeBox(),Runs:RUNS_MINI,Data:DATA_MINI}[tab];return WFHEAD+`<div class="tabs">${T.map(t=>`<button data-control data-tab="${t}" ${t===tab?'aria-current="true"':''}>${t}</button>`).join('')}</div>`+body}
+
+let rowOpen="Northwind";
+const ROWS=[["Northwind","ok","Done","$0.004",[["Find the head of sales","BlitzAPI · $0.002",0,32],["Found someone?","yes",32,2],["Find their work email","BlitzAPI · $0.002",34,41]]],
+ ["Bluebird","ok","Done","free",[["Find the head of sales","already known · 12 days old · free",0,3],["Found someone?","yes",3,1],["Find their work email","already known · free",4,3]]],
+ ["Ironclad","bad","Failed","$0",[["Find the head of sales","BlitzAPI said 422: no company called Ironclad. Nothing spent.",0,28,1]]],
+ ["Redwood","run","Running","$0.002",[["Find the head of sales","BlitzAPI · $0.002",0,30],["Found someone?","yes",30,2],["Find their work email","waiting for BlitzAPI…",32,20,2]]]];
+const RUNHEAD=`<div class="crumb"><span class="muted">Runs /</span> <b>Find sales heads, 27 Nov</b></div><h1>Find sales heads, 27 Nov <span class="st run" style="font-size:14px;font-weight:400">Running</span></h1>
+<div class="stats"><div><span>Done</span><b>57 of 200</b></div><div><span>Failed</span><b>3</b></div><div><span>Spent</span><b>$0.21 of $5.00</b></div><div><span>Started</span><b>08:00 · schedule</b></div></div>`;
+function trace(r){return `<div class="trace">${r[4].map(s=>`<div class="tr"><div class="tn">${s[0]}<div class="desc">${s[1]}</div></div><div class="tb"><i class="${s[4]===1?'bad':s[4]===2?'run':''}" style="--l:${s[2]}%;--w:${Math.max(s[3],2)}%"></i></div></div>`).join('')}<div class="axis"><span>0 ms</span><span>400 ms</span><span>800 ms</span></div></div>`}
+const runcss=document.createElement('style');runcss.textContent=`.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:0 0 16px}.stats div{display:grid}.stats span{color:var(--muted);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.stats b{font-variant-numeric:tabular-nums;font-weight:600}
+@media(max-width:760px){.stats{grid-template-columns:1fr 1fr}}
+.trace{border:1px solid var(--line);border-radius:10px;padding:8px 12px;margin:4px 0}.tr{display:grid;grid-template-columns:minmax(0,220px) 1fr;gap:12px;align-items:center;padding:6px 0;border-bottom:1px solid var(--line)}.tn{font-size:13px}
+.tb{position:relative;height:16px;background:var(--fill);border-radius:4px}.tb i{position:absolute;left:var(--l);width:var(--w);top:2px;bottom:2px;border-radius:3px;background:var(--ok)}.tb i.bad{background:var(--bad)}.tb i.run{background:var(--run)}
+.axis{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-left:232px}@media(max-width:760px){.tr{grid-template-columns:1fr}.axis{margin-left:0}}`;document.head.append(runcss);
+
+function runPage(){return RUNHEAD.replace('<span class="muted">Runs /</span>','<button class="lnk" data-control data-runs>Runs</button> <span class="muted">/</span>')+`<div class="tools"><button class="btn" data-control>Open in workflow UI ↗</button></div><h2>Rows</h2><div class="wide"><table><thead><tr><th>Row</th><th>Status</th><th>Cost</th></tr></thead>${ROWS.map(r=>`<tr class="link" data-row="${r[0]}"><td><b>${r[0]}</b></td><td><span class="st ${r[1]}">${r[2]}</span></td><td>${r[3]}</td></tr>${rowOpen===r[0]?`<tr><td colspan="3">${trace(r)}</td></tr>`:''}`).join('')}</table></div><p class="desc">Tap a row for its steps.</p>`}
+let runOpen=STEP.run||null;
+
+const PAGES={
+ "Home":()=>`<h1>Home</h1><h2>Needs attention</h2>${attention}<h2>Recent runs</h2>${recent}<h2>Spend this month</h2>${spend}`,
+ "Workflows":()=>{
+ if(wfOpen) return wfPage();
+ const here=wfPath.join('/');
+ const kids=FOLDERS.filter(f=>{const i=f.lastIndexOf('/');return (i<0?'':f.slice(0,i))===here});
+ const crumbs=wfPath.length?`<div class="crumb"><button class="lnk" data-control data-go="">Workflows</button>${wfPath.map((p,i)=>i<wfPath.length-1?` <span class="muted">/</span> <button class="lnk" data-control data-go="${wfPath.slice(0,i+1).join('/')}">${p}</button>`:` <span class="muted">/</span> <b>${p}</b>`).join('')}</div>`:'';
+ const count=f=>{const n=WF.filter(w=>w.folder===f||w.folder.startsWith(f+'/')).length,s=FOLDERS.filter(x=>x.startsWith(f+'/')&&x.split('/').length===f.split('/').length+1).length;return [s?`${s} folder${s>1?'s':''}`:'',`${n} workflow${n>1?'s':''}`].filter(Boolean).join(' · ')};
+ return `${crumbs}<h1>${wfPath.length?wfPath[wfPath.length-1]:'Workflows'}</h1><div class="tools"><input class="input" placeholder="Search all workflows" data-control></div><div class="wide"><table>${kids.map(f=>`<tr class="link" data-go="${f}"><td>${FICON}<b>${f.split('/').pop()}</b><div class="desc" style="margin-left:24px">${count(f)}</div></td></tr>`).join('')}${WF.filter(w=>w.folder===here).map(w=>`<tr class="link" ${w.name==='Find sales heads'?'data-wf="find-sales-heads"':''}><td><div><b>${w.name}</b></div><div class="desc">${w.desc}</div></td></tr>`).join('')}</table></div>`;
+},
+"Runs":()=>runOpen?runPage():`<h1>Runs</h1><ul class="rows"><li class="link" data-run="1"><span class="name">Find sales heads, 27 Nov</span><span class="why"></span><span class="st run">Running · 57 of 200</span></li><li><span class="name">Tidy companies, 27 Nov</span><span class="why"></span><span class="st">Done</span></li><li><span class="name">Score accounts, 26 Nov</span><span class="why"></span><span class="st bad">Failed</span></li></ul>`,
+
+};
+let page=STEP.page||"Home";let wfPath=STEP.path||[];let wfOpen=STEP.wf||null;
+const FICON=`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-3px;margin-right:8px;color:var(--muted)"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>`;
+function render(){
+ const k=cur();
+ nav.innerHTML=NAV.map(i=>i==="-"?'<div class="sep"></div>':`<button data-control ${i[0]===page?'aria-current="page"':''} data-p="${i[0]}">${i[0]}${i[1]?`<span class="count">${i[1]}</span>`:''}</button>`).join('')+'<div class="publish">2 changes not live · <u>Publish</u></div>';
+ nav.querySelectorAll('button').forEach(b=>b.onclick=()=>{page=b.dataset.p;wfOpen=null;runOpen=null;wfPath=[];side.classList.remove('open');render()});
+ const over=STEP.over&&STEP.over[page];
+ main.innerHTML=over?`<div class="now">${over(k)}</div>`:PAGES[page]?PAGES[page]():`<h1>${page}</h1>`;
+ main.querySelectorAll('[data-go]').forEach(r=>r.onclick=e=>{e.stopPropagation();wfOpen=null;mark=null;wfPath=r.dataset.go?r.dataset.go.split('/'):[];render()});
+ main.querySelectorAll('[data-wf]').forEach(r=>r.onclick=()=>{wfOpen=r.dataset.wf;mark=null;render()});
+ main.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{tab=b.dataset.tab;mark=null;render()});
+ main.querySelectorAll('[data-row]').forEach(r=>r.onclick=()=>{rowOpen=rowOpen===r.dataset.row?null:r.dataset.row;render()});
+ main.querySelectorAll('[data-run]').forEach(r=>r.onclick=()=>{runOpen=1;render()});
+ main.querySelectorAll('[data-runs]').forEach(r=>r.onclick=()=>{runOpen=null;render()});
+ main.querySelectorAll('[data-mark]').forEach(b=>b.onclick=()=>{mark=mark===b.dataset.mark?null:b.dataset.mark;render()});
+ if(window.wire)wire(k);
+}
+window.onOption=()=>{if(window.reset)reset();render()};
+apply();
+</script>
+</body>
+</html>
