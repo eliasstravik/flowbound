@@ -11,14 +11,14 @@ fb.page("/needs", async (root) => {
   /** One thing that needs you: a yes that waits (answered through your agent, or Not now here), or anything else with its way there. */
   const item = (n) => {
     const kind = n.yes ? "Yes?" : n.page === "/keys" ? "Key" : n.when === "soon" ? "Soon" : "Fix"
-    const notNow = n.yes && fb.can("member") ? h("button", { class: "btn", "data-variant": "outline", "data-size": "sm", type: "button" }, "Not now") : null
+    const notNow = n.yes && fb.can("member") && fb.supports("no") ? h("button", { class: "btn", "data-variant": "outline", "data-size": "sm", type: "button" }, "Not now") : null
     if (notNow) notNow.onclick = () => fb.act(notNow, async () => (await call("no", { run: n.yes.run }), fb.say("Stopped. Nothing more is spent."), fb.redraw()))
     return h("li", {},
       h("span", { class: "kind" }, kind),
       h("div", {}, h("p", {}, n.what), h("p", {}, n.yes ? `Tell your agent yes, and it passes it on.${/ Its schedule skips[^.]*\./.exec(n.fix)?.[0] ?? ""}` : n.fix)),
       h("div", { class: "actions" }, notNow, n.page ? ui.link(n.page, n.params || {}, "Open", { class: "btn", "data-variant": "outline", "data-size": "sm" }) : null))
   }
-  const first = !runs.length && !needs.length
+  const first = !runs.length && !needs.length && fb.supports("keys")
     ? h("section", { class: "flex flex-col gap-3", "aria-labelledby": "start-title" },
         h("h2", { id: "start-title" }, "Start here"),
         h("ol", { class: "steps w-full max-w-xl", role: "list" },

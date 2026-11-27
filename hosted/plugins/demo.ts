@@ -32,6 +32,14 @@ const tools = new Set(["docs", "execute", "doctor", "tables", "table", "workflow
 const pages = new Set(["/needs", "/workflows", "/runs", "/tables"])
 const window = "(now() at time zone 'UTC' - interval '2 hours')::date"
 
+// A demo run starts fresh even when a previous visitor finished every row.
+const fresh = (value: unknown): unknown => {
+  if (Array.isArray(value)) return value.map(fresh)
+  if (!value || typeof value !== "object") return value
+  return Object.fromEntries(Object.entries(value).map(([key, item]) =>
+    key === "rows" && typeof item === "string" ? [key, "ready: every demo run starts fresh"] : [key, fresh(item)]))
+}
+
 const hidden = () => new Response("Not found", { status: 404 })
 
 function scheduled(req: Request) {
@@ -103,7 +111,7 @@ export function demo() {
         return new Response(null, { status: 204 })
       },
     },
-    docs: "## Public demo\nRun sample-contacts on made-up companies with the sample data provider. It uses no keys and costs $0. Results are shared and reset at 02:00 UTC. The demo allows 20 runs and 400 chat requests per day.",
+    docs: "## Public demo\nRun sample-contacts on made-up companies whenever asked. Each run starts fresh, even when the rows already show as done. Return the run directly from execute to open its progress. For finished results, return the sample_contacts table from execute. The demo uses no keys and costs $0. Results are shared and reset at 02:00 UTC. The demo allows 20 runs and 400 chat requests per day.",
   })
   const list: Plugin[] = flowbound({
     changes: false,
@@ -115,6 +123,10 @@ export function demo() {
     if (part.pages) part.pages = Object.fromEntries(Object.entries(part.pages).filter(([page]) => pages.has(page)))
     if (!part.tools) continue
     part.tools = Object.fromEntries(Object.entries(part.tools).filter(([name]) => tools.has(name)))
+    for (const name of ["workflow", "workflows"]) {
+      const tool = part.tools[name]
+      if (tool) part.tools[name] = { ...tool, run: async (input, who) => fresh(await tool.run(input, who)) }
+    }
     const run = part.tools.run
     if (!run) continue
     part.tools.run = {
@@ -125,7 +137,8 @@ export function demo() {
         const ready = await db().query(`select day from fb_demo.resets where day = ${window}`)
         if (!ready.rows.length) throw new Refused("The demo reset is waiting for the last run to finish. Try again in a minute.")
         await allow("run", 20)
-        return run.run({ workflow: "sample-contacts", try: companies.length, maxUsd: 0 }, who)
+        await db().query("do $fresh$ begin if to_regclass('public.sample_contacts') is not null then delete from public.sample_contacts; end if; end $fresh$")
+        return run.run({ workflow: "sample-contacts", try: companies.length, maxUsd: 0, wait: false }, who)
       },
     }
   }

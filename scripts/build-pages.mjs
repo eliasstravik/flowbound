@@ -62,6 +62,7 @@ execFileSync(process.execPath, [path.join(path.dirname(require.resolve("@tailwin
 fs.rmSync(entry)
 
 await esbuild.build({ entryPoints: [path.join(design, "app.js")], bundle: true, minify: true, format: "iife", target: "es2022", loader: { ".svg": "text" }, outfile: path.join(built, "page.js"), logLevel: "error" })
+await esbuild.build({ entryPoints: [path.join(design, "bridge.js")], bundle: true, minify: true, format: "iife", target: "es2022", outfile: path.join(built, "app.js"), logLevel: "error" })
 
 // Geist, the letters most lists need: latin, and latin-extended for names like Łódź (fetched only when a page has one).
 const font = (pkg, name) => require.resolve(`@fontsource-variable/${pkg}/files/${name}-wght-normal.woff2`)

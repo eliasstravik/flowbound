@@ -5,7 +5,7 @@
     "2025-03-26",
     "2024-11-05"
   ],
-  "instructions": "Start with execute: return await flowbound.docs({ topic: \"start\" }). When running locally in a coding agent, pass the absolute path of the open project as the project argument. Workflows live in Git. From chat, save edits with workflow-save, check with workflow-change, and publish only when the person asks. Share Flowbound page links.",
+  "instructions": "Start with execute: return await flowbound.docs({ topic: \"start\" }). When running locally in a coding agent, pass the absolute path of the open project as the project argument. Workflows live in Git. From chat, save edits with workflow-save, check with workflow-change, and publish only when the person asks.",
   "tools": [
     {
       "name": "search",
@@ -36,22 +36,23 @@
         "destructiveHint": false,
         "openWorldHint": true
       },
-      "description": "Run JavaScript that calls Flowbound tools and returns what you need. Each tool is an async function: `return await flowbound.runs({ state: \"running\" })`, `await flowbound[\"schedule-run\"]({ name })`. Call several with Promise.all, filter big answers before returning them, console.log to see steps. It reaches only the tools, as you, with your rights: no files, no network, no keys. Find tools and their inputs with search first.",
+      "description": "Run JavaScript that calls Flowbound tools and returns what you need. Each tool is an async function: `return await flowbound.runs({ state: \"running\" })`, `await flowbound[\"schedule-run\"]({ name })`. Call several with Promise.all, filter big answers before returning them, console.log to see steps. It reaches only the tools, as you, with your rights: no files, no network, no keys. Return a run, table or workflow directly to display it. Omit code to open Flowbound. Find tools and their inputs with search first.",
       "inputSchema": {
         "type": "object",
         "properties": {
           "code": {
             "type": "string",
-            "description": "the body of an async function; return the answer"
+            "description": "the body of an async function; return the answer. Omit to open Flowbound."
           },
           "project": {
             "type": "string",
             "description": "Absolute path to the open project folder. Include it when using local Flowbound from a coding agent."
+          },
+          "render": {
+            "type": "boolean",
+            "description": "Set false for background calls that should have no app content."
           }
-        },
-        "required": [
-          "code"
-        ]
+        }
       }
     }
   ]

@@ -18,6 +18,32 @@ Engineers can use Git and GitHub directly and their workflow pull requests show 
 Members can make, change, run and publish workflows. Admins also manage people, keys and settings. Owners can
 also remove the project. The Changes guide records the old-role mapping and setup.
 
+## Flowbound opens in the chat (27 Nov 2026)
+
+The [MCP Apps specification, 2026-01-26](https://github.com/modelcontextprotocol/ext-apps/blob/main/specification/2026-01-26/apps.mdx)
+links each tool to a fixed `ui://` resource at discovery. Flowbound offers just `search` and `execute` so the same
+call can do the work and open the result. `search` stays text. `execute` adds an app view and web link when the
+returned value is a run, table, workflow or explicit `flowboundView` selection. Calls without a view still return
+their normal text and structured result.
+
+The spec provides no result-level opt-out. The app starts hidden and reports a height of zero until a result
+selects a view. Claude documents that a zero-height iframe is invisible. ChatGPT documents the tool-level link
+and may still mount the iframe or show tool chrome. Flowbound draws no empty card content in either host.
+Actual empty-frame behavior in those hosts is a live check. [Claude sizing](https://claude.com/docs/connectors/building/mcp-apps/troubleshooting) · [ChatGPT UI](https://developers.openai.com/plugins/build/chatgpt-ui)
+
+The embedded view uses the same Basecoat pages and components as the website. The host bridge uses the existing
+connection for `execute`, so Flowbound checks the same role and caps on every call. People answer spending requests
+through the agent. Key values and people-only changes stay on Flowbound's signed-in website.
+
+Host support checked on 27 Nov 2026:
+
+- Claude renders inline views on web, desktop and mobile. The side panel, embedded sites and navigation entry
+  points are rolling out on web and desktop, with account and connector eligibility. [Claude support](https://support.claude.com/en/articles/13454812-use-interactive-connectors-in-claude) · [Developer requirements](https://claude.com/docs/connectors/building/mcp-apps/getting-started)
+- ChatGPT uses the same resource and bridge standard. Custom MCP connections are available on the web on eligible
+  plans. [UI documentation](https://developers.openai.com/plugins/build/chatgpt-ui) · [Custom connection access](https://help.openai.com/en/articles/12584461-connecting-custom-mcp-servers-in-chatgpt)
+- Other MCP Apps hosts can use the same resource. In the terminal, use the plain tool results and links.
+  [MCP client support matrix](https://modelcontextprotocol.io/extensions/client-matrix)
+
 ## The reshape to the vision (26 Nov 2026)
 
 ### The person's three answers
@@ -37,8 +63,8 @@ also remove the project. The Changes guide records the old-role mapping and setu
 - **A budget said in chat** ("don't spend more than $5", `--max-usd`) is that run's cap in every mode, skip included. The strictest wins.
 
 ### How it was built
-- **Agents get two MCP tools, `search` and `execute`**. `execute` runs a few lines of JavaScript with every tool as `flowbound.<name>(input)`, in QuickJS inside WebAssembly: no files, no network, no keys, only the tools, called as the caller with their rights; 64 MB and 10 minutes at most. It is also a command (`npx flowbound execute "<code>"`). Not Node's `vm`: that is no wall, and live the caller is somebody else's agent.
-- `show`, the MCP view resource and every in-chat page went with it: a person opens the link. The page's shared script lost its chat half.
+- **Agents do the work through `search` and `execute`**. `execute` runs a few lines of JavaScript with every tool as `flowbound.<name>(input)`, in QuickJS inside WebAssembly: no files, no network, no keys, only the tools, called as the caller with their rights; 64 MB and 10 minutes at most. It is also a command (`npx flowbound execute "<code>"`). Not Node's `vm`: that is no wall, and live the caller is somebody else's agent.
+- The in-chat pages were removed in the reshape. The 27 Nov decision above restores them through the shared page renderer.
 - **Permission modes are presets over caps.** Ask: a run that calls a paid provider waits (state `waiting`) with its question under Needs you. Auto: it runs inside the caps. Skip: no caps, only a budget said in chat. The mode of a run is worked out when it begins: the strictest of the project's, its workflow's and every provider it uses.
 - Caps are budgets in the ledger, held by one atomic UPDATE each as before: the run's own (`run:<id>`), this month's (`month:<YYYY-MM>`), a workflow's or a provider's month, a provider's per run, and the write caps. A month's budget follows the rules as written now.
 - **A hit cap pauses the run** (state `paused`, code `cap`, the cap's id kept) and puts a yes under Needs you, where it waits. A yes on the run's own cap sets a new one (twice the old unless the person said a number); a yes on another cap (the month's, a provider's, the writes) lifts that cap for that run only, and the run's own still holds. Not now stops it.
@@ -126,7 +152,7 @@ A run started by a schedule or webhook uses the same permissions as a manual run
 - The `ai` card: the default model is the cheap current one, `claude-haiku-5-5` (it was `claude-opus-5-5`; a model step runs once per row, so the default should be the one that is safe at 10,000 rows); the worst case of a call (every byte of the prompt as a token, and all of `maxTokens`, now 4,000) is held against the cap first; the cost is the answer's own usage, with cache reads and writes and Haiku's higher prices over 100,000 tokens, priced by the model that answered; a gateway that reports the cost is believed; one step can name its model, `maxTokens`, `effort` and `system`; an answer cut off at `maxTokens` fails the row instead of saving half a sentence. Prices were read from the maker's price page on 26 Nov 2026. `ask` returns text as the prototype shows; `pick` is the same answer carrying its fact. (The reshape: one way only, a key. The signed-in `claude`/`codex` route and the gateway are gone; a model is a provider.)
 
 ## Agents
-- MCP has two tools, `search` and `execute` (the reshape). `show` and its view resource are gone.
+- MCP has two tools, `search` and `execute`. A displayable result from `execute` opens the app and returns a web link.
 - When an agent app starts `flowbound mcp` away from the project (Codex starts plugin servers in its plugin cache), the server asks the app for its open folders (MCP roots) and uses the one with a `flowbound.config.ts`.
 - `npx flowbound init` writes the project MCP setting and the skill for every agent app found on the machine, and one line in `AGENTS.md`. Before the package is on npm it installs from a tarball of itself.
 - `--live` goes through the local Flowbound, which holds the live token like any key: the agent never sees it. The live address is in `.flowbound/live.json`, or `door({ live: "https://..." })`.

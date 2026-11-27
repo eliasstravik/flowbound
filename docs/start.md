@@ -3,14 +3,18 @@
 Flowbound is an open-source agent plugin for GTM workflows: list building, research, enrichment, on the person's own
 data provider keys. You, the agent, write each job as a workflow file and run it. Flowbound is the part you cannot
 be: it stays up for days, keeps every fact that was paid for, holds keys you never see, enforces the person's
-permissions, and shows people one page. How a job is done is yours to decide.
+permissions, and shows people the app in their chat or on the web. How a job is done is yours to decide.
 
 Run commands as `npx flowbound <command>` from the project folder. Any command starts Flowbound in the background
 if it is not running (`.flowbound/dev.log` is its log); `npx flowbound dev` runs it in the foreground instead.
 `npx flowbound <command> --help` lists a command's inputs. `npx flowbound docs <plugin>` prints one part of this text
 again; the parts are the plugin names `npx flowbound plugins` lists (`workflow-sdk`, `postgres`, `keys`, `ledger`, ...).
-Over MCP you have two tools: `search` finds tools and their inputs, `execute` runs a few lines of JavaScript that
+Over MCP, `search` finds tools and their inputs, and `execute` runs a few lines of JavaScript that
 call them (`return await flowbound.runs({ state: "running" })`); `npx flowbound execute "<code>"` does the same here.
+Return a run, table or workflow directly from `execute` when handing it to the person. This opens its view in
+supported chats and returns a web link for text-only chats. To open the app home, call `execute` without code.
+To pick a specific view without changing anything, return `{ flowboundView: { run: 123 } }` (or use `table`,
+`workflow` or `page`). Set `render: false` on background calls.
 The first local tool call sets up the open project folder and starts the database, runner and pages. The runner
 started by the agent shuts down when the last agent session using it ends. Use `npx flowbound dev` before
 connecting the agent if runs or schedules need to keep going on this computer after the session ends.
@@ -44,12 +48,11 @@ the same with local Git. Engineers can use GitHub directly and see their pull re
 Read `changes` for the precise inputs, roles, and the owner's one-time setup. On staging, the project's directory
 in Git is `staging/` and its workflow paths in the connector still start with `workflows/`.
 
-The pages (http://localhost:4111) are on the computer Flowbound runs on. A person on another device cannot open
-them until the project is live (`npx flowbound deploy`); until then, tell them the numbers in the chat, and keys
-are added on that computer. The exception: when `flowbound dev` is started with `FLOWBOUND_URL` set (the person
-shares the pages privately, for example `https://their-machine.tailnet.ts.net/flowbound`, also under a path), every
-link Flowbound prints is that address and the person can open it. A CSV can be imported from any path. It is fine to write the workflow from the
-provider's manual before its key is in; make the real call once it is.
+The app inside chat uses the same connection you use. For a text-only local chat, summarize the result and give
+a web link when the person can reach it. Pages on the local machine use port 4111 by default. Deploy or set
+`FLOWBOUND_URL` to the address the person can reach to share links across devices. The signed-in website is where
+people change keys and access. A CSV can be imported from any path. Write the workflow from the provider's
+manual before its key is in, then make the real call once it is.
 
 ## Talking to the person
 
@@ -92,9 +95,8 @@ The person says something like "find the head of sales at each of these 200 comp
    http://localhost:4111/workflows?workflow=<id>. The estimate counts every row in the list, so it errs high.
 6. **Run the rest:** `npx flowbound run <id>`. A budget the person said ("don't spend more than $5") goes in as
    `--max-usd 5`. Add `--wait` to wait for the end, or look with `npx flowbound runs <number>`.
-7. **Hand over.** `npx flowbound export <results table> --csv` writes `<results table>.csv` into the folder you
-   run it from. The person can also read and
-   download at http://localhost:4111/tables, where every field says where it came from, how old it is and what it cost.
+7. **Hand over.** Return the results table from `execute`, for example `return await flowbound.table({ name: "results", limit: 5 })`. Each field says where it came from, how old it is and what it
+   cost. The web page can download it, and `npx flowbound export <results table> --csv` writes it to your folder.
 
 ## Jobs that run by themselves
 

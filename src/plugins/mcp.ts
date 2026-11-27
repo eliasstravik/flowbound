@@ -1,5 +1,4 @@
-// The MCP door: two tools however many plugins are installed. search finds a tool and its inputs; execute runs a few
-// lines of JavaScript that call tools (several at once, keeping only what is needed).
+// The MCP door: search finds work and execute does it and returns views.
 // Over stdio on your own computer (`flowbound mcp`); over HTTPS when live (/mcp).
 import fs from "node:fs"
 import os from "node:os"
@@ -9,15 +8,58 @@ import { fileURLToPath } from "node:url"
 import { docs } from "../core/docs.ts"
 import { findRoot } from "../core/load.ts"
 import { ensure, join } from "../core/local.ts"
-import { type Flowbound, plugin } from "../core/plugin.ts"
+import { type Flowbound, plugin, type Who } from "../core/plugin.ts"
 import { about } from "../core/server.ts"
 import catalog from "./mcp/catalog.json" with { type: "json" }
 import { execute } from "./mcp/execute.ts"
+import { appPages, type Pages, renderApp } from "./pages.ts"
 
 type About = { url: string; live: boolean; tools: { name: string; about: string; input: Record<string, { type?: string; about: string; required?: boolean }>; price?: string; docs?: string }[] }
 /** What the MCP door needs from the Flowbound behind it. The same two calls locally (over HTTP) and live (in process). */
-type Behind = { about: (project?: unknown) => Promise<About>; call: (tool: string, input: unknown, project?: unknown) => Promise<unknown> }
+type Behind = {
+  about: (project?: unknown) => Promise<About>
+  call: (tool: string, input: unknown, project?: unknown) => Promise<unknown>
+  app?: { url: string; live: boolean; role?: string; tools: string[]; paths: string[] }
+}
 type Rpc = { jsonrpc: "2.0"; id?: number | string; method: string; params?: any }
+
+const viewUri = "ui://flowbound/app-v2.html"
+const resource = { uri: viewUri, name: "Flowbound", mimeType: "text/html;profile=mcp-app" }
+const ui = { resourceUri: viewUri, visibility: ["model", "app"] }
+type Selection = { run?: unknown; table?: unknown; workflow?: unknown; page?: unknown }
+type AppContext = NonNullable<Behind["app"]>
+const object = (value: unknown): Record<string, unknown> | undefined => (value !== null && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : undefined)
+
+function selectView(value: unknown, app: AppContext) {
+  const result = object(value)
+  if (!result) return
+  let selected: Selection | undefined = object(result.flowboundView)
+  if (!selected && typeof result.run === "number" && result.page === `${app.url}/runs?run=${result.run}`) selected = { run: result.run }
+  if (!selected && typeof result.id === "string" && result.page === `${app.url}/workflows?workflow=${result.id}`) selected = { workflow: result.id }
+  if (!selected && typeof result.name === "string" && Array.isArray(result.columns) && Array.isArray(result.rows) && typeof result.total === "number") selected = { table: result.name }
+  if (!selected) return
+
+  const { run, table, workflow, page } = selected
+  if (run !== undefined && (typeof run !== "number" || !Number.isSafeInteger(run) || run <= 0)) return
+  if ([table, workflow].some((id) => id !== undefined && (typeof id !== "string" || !id.trim() || id.length > 200))) return
+  if (page !== undefined && typeof page !== "string") return
+  const items = [
+    ["run", run, "/runs"],
+    ["table", table, "/tables"],
+    ["workflow", workflow, "/workflows"],
+  ].filter(([, id]) => id !== undefined)
+  if (items.length > 1) return
+  const item = items[0]
+  if (item && page !== undefined && `/${page}` !== item[2]) return
+  const path = item?.[2] ?? (page === undefined ? app.paths[0] : `/${page}`)
+  if (typeof path !== "string" || !app.paths.includes(path)) return
+  const params = item ? { [String(item[0])]: String(item[1]) } : {}
+  const query = new URLSearchParams(params).toString()
+  return {
+    view: { path, params, url: app.url, live: app.live, paths: app.paths },
+    link: app.url + path + (query ? `?${query}` : ""),
+  }
+}
 
 const version = () => {
   try {
@@ -30,20 +72,31 @@ const version = () => {
 const CORS = { "access-control-allow-origin": "*", "access-control-allow-headers": "authorization, content-type, mcp-protocol-version, mcp-session-id", "access-control-allow-methods": "POST, OPTIONS" }
 const text = (s: string, more = {}) => ({ content: [{ type: "text", text: s }], ...more })
 
-export async function answer(msg: Rpc, behind: Behind): Promise<object | undefined> {
+export async function answer(msg: Rpc, behind: Behind, hasApp = !!behind.app): Promise<object | undefined> {
   const ok = (result: unknown) => ({ jsonrpc: "2.0", id: msg.id, result })
   if (msg.id === undefined) return undefined
   try {
     if (msg.method === "initialize")
       return ok({
         protocolVersion: catalog.versions.includes(msg.params?.protocolVersion) ? msg.params.protocolVersion : catalog.versions[0],
-        capabilities: { tools: {} },
+        capabilities: { tools: {}, ...(hasApp ? { resources: {}, extensions: { "io.modelcontextprotocol/ui": {} } } : {}) },
         serverInfo: { name: "flowbound", version: version() },
-        instructions: catalog.instructions,
+        instructions:
+          catalog.instructions +
+          (hasApp
+            ? " Return a run, table or workflow directly from execute to display it in chat. To open a specific view, return { flowboundView: { run: 123 } } (or table, workflow, or page). For background reads pass render: false. Give people the returned web link when the chat cannot display the view."
+            : ""),
       })
     if (msg.method === "ping") return ok({})
-    if (msg.method === "tools/list") return ok({ tools: catalog.tools })
-    if (msg.method === "resources/list") return ok({ resources: [] })
+    if (msg.method === "tools/list") {
+      const meta = behind.app?.live ? { ui, "openai/ui": { entrypoints: [{ type: "global" }] } } : { ui }
+      return ok({ tools: catalog.tools.map((tool) => (hasApp && tool.name === "execute" ? { ...tool, _meta: meta } : tool)) })
+    }
+    if (msg.method === "resources/list") return ok({ resources: hasApp ? [resource] : [] })
+    if (msg.method === "resources/read") {
+      if (msg.params?.uri !== viewUri || !hasApp) return { jsonrpc: "2.0", id: msg.id, error: { code: -32002, message: "Flowbound has no such resource." } }
+      return ok({ contents: [{ uri: viewUri, mimeType: resource.mimeType, text: renderApp(), _meta: { ui: { csp: {} } } }] })
+    }
     if (msg.method === "resources/templates/list") return ok({ resourceTemplates: [] })
     if (msg.method !== "tools/call") return { jsonrpc: "2.0", id: msg.id, error: { code: -32601, message: `Flowbound's MCP server has no ${msg.method}.` } }
     const { name, arguments: args = {} } = msg.params ?? {}
@@ -65,9 +118,17 @@ export async function answer(msg: Rpc, behind: Behind): Promise<object | undefin
       )
     }
     if (name === "execute") {
-      const out = (await behind.call("execute", { code: String(args.code ?? "") }, args.project)) as { result: unknown; logs: string[] }
+      const app = args.render === false ? undefined : behind.app
+      const out = app && args.code === undefined ? { result: { flowboundView: {} }, logs: [] } : ((await behind.call("execute", { code: String(args.code ?? "") }, args.project)) as { result: unknown; logs: string[] })
+      const presentation = app && selectView(out.result, app)
       const shown = typeof out.result === "string" ? out.result : JSON.stringify(out.result, null, 2)
-      return ok(text(`${out.logs.length ? `${out.logs.join("\n")}\n---\n` : ""}${shown}`, { structuredContent: { result: out.result, logs: out.logs } }))
+      const link = presentation ? `\n\nOpen Flowbound: ${presentation.link}` : ""
+      return ok(
+        text(`${out.logs.length ? `${out.logs.join("\n")}\n---\n` : ""}${shown}${link}`, {
+          structuredContent: { result: out.result, logs: out.logs, ...presentation },
+          ...(presentation && app ? { _meta: { flowbound: { role: app.role, tools: app.tools } } } : {}),
+        }),
+      )
     }
     return ok(text(`Flowbound has two MCP tools: search and execute. There is no "${name}".`, { isError: true }))
   } catch (e: any) {
@@ -157,7 +218,16 @@ export async function stdio(remote?: URL) {
     },
   }
   const respond = async (msg: Rpc) => {
-    if (!remote || msg.method !== "tools/call" || msg.id === undefined) return answer(msg, behind)
+    const executeWithView = msg.method === "tools/call" && msg.params?.name === "execute" && msg.params?.arguments?.render !== false
+    if (msg.id === undefined || msg.method !== "tools/call") return answer(msg, behind, true)
+    if (!remote) {
+      if (!executeWithView) return answer(msg, behind, true)
+      try {
+        return await (await api("/mcp", msg, msg.params?.arguments?.project)).json()
+      } catch (error) {
+        return { jsonrpc: "2.0", id: msg.id, error: { code: -32603, message: String(error) } }
+      }
+    }
     const ok = (result: unknown) => ({ jsonrpc: "2.0", id: msg.id, result })
     const session = (connected ??= import("./mcp/company.ts").then(({ signIn }) => signIn(remote, end.signal)))
     try {
@@ -206,11 +276,21 @@ export const mcp = (options: { timeoutMs?: number } = {}) => {
     },
     routes: {
       "POST /mcp": Object.assign(
-        async (req: Request, at: { who: any }) => {
+        async (req: Request, at: { who: Who }) => {
           const msg = await req.json()
+          const pages = new Set(
+            fb.has("pages")
+              ? fb
+                  .use<Pages>("pages")
+                  .list()
+                  .map(({ path }) => path)
+              : [],
+          )
+          const paths = [...appPages.keys()].filter((path) => pages.has(path))
           const behind: Behind = {
             about: async () => about(fb) as About,
             call: (tool, input) => fb.call(tool, input, { ...at.who, via: "mcp" }),
+            app: paths.length ? { url: fb.url, live: fb.live, role: at.who.role ?? "owner", paths, tools: Object.keys(fb.tools).filter((name) => fb.tools[name]?.by !== "people") } : undefined,
           }
           const out = Array.isArray(msg) ? (await Promise.all(msg.map((m) => answer(m, behind)))).filter(Boolean) : await answer(msg, behind)
           return out && (!Array.isArray(out) || out.length) ? Response.json(out, { headers: CORS }) : new Response(null, { status: 202, headers: CORS })
@@ -238,10 +318,10 @@ export const mcp = (options: { timeoutMs?: number } = {}) => {
       },
     },
     commands: {
-      mcp: { about: "the MCP server for agent apps (search, execute), over stdio", run: () => stdio() },
+      mcp: { about: "the MCP server for agent apps, over stdio", run: () => stdio() },
     },
     docs: `## MCP
-\`flowbound mcp\` is the MCP server (stdio). It has two tools however many plugins are installed: \`search\` (find tools and read their inputs and prices) and \`execute\` (a few lines of JavaScript that call tools as \`flowbound.<name>(input)\` and return what you need; several at once with Promise.all). Each tool is also a command: \`npx flowbound <tool>\`, and \`npx flowbound execute "<code>"\` runs the same code.
-A live Flowbound serves the same two at \`/mcp\` over HTTPS. Claude and ChatGPT take no token by hand: the person adds \`<address>/mcp\` as a custom connector, and the app sends them to this Flowbound to sign in with their work account and allow it. An agent that cannot sign in uses a token a signed-in person made: \`Authorization: Bearer fb_live_...\`. Either way it acts as that named person and can never do more than they can (passing on their yes, never managing keys or people). A chat app with no project folder can read, try, run and pass on a yes, not change workflow files.`,
+Search finds work tools and execute calls them as \`flowbound.<name>(input)\`. Return a run, table or workflow directly from execute to open it in chat and get a web link. For an explicit view, return \`{ flowboundView: { page: "needs" } }\`. Set \`render: false\` on the MCP call for background work.
+The server speaks stdio over \`flowbound mcp\` and HTTPS at \`/mcp\`. Add the HTTPS address as a custom connector and sign in once. The embedded app reuses the connection. An agent that cannot sign in uses a token a signed-in person made. Both act with the person's permissions. Pass on their yes only after they give it. Key and people management stays on the signed-in website.`,
   })
 }
