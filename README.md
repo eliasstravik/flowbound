@@ -32,8 +32,6 @@ npx skills add eliasstravik/flowbound      # skills.sh
 npx flowbound init                         # anything else
 ```
 
-The npm release is pending. Install from a tarball of this repo
-(`npm run build && npm pack`, then `npx -y --package=/absolute/path/to/flowbound-0.1.0.tgz flowbound init --example` in your project folder).
 Claude Code and Codex first need the marketplace: `/plugin marketplace add eliasstravik/flowbound`,
 `codex plugin marketplace add eliasstravik/flowbound`.
 

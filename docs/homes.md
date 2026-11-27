@@ -91,9 +91,8 @@ this way and kept its schedule, and the built function started against a real Po
 60) dropped the schedules, so keep the Vercel command-line tool current where you run it yourself. What a company
 still has to do, or know:
 
-- The flowbound package must be installable by Vercel's build. Until it is on npm that means a tarball committed
-  to the repo (`npm pack` of this repo, and `"flowbound": "file:./flowbound-0.1.0.tgz"` in package.json): `init`
-  puts it in `.flowbound/`, which git ignores.
+- The Flowbound package must be installable by Vercel's build. For a project set up with `npx flowbound init`,
+  commit `package.json` and the lockfile so Vercel can install the same version from npm.
 - Settings are environment values on the project: `DATABASE_URL` (the Neon integration sets it), `FLOWBOUND_SECRET`,
   `CRON_SECRET` if there is a schedule line, and the sign-in (`FLOWBOUND_LOGIN_CLIENT_ID` and
   `FLOWBOUND_LOGIN_CLIENT_SECRET`, or `FLOWBOUND_PASSWORD` for a try-out). Set `FLOWBOUND_URL` for Production only.
