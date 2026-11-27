@@ -179,6 +179,26 @@ async function live(opts: DoorOptions, url = U) {
 }
 const google: DoorOptions = { login: "google", domain: "acme.example", managers: ["maya@acme.example"] }
 
+test("company sign-in gives new colleagues Member access when the owner enables it", async () => {
+  for (const options of [{ ...google, issuer: idp.google }, { login: "microsoft", tenant: TENANT, managers: ["maya@acme.example"], issuer: idp.microsoft } satisfies DoorOptions]) {
+    const fb = await live({ ...options, defaultRole: "member" })
+    try {
+      const owner = fb.browser()
+      assert.equal((await owner.signIn("maya@acme.example")).status, 200)
+      assert.equal((await owner.tool("look")).result.who.role, "owner")
+      const sam = fb.browser()
+      assert.equal((await sam.signIn("sam@acme.example")).status, 200)
+      assert.equal((await sam.tool("change")).result.who.role, "member")
+      assert.equal((await sam.tool("set-rights", { email: "sam@acme.example", rights: "admin" })).status, 403)
+      assert.equal((await fb.browser().signIn("olle@other.example")).status, 403)
+      assert.equal((await owner.tool("remove-person", { email: "sam@acme.example" })).ok, true)
+      assert.equal((await fb.browser().signIn("sam@acme.example")).status, 403)
+    } finally {
+      await fb.stop()
+    }
+  }
+})
+
 test("the company plugin signs in through its loopback callback and acts as the member", async (t) => {
   let fb!: Awaited<ReturnType<typeof live>>
   const server = await listen(0, async (port) => {

@@ -23,11 +23,11 @@ Two values go on the host, never in the file: `FLOWBOUND_LOGIN_CLIENT_ID` and `F
 `FLOWBOUND_SECRET` must be set too (it already is for keys). The settings can also come from the host's
 environment, so a deploy needs no file change: `FLOWBOUND_LOGIN` (`google`, `microsoft` or the provider's address),
 `FLOWBOUND_LOGIN_DOMAIN`, `FLOWBOUND_LOGIN_TENANT`, `FLOWBOUND_LOGIN_EMAILS`, `FLOWBOUND_MANAGERS`,
-`FLOWBOUND_LOGIN_GROUPS` (`group=rights,group=rights`).
+`FLOWBOUND_LOGIN_GROUPS` (`group=rights,group=rights`), and optional `FLOWBOUND_LOGIN_DEFAULT_ROLE=member`.
 
 ## Rights
 
-Signing in gives nothing by itself. Each person on the People page has one of:
+By default, an owner assigns access after sign-in. Each person on the People page has one of:
 
 | Rights | May |
 | --- | --- |
@@ -38,7 +38,7 @@ Signing in gives nothing by itself. Each person on the People page has one of:
 | Owner | Also manage Admins and Owners, and remove the project through its host. |
 
 The people in `owners` start as Owners. Add others on the People page, including before they first sign in.
-With `groups`, roles come from the work login at sign-in. A chat acts for its person, up to Member.
+With `groups`, roles come from the work login at sign-in. For a verified Google domain or Microsoft directory, you can set `defaultRole: "member"` or `FLOWBOUND_LOGIN_DEFAULT_ROLE=member` to give new people Member access on their first sign-in. Owners, group roles, and existing people keep their assigned roles. A chat acts for its person, up to Member.
 
 ## Try it with a real Google Workspace
 
