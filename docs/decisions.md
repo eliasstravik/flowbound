@@ -37,7 +37,7 @@ also remove the project. The Changes guide records the old-role mapping and setu
 - **A budget said in chat** ("don't spend more than $5", `--max-usd`) is that run's cap in every mode, skip included. The strictest wins.
 
 ### How it was built
-- **Agents get two MCP tools, `search` and `execute`** (the person's ask: the approach of Cloudflare's code mode and Executor). `execute` runs a few lines of JavaScript with every tool as `flowbound.<name>(input)`, in QuickJS inside WebAssembly: no files, no network, no keys, only the tools, called as the caller with their rights; 64 MB and 10 minutes at most. It is also a command (`npx flowbound execute "<code>"`). Not Node's `vm`: that is no wall, and live the caller is somebody else's agent.
+- **Agents get two MCP tools, `search` and `execute`**. `execute` runs a few lines of JavaScript with every tool as `flowbound.<name>(input)`, in QuickJS inside WebAssembly: no files, no network, no keys, only the tools, called as the caller with their rights; 64 MB and 10 minutes at most. It is also a command (`npx flowbound execute "<code>"`). Not Node's `vm`: that is no wall, and live the caller is somebody else's agent.
 - `show`, the MCP view resource and every in-chat page went with it: a person opens the link. The page's shared script lost its chat half.
 - **Permission modes are presets over caps.** Ask: a run that calls a paid provider waits (state `waiting`) with its question under Needs you. Auto: it runs inside the caps. Skip: no caps, only a budget said in chat. The mode of a run is worked out when it begins: the strictest of the project's, its workflow's and every provider it uses.
 - Caps are budgets in the ledger, held by one atomic UPDATE each as before: the run's own (`run:<id>`), this month's (`month:<YYYY-MM>`), a workflow's or a provider's month, a provider's per run, and the write caps. A month's budget follows the rules as written now.
@@ -86,7 +86,7 @@ also remove the project. The Changes guide records the old-role mapping and setu
 - A row the cap or a missing key stopped is not a failed row: it stays not done.
 - Rows already in the air when a run stops are allowed to finish.
 - `export const concurrency = n` is the line that changes "5 rows at a time"; `retries` and `pauseAfter` change the other two habits (the reshape).
-- A run does not end while a row is waiting for it: before it ends it looks once more, and it only ends if no row was handed to it meanwhile (one conditional UPDATE). Found on the Executor build, where a webhook row that arrived in the last moment was left behind.
+- A run does not end while a row is waiting for it: before it ends it looks once more, and it only ends if no row was handed to it meanwhile (one conditional UPDATE).
 - A file change during a run stops the run ("a changed file needs a new try-out").
 
 ## Size (26 Nov 2026)
@@ -101,7 +101,7 @@ Decided by running a list of 10,000 rows, and what it showed: docs/scale.md has 
 - Results stay one `jsonb` column per field for now: they sort as they are, and compare with `(score)::numeric > 70` or `title #>> '{}' = 'VP Sales'`; the `sql` tool says so when a comparison fails. Columns with a type of their own need a design for tables that exist already and for a field that changes type, so that is a task of its own.
 
 ## Schedules and webhook rows
-Brought over on 26 Nov 2026 from the Executor build: the behaviour and the lessons, not the code. The standing yes it came with (one question with a cap a run and a cap a month, `standing-ask`/`standing-yes`, its page, the leaver pause) is **replaced by the reshape**: a run a schedule or webhook starts is under the same permissions as any run.
+A run started by a schedule or webhook uses the same permissions as a manual run.
 - A schedule and a webhook are lines in `schedules: [...]`, `schedule({ id, workflow, every, timezone })` and `hook({ id, workflow, key, signature, row })`. Caps never go in a workflow file: `every`, `on` and a monthly cap there are refused, with the line to write instead.
 - A row with no run is kept, not refused: a row in a list costs nothing. The same row is taken in once (by the `key` column, or the whole row), and kept facts make a lead seen before free even as a new row. A row that arrives while its run is going is handed to that run.
 - One run at a time for a workflow that runs by itself, kept by a unique index, so two copies of a live Flowbound cannot both start one.
@@ -122,15 +122,8 @@ Brought over on 26 Nov 2026 from the Executor build: the behaviour and the lesso
 ## Keys and providers
 - Each provider card is also a tool with its name (`flowbound blitzapi /v2/...`), so an agent can make one real call and see the answer before writing a workflow. It counts against the day's allowance for one-off calls.
 - The key header cannot be redirected: the address is always the card's host, redirects are not followed.
-- A key is checked when it is typed, on cards that name a free `check` path: a key the provider refuses is not saved. Firecrawl, BlitzAPI and the model card have one (the paths the Executor build proved).
-- The `ai` card: the Executor build's and this repo's were compared and the better half of each kept. From there: the default model is the cheap current one, `claude-haiku-5-5` (it was `claude-opus-5-5`; a model step runs once per row, so the default should be the one that is safe at 10,000 rows); the worst case of a call (every byte of the prompt as a token, and all of `maxTokens`, now 4,000) is held against the cap first; the cost is the answer's own usage, with cache reads and writes and Haiku's higher prices over 100,000 tokens, priced by the model that answered; a gateway that reports the cost is believed; one step can name its model, `maxTokens`, `effort` and `system`; an answer cut off at `maxTokens` fails the row instead of saving half a sentence. Prices were read from the maker's price page on 26 Nov 2026. `ask` returns text as the prototype shows; `pick` is the same answer carrying its fact. (The reshape: one way only, a key. The signed-in `claude`/`codex` route and the gateway are gone; a model is a provider.)
-
-## Not brought over from the Executor build
-- Its code: written against Executor's own schedules, webhooks, accounts and questions. Here the same behaviour sits on the Workflow SDK, Postgres and the keys plugin.
-- Cron lines (`cron: "0 8 * * MON"`): `every` already says the same in plain words, and now takes a timezone.
-- Executor making the webhook's address and signing secret: here a person types the secret on the keys page.
-- From its "Better than legacy" list, what was Executor's to give and is not ours to build: a hard wall around keys on your own computer, one account shared by several apps, every change a version to roll back, changing workflows from a chat with no files, organizations. Taken: a key checked when it is typed.
-- Signature schemes that sign a timestamp with the body (Stripe's, Slack's): only HMAC-SHA256 of the exact body, with the header, prefix and encoding of your choice.
+- A key is checked when it is typed, on cards that name a free `check` path: a key the provider refuses is not saved. Firecrawl, BlitzAPI and the model card have one.
+- The `ai` card: the default model is the cheap current one, `claude-haiku-5-5` (it was `claude-opus-5-5`; a model step runs once per row, so the default should be the one that is safe at 10,000 rows); the worst case of a call (every byte of the prompt as a token, and all of `maxTokens`, now 4,000) is held against the cap first; the cost is the answer's own usage, with cache reads and writes and Haiku's higher prices over 100,000 tokens, priced by the model that answered; a gateway that reports the cost is believed; one step can name its model, `maxTokens`, `effort` and `system`; an answer cut off at `maxTokens` fails the row instead of saving half a sentence. Prices were read from the maker's price page on 26 Nov 2026. `ask` returns text as the prototype shows; `pick` is the same answer carrying its fact. (The reshape: one way only, a key. The signed-in `claude`/`codex` route and the gateway are gone; a model is a provider.)
 
 ## Agents
 - MCP has two tools, `search` and `execute` (the reshape). `show` and its view resource are gone.
@@ -205,7 +198,7 @@ Added, and why:
 - A list has a key when a person or a step says so: `import --add --key email` brings rows already there up to date and adds the new ones, and `use("records").add(list, rows, { key })` does the same from a step. That is "one row in, many rows out" (a company's five people) and "one table feeds the next". A results table stays one row per list row. An empty cell never wipes what the list has, and a row that already has a result keeps it.
 - `hook({ row })`: a few lines that turn a sender's own shape into a row, or into nothing for an event that is not a row. A booking tool and a CRM post nested events of many kinds; before, every one became a row of JSON text. It runs only after the signature is checked.
 - The CSV a person downloads is made for a spreadsheet: a cell that would run as a formula gets a `'` in front (scraped text is not to be trusted), numbers and phone numbers are left alone. What an agent reads with `table` or `sql` is the cell as it is.
-- Recipes are a guide, read by name (`flowbound docs recipes`), not part of the text every agent reads first: gtm-skills' lesson that every always-loaded line is paid on every turn. A plug-in has `guides` for that. Each recipe is a whole workflow file and the tests run the text of the guide itself against the fake provider and the FAKE model, so a recipe cannot rot. The scoring recipe keeps its criteria in the workflow file on purpose: a full run needs a try-out of the file as it is.
+- Recipes are a guide, read by name (`flowbound docs recipes`) so the first guide stays short. A plug-in has `guides` for that. Each recipe is a whole workflow file and the tests run the text of the guide itself against the fake provider and the FAKE model, so a recipe cannot rot. The scoring recipe keeps its criteria in the workflow file on purpose: a full run needs a try-out of the file as it is.
 - `init --example`: eight made-up companies and a workflow of plain code, tried once for $0.00, so the pages are not empty before a key exists. It is asked for, never the default: a new project stays empty unless the person wants the example.
 - How the agent talks to the person (a few plain lines, the numbers first, one question at a time, a yes only for spending) is in the instructions, and the skill says what it is not for and is tested to stay under the 1,024 characters agent apps load: the earlier product lost a skill to a 1,051-character description.
 

@@ -1,6 +1,6 @@
 // The MCP door: two tools however many plugins are installed. search finds a tool and its inputs; execute runs a few
-// lines of JavaScript that call tools (several at once, keeping only what is needed). The approach of Cloudflare's
-// code mode and Executor. Over stdio on your own computer (`flowbound mcp`); over HTTPS when live (/mcp).
+// lines of JavaScript that call tools (several at once, keeping only what is needed).
+// Over stdio on your own computer (`flowbound mcp`); over HTTPS when live (/mcp).
 import fs from "node:fs"
 import os from "node:os"
 import path from "node:path"
