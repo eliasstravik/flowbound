@@ -5,7 +5,7 @@
     "2025-03-26",
     "2024-11-05"
   ],
-  "instructions": "Start with execute: return await flowbound.docs({ topic: \"start\" }). When running locally in a coding agent, pass the absolute path of the open project as the project argument. Workflows live in Git. From chat, save edits with workflow-save, check with workflow-change, and publish only when the person asks.",
+  "instructions": "Start with execute: return await flowbound.docs({ topic: \"start\" }). When running locally in a coding agent, pass the absolute path of the open project as the project argument. Workflows live in Git. From chat, save edits with workflow-save, check with workflow-change, and publish only when the person asks. Return a run, table or workflow directly from execute to open its view. To pick a view, return { flowboundView: { run: 123 } } (or use table, workflow or page). Set render: false for background reads. When execute says the result is in the chat app, summarize in one or two lines and leave the page link to its Open web page button. In a text-only chat, share the page link when execute returns one.",
   "tools": [
     {
       "name": "search",

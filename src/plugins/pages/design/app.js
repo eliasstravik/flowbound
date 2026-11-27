@@ -247,7 +247,7 @@ const fb = (() => {
     clearTimeout(timer)
     for (const s of document.querySelectorAll("section[data-page]")) s.hidden = s.dataset.page !== current
     const root = section(current)
-    if (!root || !renders[current]) return
+    if (!root || !renders[current]) return false
     if (o.refresh) {
       const fresh = root.cloneNode(false)
       fresh.innerHTML = templates[current] ?? "<div data-view></div>"
@@ -275,6 +275,7 @@ const fb = (() => {
       await renders[current](root, params)
     } catch (e) {
       if (mine === drawing) failed(root, e)
+      return false
     }
   }
   /** Ask for this page to be refreshed in a while: for a run in progress. It rests while the tab is not looked at. */
@@ -403,7 +404,7 @@ const fb = (() => {
           tools = new Set(view.tools ?? [])
           paths = new Set(view.paths)
           for (const link of document.querySelectorAll(".menu [data-go]")) link.hidden = !paths.has(link.dataset.go)
-          go(view.path, view.params)
+          return go(view.path, view.params)
         })
       } catch (error) {
         trouble(error)

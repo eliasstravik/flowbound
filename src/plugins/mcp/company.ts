@@ -2,6 +2,7 @@ import { execFile } from "node:child_process"
 import { randomBytes } from "node:crypto"
 import http from "node:http"
 import { promisify } from "node:util"
+import type { ClientCapabilities } from "@modelcontextprotocol/client"
 import { Client, type OAuthClientProvider, StreamableHTTPClientTransport, UnauthorizedError } from "@modelcontextprotocol/client"
 
 const exec = promisify(execFile)
@@ -13,7 +14,7 @@ function openBrowser(url: URL) {
 }
 
 /** Use the same OAuth and HTTP MCP as chat connectors. Keep the authorization in this process only. */
-export async function signIn(address: URL, signal: AbortSignal, browse: (url: URL) => Promise<unknown> = openBrowser): Promise<Client> {
+export async function signIn(address: URL, signal: AbortSignal, browse: (url: URL) => Promise<unknown> = openBrowser, capabilities?: ClientCapabilities): Promise<Client> {
   const lifetime = AbortSignal.any([signal, AbortSignal.timeout(180_000)])
   const state = randomBytes(32).toString("base64url")
   let verifier = ""
@@ -88,7 +89,7 @@ export async function signIn(address: URL, signal: AbortSignal, browse: (url: UR
       },
     })
   const attempt = async (http: StreamableHTTPClientTransport) => {
-    const client = new Client({ name: "Flowbound agent plugin", version: "1" })
+    const client = new Client({ name: "Flowbound agent plugin", version: "1" }, { capabilities })
     try {
       await client.connect(http, { signal: lifetime })
       return client

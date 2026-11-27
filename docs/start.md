@@ -13,6 +13,8 @@ Over MCP, `search` finds tools and their inputs, and `execute` runs a few lines 
 call them (`return await flowbound.runs({ state: "running" })`); `npx flowbound execute "<code>"` does the same here.
 Return a run, table or workflow directly from `execute` when handing it to the person. This opens its view in
 supported chats and returns a web link for text-only chats. To open the app home, call `execute` without code.
+When the result says it is in the chat app, summarize it in one or two lines and leave the link to the
+app's **Open web page** button. In text-only chats, share the returned page link when the person can reach it.
 To pick a specific view without changing anything, return `{ flowboundView: { run: 123 } }` (or use `table`,
 `workflow` or `page`). Set `render: false` on background calls.
 The first local tool call sets up the open project folder and starts the database, runner and pages. The runner
@@ -48,8 +50,7 @@ the same with local Git. Engineers can use GitHub directly and see their pull re
 Read `changes` for the precise inputs, roles, and the owner's one-time setup. On staging, the project's directory
 in Git is `staging/` and its workflow paths in the connector still start with `workflows/`.
 
-The app inside chat uses the same connection you use. For a text-only local chat, summarize the result and give
-a web link when the person can reach it. Pages on the local machine use port 4111 by default. Deploy or set
+The app inside chat uses the same connection you use. Pages on the local machine use port 4111 by default. Deploy or set
 `FLOWBOUND_URL` to the address the person can reach to share links across devices. The signed-in website is where
 people change keys and access. A CSV can be imported from any path. Write the workflow from the provider's
 manual before its key is in, then make the real call once it is.

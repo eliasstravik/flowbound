@@ -5,18 +5,35 @@ const app = new App({ name: "Flowbound", version: "1.0.0" }, { availableDisplayM
 let display
 let context
 let stopSizing
+let fallback
 async function collapse() {
   stopSizing?.()
   stopSizing = undefined
   document.body.hidden = true
   await app.sendSizeChanged({ height: 0 })
 }
-app.ontoolresult = (result) => {
-  const view = result.structuredContent?.view
+app.ontoolresult = async (result) => {
+  const { view, report, role, tools } = result._meta?.flowbound ?? {}
   if (result.isError || !view) return collapse()
+  const query = new URLSearchParams(view.params)
+  fallback = view.url + view.path + (query.size ? "?" + query : "")
   document.body.hidden = false
-  display({ ...view, ...result._meta?.flowbound })
   stopSizing ??= app.setupSizeChangedNotifications()
+  let status = "error"
+  try {
+    const drawn = display({ ...view, role, tools })
+    fallback = undefined
+    if ((await drawn) !== false) status = "loaded"
+  } catch (error) {
+    window.fb.trouble(error)
+  }
+  if (report) {
+    void app.callServerTool({
+      name: "execute",
+      arguments: { code: "return null", render: false },
+      _meta: { "flowbound/view-status": { status, platform: context?.platform } },
+    }).catch(() => {})
+  }
 }
 app.ontoolcancelled = collapse
 app.onhostcontextchanged = (change) => update(change)
@@ -53,12 +70,12 @@ window.FB_BRIDGE = {
         window.fb.trouble(error)
       }
     } }, "Expand Flowbound")
-    const web = window.fb.h("button", { class: "btn", type: "button", "data-variant": "ghost", "data-size": "sm", disabled: true, onclick: () => window.fb.act(web, () => this.open(window.FB.url + window.fb.route())) }, "Open web page")
+    const web = window.fb.h("button", { class: "btn", type: "button", "data-variant": "ghost", "data-size": "sm", disabled: true, onclick: () => window.fb.act(web, () => this.open(fallback ?? (window.FB.url + window.fb.route()))) }, "Open web page")
     actions.replaceChildren(expand, web)
     actions.hidden = false
     display = (view) => {
       web.disabled = false
-      show(view)
+      return show(view)
     }
     await app.connect()
     update(app.getHostContext())

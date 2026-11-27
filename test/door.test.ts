@@ -100,11 +100,15 @@ async function live(opts: DoorOptions, url = U) {
     }
     return { call, go, tool, signIn: (as: string, to = "/people") => go(`/door/login?to=${encodeURIComponent(to)}`, as), jar }
   }
-  const rpc = async (token: string | undefined, method: string, params?: unknown) => {
+  const rpc = async (token: string | undefined, method: string, params?: unknown, session?: string) => {
     const res = await app.fetch(
       new Request(`${url}/mcp`, {
         method: "POST",
-        headers: { "content-type": "application/json", ...(token ? { authorization: `Bearer ${token}` } : {}) },
+        headers: {
+          "content-type": "application/json",
+          ...(token ? { authorization: `Bearer ${token}` } : {}),
+          ...(session ? { "mcp-session-id": session } : {}),
+        },
         body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
       }),
     )
@@ -395,7 +399,11 @@ test("a chat app signs in as a named person, and can never do more than they can
     assert.ok(got.access_token && got.refresh_token)
 
     // The same signed-in connection opens the app and calls tools as "Claude, for" the person.
-    const tools = (await fb.rpc(got.access_token, "tools/list")).body.result.tools
+    const capabilities = { extensions: { "io.modelcontextprotocol/ui": { mimeTypes: ["text/html;profile=mcp-app"] } } }
+    const init = await fb.rpc(got.access_token, "initialize", { protocolVersion: "2025-11-25", capabilities })
+    const session = init.headers.get("mcp-session-id")
+    assert.ok(session)
+    const tools = (await fb.rpc(got.access_token, "tools/list", {}, session)).body.result.tools
     assert.deepEqual(
       tools.map((t: any) => t.name),
       ["search", "execute"],
@@ -404,9 +412,17 @@ test("a chat app signs in as a named person, and can never do more than they can
     const uri = tools.find((t: any) => t.name === "execute")._meta.ui.resourceUri
     assert.equal((await fb.rpc(undefined, "resources/read", { uri })).status, 401)
     assert.equal((await fb.rpc(got.access_token, "resources/read", { uri })).body.result.contents[0].uri, uri)
-    const shown = await fb.rpc(got.access_token, "tools/call", { name: "execute", arguments: { code: 'return { flowboundView: { page: "permissions" } }' } })
-    assert.equal(shown.body.result.structuredContent.view.path, "/permissions")
+    const view = { name: "execute", arguments: { code: 'return { flowboundView: { page: "permissions" } }' } }
+    const shown = await fb.rpc(got.access_token, "tools/call", view, session)
+    assert.equal(shown.body.result._meta.flowbound.view.path, "/permissions")
     assert.equal(shown.body.result._meta.flowbound.role, "member")
+    assert.equal(shown.body.result.structuredContent.link, undefined)
+    const plain = await fb.rpc(got.access_token, "initialize", { protocolVersion: "2025-11-25", capabilities: {} })
+    assert.equal(plain.headers.get("mcp-session-id"), null)
+    assert.equal((await fb.rpc(got.access_token, "tools/list")).body.result.tools[1]._meta, undefined)
+    const linked = await fb.rpc(got.access_token, "tools/call", view)
+    assert.equal(linked.body.result.structuredContent.link, `${U}/permissions`)
+    assert.equal(linked.body.result._meta, undefined)
     const who = JSON.parse((await run("change")).body.result.content[0].text).who
     assert.deepEqual(who, { kind: "token", name: "Claude, for Maya Manager (maya@acme.example)", checked: true, via: "mcp", email: "maya@acme.example", role: "member", personName: "Maya Manager" })
     // Maya may approve: the app that acts for her passes her yes on, saved with its name. It still cannot manage.

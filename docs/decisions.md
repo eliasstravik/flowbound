@@ -22,9 +22,16 @@ also remove the project. The Changes guide records the old-role mapping and setu
 
 The [MCP Apps specification, 2026-01-26](https://github.com/modelcontextprotocol/ext-apps/blob/main/specification/2026-01-26/apps.mdx)
 links each tool to a fixed `ui://` resource at discovery. Flowbound offers just `search` and `execute` so the same
-call can do the work and open the result. `search` stays text. `execute` adds an app view and web link when the
-returned value is a run, table, workflow or explicit `flowboundView` selection. Calls without a view still return
-their normal text and structured result.
+call can do the work and open the result. `search` stays text. A run, table, workflow or explicit
+`flowboundView` selection opens the app when the connection declares support for MCP App HTML. The agent
+gets the result and a short instruction to summarize, and the app has **Open web page**. Text-only clients get
+the web link with the result. Calls without a view still return their usual text and structured result.
+
+Declaring support tells Flowbound it can send the view. The host mounts it after the tool returns. If the
+app starts and its page fails to draw, it keeps **Open web page** available. The demo logs the declared
+support at connection time and the page's load or error report when the bridge can reach the server.
+If the host never starts the frame, the frame cannot report back. The protocol provides no way to update
+the original tool result with a link at that point.
 
 The spec provides no result-level opt-out. The app starts hidden and reports a height of zero until a result
 selects a view. Claude documents that a zero-height iframe is invisible. ChatGPT documents the tool-level link
