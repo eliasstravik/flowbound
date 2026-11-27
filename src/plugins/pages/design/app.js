@@ -280,6 +280,7 @@ const fb = (() => {
   }
   /** Ask for this page to be refreshed in a while: for a run in progress. It rests while the tab is not looked at. */
   function poll(ms) {
+    if (bridge && document.body.hidden) return
     clearTimeout(timer)
     const mine = drawing
     timer = setTimeout(function again() {
@@ -442,6 +443,10 @@ const fb = (() => {
     poll,
     ui,
     redraw: () => draw(),
+    stopRefresh() {
+      drawing++
+      clearTimeout(timer)
+    },
     /** Each page file registers how it draws itself: fb.page("/runs", async (root, params) => { ... }) */
     page(path, render) {
       renders[path] = render

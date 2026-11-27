@@ -304,10 +304,12 @@ test("MCP offers search and execute when no app pages are installed", async () =
 
 test("MCP execute selects a view for displayable results and keeps other results plain", async () => {
   const url = "https://example.test/flowbound"
-  const run = { run: 2, page: `${url}/runs?run=2`, state: "waiting" }
+  const run = { run: 2, page: `${url}/runs?run=2`, state: "running", rows: { done: 1, of: 4 } }
+  const waiting = { ...run, state: "waiting", asks: { question: "Run the workflow?" } }
+  const done = { ...run, state: "done", rows: { done: 4, of: 4 } }
   const workflow = { id: "sample", page: `${url}/workflows?workflow=sample` }
   const table = { name: "sample", total: 4, columns: [], rows: [] }
-  const values = { run, workflow, table, guide: "# Guide", invalid: { flowboundView: { page: "keys" } }, pick: { flowboundView: { table: "example & test" } } }
+  const values = { run, waiting, done, workflow, table, guide: "# Guide", invalid: { flowboundView: { page: "keys" } }, pick: { flowboundView: { table: "example & test" } } }
   let calls = 0
   const behind = {
     about: async () => ({ url, live: true, tools: [] }),
@@ -337,11 +339,15 @@ test("MCP execute selects a view for displayable results and keeps other results
   assert.equal((await call({}))._meta.flowbound.view.path, "/runs")
   assert.equal(calls, 0)
   const shown = await call({ code: "run" })
-  assert.deepEqual(shown.structuredContent, { result: { run: 2, state: "waiting" }, logs: [] })
-  assert.ok(shown.content[0].text.includes("one or two lines"))
+  assert.deepEqual(shown.structuredContent, { result: { run: 2, view: "live" }, logs: [] })
+  assert.match(shown.content[0].text, /run view in chat is live and will show the outcome/)
+  assert.doesNotMatch(shown.content[0].text, /"rows"|"running"/)
   assert.ok(!shown.content[0].text.includes(url))
   assert.deepEqual(shown._meta.flowbound.view.params, { run: "2" })
   assert.equal(shown._meta.flowbound.role, "viewer")
+  assert.notEqual(shown._meta.flowbound.instance, (await call({ code: "run" }))._meta.flowbound.instance)
+  assert.deepEqual((await call({ code: "waiting" })).structuredContent.result, { run: 2, asks: waiting.asks, view: "live" })
+  assert.deepEqual((await call({ code: "done" })).structuredContent.result.rows, { done: 4, of: 4 })
   assert.deepEqual((await call({ code: "workflow" }))._meta.flowbound.view.params, { workflow: "sample" })
   assert.deepEqual((await call({ code: "table" }))._meta.flowbound.view.params, { table: "sample" })
   assert.deepEqual((await call({ code: "pick" }))._meta.flowbound.view.params, { table: "example & test" })
@@ -352,6 +358,31 @@ test("MCP execute selects a view for displayable results and keeps other results
   assert.deepEqual(linked.structuredContent, { result: run, logs: [], link: run.page })
   assert.ok(linked.content[0].text.includes(run.page))
   assert.equal(linked._meta, undefined)
+})
+
+test("execute waits for a run under the same tool permissions and within its time limit", async () => {
+  const seen: unknown[] = []
+  let nextState = "done"
+  const call = async (tool: string, input: unknown) => {
+    assert.equal(tool, "runs")
+    seen.push(input)
+    return { run: 7, state: seen.length === 1 ? "running" : nextState }
+  }
+  const waiting = "return await flowbound.wait({ run: 7, seconds: 0.02 })"
+  assert.deepEqual((await execute(waiting, call)).result, { run: 7, state: "done" })
+  assert.deepEqual(seen, [{ run: 7 }, { run: 7 }])
+  nextState = "paused"
+  assert.deepEqual((await execute(waiting, call)).result, { run: 7, state: "paused" })
+  await assert.rejects(execute("return await flowbound.wait({ run: 7, seconds: 31 })", call), /seconds from 0 to 30/)
+  await assert.rejects(execute("return await flowbound.wait({ run: 0 })", call), /run's number/)
+  await assert.rejects(
+    execute(waiting, async () => {
+      throw new Error("No access")
+    }),
+    /No access/,
+  )
+  const short = await execute("return await flowbound.wait({ run: 7 })", async () => ({ run: 7, state: "running" }), { timeoutMs: 250 })
+  assert.deepEqual(short.result, { run: 7, state: "running" })
 })
 
 test("execute runs code in a sandbox of its own: it reaches only the tools, as the caller, with time and memory capped", async () => {
