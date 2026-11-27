@@ -45,8 +45,7 @@ what is needed. Every tool is also a command: `npx flowbound <tool>`.
 
 ## Made first for
 
-**GTM engineers,** at agencies or inside companies: technical enough to love it and come up with new uses for it.
-It's simple enough that you don't need Clay-level know-how.
+**GTM engineers** at agencies or inside companies can build workflows with an agent and share them with their team.
 
 | | |
 | --- | --- |
@@ -56,8 +55,8 @@ It's simple enough that you don't need Clay-level know-how.
 
 ## Where it's going
 
-**The next-generation, agent-first Clay.** You run workflows, and you store and enrich your GTM data in it. Your CRM,
-email sequencer and the rest stay separate tools.
+**GTM workflows from your agent.** Build company lists, research contacts, and enrich your data with your own
+provider accounts. Flowbound keeps each result with its source, date, and cost.
 
 ## Your data
 
