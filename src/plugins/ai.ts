@@ -1,7 +1,7 @@
 // A model is a provider card like any other, named "ai": the key, the one allowed address, the memory, the try-out,
 // the estimate and the cap are the ones data providers have. Each answer is priced from its own token usage, and
 // the worst case of a call is held against the cap before it is made.
-// One way only: a model key typed on the keys page (or a host that adds it). A model is a provider.
+// One way only: a model key typed on the Connections page (or a host that adds it). A model is a provider.
 import { type Flowbound, use } from "../core/plugin.ts"
 import { Refused } from "../core/server.ts"
 import type { Answer } from "./ledger.ts"
@@ -101,7 +101,7 @@ export const ai = (opts: AiOptions = {}) => {
     ...Object.fromEntries(Object.entries(opts).filter(([k]) => !["model", "maxTokens", "effort", "prices"].includes(k))),
   }
   const own = card.host === "api.anthropic.com"
-  // A key typed on the keys page is tried here first, at no cost.
+  // A key typed on the Connections page is tried here first, at no cost.
   if (own && card.check === undefined) card.check = "/v1/models?limit=1"
   const base = provider(card)
   const startCard = base.start!
@@ -166,7 +166,7 @@ export const ai = (opts: AiOptions = {}) => {
     tools: {
       [card.name]: {
         about:
-          "Ask the model one question about some input, as a workflow step would, on the model key typed on the keys page. Paid per token, priced from the answer's own usage. The same question about the same input is answered from memory.",
+          "Ask the model one question about some input, as a workflow step would, on the model key typed on the Connections page. Paid per token, priced from the answer's own usage. The same question about the same input is answered from memory.",
         price: priceText,
         input: {
           question: { about: "what to ask", required: true },

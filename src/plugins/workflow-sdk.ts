@@ -244,7 +244,7 @@ export const workflowSdk = (opts: { on?: Home; editor?: string; vercel?: string 
   const hint = (v: View) => {
     const t = (v as any).tryout
     if (v.asks)
-      return `It waits for the person's yes: ${v.asks.question} Pass their answer on: npx flowbound yes ${v.run}${v.asks.suggestUsd ? ` --max-usd ${v.asks.suggestUsd.toFixed(2)}` : ""} (or: npx flowbound no ${v.run}). It also shows under Needs you: ${v.page.replace(/\/runs\?run=\d+$/, "/needs")}`
+      return `It waits for the person's yes: ${v.asks.question} Pass their answer on: npx flowbound yes ${v.run}${v.asks.suggestUsd ? ` --max-usd ${v.asks.suggestUsd.toFixed(2)}` : ""} (or: npx flowbound no ${v.run}). It also shows on Home: ${v.page.replace(/\/runs\?run=\d+$/, "/needs")}`
     if (v.state === "done" && t) {
       if (t.filledNothing) return `It filled no field, so a full run is blocked. Try another provider or call first. To run it as it is, add --anyway.`
       return t.left
@@ -505,7 +505,7 @@ export const workflowSdk = (opts: { on?: Home; editor?: string; vercel?: string 
         // Rows already in the air when a run stops are allowed to finish, so the count is filled in when it is read
         // ({n} rows done, {left} left), not frozen as it was in this instant.
         if (stop[1] === "cap") {
-          // A hit cap pauses the run and puts a yes under Needs you: it waits there until the person answers.
+          // A hit cap pauses the run and puts a yes on Home: it waits there until the person answers.
           await q(`update ${S}.runs set state = 'paused', code = 'cap', cap_kind = $2, reason = $3, finished_at = now() where id = $1 and state = 'running'`, [
             r.id,
             stop[2] ?? `run:${r.id}`,
@@ -816,7 +816,7 @@ export const workflowSdk = (opts: { on?: Home; editor?: string; vercel?: string 
       },
       run: {
         about:
-          "Run a workflow over its list, under the person's permissions. With try: the first rows not done yet (at most 10). Without: the rows that are left, after a finished try-out. Ask mode: a paid run waits for the person's yes (pass it on with the yes tool). Auto: it runs inside the caps, and pauses with a yes under Needs you when one is reached. Skip: no caps. A budget the person said in chat (\"don't spend more than $5\") is maxUsd: that run's cap in every mode.",
+          "Run a workflow over its list, under the person's permissions. With try: the first rows not done yet (at most 10). Without: the rows that are left, after a finished try-out. Ask mode: a paid run waits for the person's yes (pass it on with the yes tool). Auto: it runs inside the caps, and pauses with a yes on Home when one is reached. Skip: no caps. A budget the person said in chat (\"don't spend more than $5\") is maxUsd: that run's cap in every mode.",
         input: {
           workflow: { about: "the workflow's id: its file name without .ts", required: true },
           try: { type: "number", about: "try-out on this many rows (at most 10)" },
@@ -959,7 +959,7 @@ export const workflowSdk = (opts: { on?: Home; editor?: string; vercel?: string 
         print,
       },
     },
-    /** For Needs you: a yes that waits, a workflow file that is not well formed, a run that stopped short, and a run that seems stuck. */
+    /** For Home: a yes that waits, a workflow file that is not well formed, a run that stopped short, and a run that seems stuck. */
     async attention() {
       const out: Attention[] = []
       for (const r of await q<Run>(`select * from ${S}.runs where state = 'waiting' or (state = 'paused' and code = 'cap') order by id desc limit 20`)) {
@@ -988,7 +988,7 @@ export const workflowSdk = (opts: { on?: Home; editor?: string; vercel?: string 
         const v = await view(r)
         out.push({
           what: `${r.title}, run ${r.id}: ${v.why ?? `it ${r.state} with ${r.total - v.rows.done} rows left.`}`,
-          fix: r.code === "changed" ? "A changed workflow file needs a new try-out and a new run." : "Fix the cause (a key on the Keys page, a speed limit on the card), then ask your agent to carry on.",
+          fix: r.code === "changed" ? "A changed workflow file needs a new try-out and a new run." : "Fix the cause (a key on the Connections page, a speed limit on the card), then ask your agent to carry on.",
           page: "/runs",
           params: { run: r.id },
         })

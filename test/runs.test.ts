@@ -32,7 +32,7 @@ test("records: a CSV becomes a list table, in a database inside the project fold
 test("keys: a missing key stops the run before anything is spent", async () => {
   const out = await p.fb("run find-sales-heads --try 10")
   assert.match(out, /stopped/)
-  assert.match(out, /FakeData has no key yet\. Add it on the keys page/)
+  assert.match(out, /FakeData has no key yet\. Add it on the Connections page/)
   assert.equal(provider.state.calls, 0)
 })
 
@@ -80,7 +80,7 @@ test('ledger: the same call again is answered from memory, and "not found" is re
   assert.equal(provider.state.calls, before)
 })
 
-test("a budget said in chat is the run's cap: the run pauses at it, nothing more is spent, and a yes waits under Needs you", async () => {
+test("a budget said in chat is the run's cap: the run pauses at it, nothing more is spent, and a yes waits on Home", async () => {
   const out = await p.fb("run find-sales-heads --max-usd 0.02 --wait")
   assert.match(out, /\(waits for a yes\)/)
   assert.match(out, /Spent\s+\$0\.02 of \$0\.02/)

@@ -71,7 +71,7 @@ export const treg = (over: Over = {}) =>
 /**
  * HubSpot: a CRM that Flowbound can read and write, under the same permissions. Its API has no price per call, so a
  * call costs $0; a write counts by number against the write caps (writesPerRun, writesPerMonth). Searches are POST
- * but only read. A private app's token, typed on the Keys page.
+ * but only read. A private app's token, typed on the Connections page.
  */
 export const hubspot = (over: Over = {}) =>
   provider({

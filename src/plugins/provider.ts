@@ -21,7 +21,7 @@ export type Card = {
   rate?: { perSecond?: number; perMinute?: number }
   /** A path that answers a good key with 2xx and a bad one with 401 or 403, at no cost: a typed key is tried there before it is saved. */
   check?: string
-  /** Why the key is needed, shown under its field on the keys page. */
+  /** Why the key is needed, shown under its field on the Connections page. */
   hint?: string
   /** For a card that also works with no key on a person's own computer: one line saying how. A missing key is then not a problem there. */
   without?: string
@@ -95,7 +95,7 @@ export async function answerOf(card: { label: string; name: string; key: boolean
   if (res.status === 429 || res.status >= 500)
     throw new Again(`${label} refused the call with ${res.status}${res.status === 429 ? ' "too many requests"' : why}.`, Number(res.headers.get("retry-after")) * 1000 || undefined)
   if (res.status === 401 || res.status === 403)
-    throw new Refused(card.key ? `${label} refused the key${why}. Check it on the keys page.` : `${label} refused the call, which went without a key${why}.`, { code: "no-key", card: card.name })
+    throw new Refused(card.key ? `${label} refused the key${why}. Check it on the Connections page.` : `${label} refused the call, which went without a key${why}.`, { code: "no-key", card: card.name })
   if (res.status === 402) throw new Refused(`${label} says the account has no credit left${why}.`, { code: "no-key", card: card.name })
   if (res.status >= 300 && res.status !== 404) throw new Refused(`${label} did not accept the request: ${res.status}${why}. Nothing was spent on it. Check the call against the manual: ${card.docs}`, { code: "failed" })
   return { status: res.status, headers: Object.fromEntries(res.headers), data }

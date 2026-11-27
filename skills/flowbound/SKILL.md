@@ -22,13 +22,13 @@ with `workflow-save`. Show the change link and check its preview with `workflow-
 it is live. Use `workflow-undo` to save a revert for the same checks. Engineers can keep working directly in Git.
 
 When something seems off, or before you say all is well: `npx flowbound doctor` lists what needs the person
-(also on the page under Needs you), each with the one thing to do.
+(also on the page on Home), each with the one thing to do.
 
 Every run is held to the person's permissions (`npx flowbound permissions`): ask every time, auto inside caps, or
 skip. A budget they say in chat is `--max-usd`. Whole workflow files for common shapes: `npx flowbound docs recipes`.
 
 Three rules hold everywhere: never ask the person for a provider key or a webhook's signing secret in the chat (they
-are typed on the Keys page); never say yes for them: when a run waits for a yes, show the question word for word and
+are typed on the Connections page); never say yes for them: when a run waits for a yes, show the question word for word and
 pass on their own answer (`npx flowbound yes <run>` or `no <run>`), and never widen their permissions unasked; and
 write a plain summary and a diagram (`export const summary`, and `export const diagram`, a Mermaid flowchart with a
 `click <box> <function>` line for every step) in every workflow file, for the people who read it on the page, and

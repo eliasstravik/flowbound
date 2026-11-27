@@ -112,7 +112,7 @@ test("a workflow or provider can have its own mode or caps; the strictest one wi
   assert.equal((await json("workflows")).find((w: any) => w.id === "find-sales-heads").mode, "auto", "a rule for a provider the workflow does not use is not its rule")
 })
 
-test("writes to other tools count by number: a hit write cap pauses the run with a yes under Needs you, and a write is never answered from memory", async () => {
+test("writes to other tools count by number: a hit write cap pauses the run with a yes on Home, and a write is never answered from memory", async () => {
   await config('{ mode: "auto", caps: { perRun: 5, writesPerRun: 4 } }')
   const before = provider.state.calls
   const first = await json("run crm/sync-heads --try 2")

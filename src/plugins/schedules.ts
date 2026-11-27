@@ -134,12 +134,12 @@ export const schedules = () => {
     }
     // While a yes waits for this workflow (asked first, or paused at a cap), its schedule skips: one question at a time.
     const waits = await auto().waitingYes(wf.id)
-    if (waits) return say("skipped", `Run ${waits} of "${wf.id}" waits for a yes under Needs you, so this time was skipped. Rows are kept.`, waits)
+    if (waits) return say("skipped", `Run ${waits} of "${wf.id}" waits for a yes on Home, so this time was skipped. Rows are kept.`, waits)
     const rows = await auto().rowsLeft(wf)
     if (rows <= 0) return say("nothing", `No rows are left to do in ${wf.from}.`)
     const r = await auto().launch({ wf, kind: d.kind, by: by(d) })
     if (!r) return say("waiting", `A run of "${wf.id}" started in the same moment, so this time was skipped.`)
-    if (r.state === "waiting") return say("asked", `Run ${r.run} for ${rows} ${rows === 1 ? "row" : "rows"} waits for a yes under Needs you (ask mode).`, r.run)
+    if (r.state === "waiting") return say("asked", `Run ${r.run} for ${rows} ${rows === 1 ? "row" : "rows"} waits for a yes on Home (ask mode).`, r.run)
     return say("ran", `Started run ${r.run} for ${rows} ${rows === 1 ? "row" : "rows"}, under the permissions.`, r.run)
   }
 
@@ -174,7 +174,7 @@ export const schedules = () => {
     // The rule: the sender's signature first, over the raw bytes, before anything is parsed or done.
     const sig = await signed(h, d.name, raw, req.headers)
     if (sig !== "ok") {
-      if (sig === "no secret") await noted({ name: d.name, outcome: "refused", note: `A delivery was refused: no signing secret is saved for this webhook yet. A person types it on the keys page.` })
+      if (sig === "no secret") await noted({ name: d.name, outcome: "refused", note: `A delivery was refused: no signing secret is saved for this webhook yet. A person types it on the Connections page.` })
       return reply(401, { error: `The signature in "${header}" is missing or wrong. Nothing was taken in.` })
     }
     let rows: Record<string, string>[]
@@ -331,7 +331,7 @@ export const schedules = () => {
           const one = (s: Awaited<ReturnType<typeof shown>>) =>
             [
               `${s.title} (${s.kind}): "${s.workflow}", ${s.when}`,
-              s.webhook ? `  address ${s.webhook.address}, signing secret ${s.webhook.secretSaved ? "saved" : "not saved yet (typed on the Keys page)"}` : "",
+              s.webhook ? `  address ${s.webhook.address}, signing secret ${s.webhook.secretSaved ? "saved" : "not saved yet (typed on the Connections page)"}` : "",
               s.recent[0] ? `  last: ${s.recent[0].note}` : "  has not fired yet",
             ]
               .filter(Boolean)
@@ -346,13 +346,13 @@ export const schedules = () => {
         print: (f: Fired) => f.note,
       },
     },
-    /** For Needs you: a webhook with no signing secret. */
+    /** For Home: a webhook with no signing secret. */
     async attention() {
       const out: Attention[] = []
       const cards = fb.has("keys") ? await fb.use<Keys>("keys").cards() : []
       for (const d of declared())
         if (d.kind === "webhook" && !cards.find((c) => c.name === d.name)?.hasKey)
-          out.push({ what: `The webhook "${d.name}" has no signing secret, so every delivery is refused.`, fix: "Type the secret the sender signs with on the Keys page, never in a chat.", page: "/keys" })
+          out.push({ what: `The webhook "${d.name}" has no signing secret, so every delivery is refused.`, fix: "Type the secret the sender signs with on the Connections page, never in a chat.", page: "/keys" })
       return out
     },
     docs: asset("schedules/schedules.md"),

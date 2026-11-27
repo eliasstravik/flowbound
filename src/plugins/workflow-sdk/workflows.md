@@ -124,7 +124,7 @@ question about the same input is answered from memory. Before each call the most
 whole prompt, and `maxTokens` of answer), so keep the input to what the question needs and pass
 `{ maxTokens: 300 }` as a third argument when the answer is short.
 
-It runs on the model key the person types on the Keys page, here and live. See "AI model" under the provider cards
+It runs on the model key the person types on the Connections page, here and live. See "AI model" under the provider cards
 (`npx flowbound docs ai`).
 
 ### Your own tables
@@ -165,7 +165,7 @@ Every run is held to the permissions in `flowbound.config.ts` (`npx flowbound pe
   question; ask the person, word for word, and pass their answer on.
 - **skip**: it just runs, with no caps.
 - A budget the person says in chat ("don't spend more than $5") is `--max-usd 5`: that run's cap, in every mode.
-- When a cap is reached the run pauses, and its yes waits under Needs you (`/needs`) and in `npx flowbound doctor`.
+- When a cap is reached the run pauses, and its yes waits on Home (`/home`) and in `npx flowbound doctor`.
   Ask the person; pass on a yes with `npx flowbound yes <run>` (`--max-usd <n>` when they name a new cap) or a no
   with `npx flowbound no <run>`. Never say yes for them, and never widen the permissions in flowbound.config.ts unless
   they ask you to.

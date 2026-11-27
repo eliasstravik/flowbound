@@ -1,4 +1,4 @@
-// A table read a page at a time, searched and sorted in the database: what the Tables page shows of 10,000 rows.
+// A table read a page at a time, searched and sorted in the database: what the Data page shows of 10,000 rows.
 import assert from "node:assert/strict"
 import fs from "node:fs"
 import path from "node:path"

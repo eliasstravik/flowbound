@@ -114,13 +114,13 @@ test("the wall knows a private share: the name in FLOWBOUND_URL, a tailnet name,
   assert.equal(foreign(req({ host: "192.168.1.20:4111" }, "GET"), fb), undefined, "an address is not a name anybody can point elsewhere")
 })
 
-test("Needs you says what needs a person, each with the one thing to do: here, the keys the workflows use and a webhook with no signing secret", async () => {
+test("Home says what needs a person, each with the one thing to do: here, the keys the workflows use and a webhook with no signing secret", async () => {
   const d = await doctor()
   assert.equal(d.ok, false)
   assert.deepEqual(d.checked, ["ledger", "workflow-sdk", "keys", "door", "schedules"])
   const fake = d.needs.find((n) => /^FakeData has no key/.test(n.what))!
   assert.equal(fake.what, "FakeData has no key, and Find sales heads needs it.")
-  assert.match(fake.fix, /^Type it on the Keys page, never in a chat\./)
+  assert.match(fake.fix, /^Type it on the Connections page, never in a chat\./)
   assert.equal(fake.link, `${p.url()}/keys`)
   assert.equal((await says(/^Acme has no key/))!.what, "Acme has no key, and Find heads two sources, Find people and People emails need it.")
   // A model is a provider like any other: a workflow that asks it needs its key.
@@ -128,7 +128,7 @@ test("Needs you says what needs a person, each with the one thing to do: here, t
   assert.match((await says(/^The webhook "bookings"/))!.what, /has no signing secret, so every delivery is refused/)
   const out = await p.fb("doctor")
   assert.match(out, /^\d+ things need a person:\n1\. /)
-  assert.match(out, /Do: Type it on the Keys page, never in a chat/)
+  assert.match(out, /Do: Type it on the Connections page, never in a chat/)
   assert.match(out, /Looked at: ledger, workflow-sdk, keys, door, schedules\./)
 })
 
@@ -212,7 +212,7 @@ test("one run of a workflow at a time: a second start is refused with the number
   assert.deepEqual([r.state, r.rows.done + r.rows.failed], ["done", 15])
 })
 
-test("Needs you shows the yes a run paused at its cap waits for, and finds a run that says it is running while nothing moves", async () => {
+test("Home shows the yes a run paused at its cap waits for, and finds a run that says it is running while nothing moves", async () => {
   fs.writeFileSync(path.join(p.root, "more.csv"), p.csv(31, 60))
   await p.fb("import more.csv --as target_list --add")
   await p.fb("run find-sales-heads --try 2")
@@ -224,7 +224,7 @@ test("Needs you shows the yes a run paused at its cap waits for, and finds a run
   assert.match(cap.fix, /^Tell your agent yes \(it passes it on: npx flowbound yes \d+ --max-usd 0\.02\), or Not now\./)
   assert.equal(cap.link, `${p.url()}/runs?run=${capped.run}`)
   // While that yes waits, the workflow's schedule skips: one question at a time.
-  assert.match(await p.fb("schedule-run weekly"), new RegExp(`Run ${capped.run} of "find-sales-heads" waits for a yes under Needs you, so this time was skipped`))
+  assert.match(await p.fb("schedule-run weekly"), new RegExp(`Run ${capped.run} of "find-sales-heads" waits for a yes on Home, so this time was skipped`))
   // A run nobody is doing: it says running, and no row has moved for two hours.
   await sql(`update fb_workflow_sdk.rows set at = now() - interval '2 hours' where run = ${capped.run}`)
   await sql(`update fb_workflow_sdk.runs set state = 'running', code = null, reason = null, finished_at = null, started_at = now() - interval '2 hours' where id = ${capped.run}`)
@@ -250,16 +250,24 @@ test("Not now stops a run that waits for a yes; a schedule then runs again, unde
   assert.equal(out.yesBy, "not needed (auto inside caps)")
 })
 
-test("Needs you leads the tabs and is where the address lands; a list without it still lands on the runs", async () => {
+test("Home leads the menu and is where the address lands; the menu has a line before where you set things up; a list without Home still lands on the runs", async () => {
   const home = await fetch(`${p.url()}/`, { redirect: "manual" })
-  assert.equal(home.headers.get("location"), "/needs")
-  const html = await (await fetch(`${p.url()}/needs`)).text()
-  const tabs = [...html.slice(html.indexOf('<nav class="menu"'), html.indexOf("</nav>")).matchAll(/<a href="([^"]+)"[^>]*>([^<]+)<\/a>/g)].map((m) => `${m[1]} ${m[2]}`)
-  assert.deepEqual(tabs, ["/needs Needs you", "/runs Runs", "/tables Tables", "/workflows Workflows", "/changes Changes", "/keys Keys", "/permissions Permissions"])
-  assert.match(html, /<section data-page="\/needs" hidden>/)
-  assert.match(html, /class="brand" href="\/" data-go="\/needs"/)
-  // Gone: the page of every raw table, the lists page, the schedules page, and live-only pages on your own computer.
-  for (const gone of ["/data", "/lists", "/standing", "/overview", "/people", "/connect"]) assert.equal((await fetch(`${p.url()}${gone}`)).status, 404, gone)
+  assert.equal(home.headers.get("location"), "/home")
+  const html = await (await fetch(`${p.url()}/home`)).text()
+  const nav = html.slice(html.indexOf('<nav class="menu"'), html.indexOf("</nav>"))
+  const tabs = [...nav.matchAll(/<hr class="sep">|<a href="([^"]+)"[^>]*>([^<]+)(?:<span class="count"[^>]*><\/span>)?<\/a>/g)].map((m) => (m[1] ? `${m[1]} ${m[2]}` : "--"))
+  assert.deepEqual(tabs, ["/home Home", "/workflows Workflows", "/runs Runs", "/schedules Schedules", "/tables Data", "--", "/keys Connections", "/connect Agents", "/permissions Permissions"])
+  // Changes is not in the menu: a line under it says how many are not live yet, once the page has asked.
+  assert.match(nav, /<a class="publish" href="\/changes" data-go="\/changes" data-changes hidden><\/a>/)
+  assert.match(html, /<section data-page="\/home" hidden>/)
+  assert.match(html, /class="brand" href="\/" data-go="\/home"/)
+  // Home's old address still opens Home, for links and agents that have it.
+  const old = await (await fetch(`${p.url()}/needs`)).text()
+  assert.match(old, /<title>Home · Flowbound<\/title>/)
+  assert.match(old, /<a href="\/home" data-go="\/home" aria-current="page">Home/)
+  assert.equal((await fetch(`${p.url()}/schedules`)).status, 200)
+  // Gone: the page of every raw table, the lists page and the old overview; People is only live.
+  for (const gone of ["/data", "/lists", "/standing", "/overview", "/people"]) assert.equal((await fetch(`${p.url()}${gone}`)).status, 404, gone)
   const { pages } = await import("../src/plugins/pages.ts")
   const { boot } = await import("../src/core/server.ts")
   const app = await boot([pages(), { name: "x", pages: { "/runs": { title: "Runs", file: path.join(repo, "src/plugins/workflow-sdk/runs.html"), menu: true } } }], { root: p.root, url: "http://localhost:1" })
@@ -400,6 +408,19 @@ test("init --example: a small made-up list and a workflow that needs no key, tri
     assert.deepEqual(rows[2].slice(1, 3), ["bluebird-logistics.example", "Bluebird Logistics"])
     assert.deepEqual(rows[7].slice(1, 3), [null, "Harbor & Pine"], "an empty website is not found, not a made-up domain")
     assert.equal(provider.state.models.length >= 0 && JSON.parse(await run("spend --json")).thisMonth.length, 0, "no provider was called")
+    // Home's Get started ticked itself: Flowbound started, an agent (here the command line) reached it, the free sample
+    // ran once. No key is saved yet, so the list stays on Home.
+    const started = JSON.parse(await run("get-started --json"))
+    assert.deepEqual(
+      started.items.map((i: any) => [i.title, i.done]),
+      [
+        ["Set up Flowbound", true],
+        ["Connect an agent", true],
+        ["Run the free sample", true],
+        ["Add a connection", false],
+      ],
+    )
+    assert.equal(started.all, false)
     // Asked again, it changes nothing and runs nothing twice.
     assert.doesNotMatch(await fresh.fb("init --example"), /an example that needs no key/)
   } finally {

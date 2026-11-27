@@ -129,15 +129,17 @@ Left to the agent: how workflows are written, retries, which provider first, sco
 
 ## The page, on your phone
 
-Six tabs: **Needs you** · Runs · Tables · Workflows · Keys · Permissions.
+The menu: **Home** · Workflows · Runs · Schedules · Data, then Connections · Agents · Permissions.
 
-- Needs you: each yes that waits ("Run Find sales heads on 200 rows, stop at $1.60?"), and a key that is missing
-  ("Firecrawl needs a key · type it on the Keys page, never in a chat").
-- Tables: your results, each cell with its source, age and cost; upload a list as CSV; download as CSV.
-- Workflows: your agent's summary and diagram; with none yet, "No summary yet: ask your agent to write one", then
-  the code.
+- Home: talk to Flowbound from your own agent; what needs attention (each yes that waits, "Run Find sales heads on
+  200 rows, stop at $1.60?", and a key that is missing); recent runs; this month's spend. On a first day, a Get
+  started list that ticks itself.
+- Workflows: in folders, like a drive. Each workflow has its diagram (drawn from the agent's Mermaid flowchart; tap a
+  step for its code), its code, its runs and its data, and says what starts it.
 - Runs: what ran, what failed and why.
-- Keys: keys are typed only here.
+- Schedules: every schedule and webhook, with the next time.
+- Data: your results, each cell with its source, age and cost; upload a list as CSV; download as CSV.
+- Connections: keys are typed only here.
 - Permissions: the mode, the caps and what this month has used.
 
 ## A workflow, on the page

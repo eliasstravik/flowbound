@@ -85,6 +85,6 @@ export const cli = () =>
     }),
     docs: `## The command line
 Every tool is a command: \`flowbound <tool> [words] [--flags]\`. The words fill the tool's inputs in order; \`--help\` after any command lists them.
-Add \`--json\` for the raw answer, and \`--live\` to ask the live Flowbound instead of this computer (the live token is typed on the keys page).
+Add \`--json\` for the raw answer, and \`--live\` to ask the live Flowbound instead of this computer (the live token is typed on the Connections page).
 The commands start Flowbound in the background when it is not running. Its log is \`.flowbound/dev.log\`.`,
   })

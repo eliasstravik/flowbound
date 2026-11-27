@@ -38,7 +38,7 @@ permissions: {
 - A budget the person says in chat ("don't spend more than $5") is that run's cap in every mode: `--max-usd 5`.
 - Before a call, the most it could cost is set aside against every cap that holds it; what the provider reports
   replaces it afterwards; a failed call is released and costs nothing.
-- When a cap is reached the run pauses and a yes waits under Needs you, saying which cap. Ask the person, word for
+- When a cap is reached the run pauses and a yes waits on Home, saying which cap. Ask the person, word for
   word, and pass their answer on: `npx flowbound yes <run>` (with `--max-usd <n>` when they name a new cap) or
   `npx flowbound no <run>`. A yes on the run's own cap sets a new cap; on this month's, a provider's or the write cap,
   it lifts that cap for that run only. Never say yes for the person.

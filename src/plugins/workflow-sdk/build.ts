@@ -42,7 +42,7 @@ export type Manifest = { workflows: Record<string, Wf>; ids: { run: string; row:
 
 /**
  * Every name a workflow file reaches with use("..."), also in the files of its own it imports ("./lib/find.ts").
- * It reads the text, so a name put together while running (use(which)) is not seen: the keys page says "used by"
+ * It reads the text, so a name put together while running (use(which)) is not seen: the Connections page says "used by"
  * for what a file names plainly, never "not used".
  */
 export function usesOf(file: string, text = fs.readFileSync(file, "utf8"), seen = new Set<string>()): string[] {

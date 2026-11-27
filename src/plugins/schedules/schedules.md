@@ -22,7 +22,7 @@ export default {
   runs them. `key` is the column that says two deliveries are the same row; without it the whole row is compared.
 
 A run they start is a run like any other, **under the person's permissions**: in auto it spends inside the caps, in
-ask it waits for the person's yes under Needs you, in skip it just runs. While a yes waits for a workflow (asked
+ask it waits for the person's yes on Home, in skip it just runs. While a yes waits for a workflow (asked
 first, or paused at a cap), its schedule skips: one question at a time. To keep what runs by itself small, give it a
 rule of its own: `permissions: { workflows: { "find-sales-heads": { perRun: 2, perMonth: 10 } } }` (the strictest
 rule wins). Caps never go in a workflow file.
@@ -49,7 +49,7 @@ are tried again each time; a failed call costs nothing.
    Give it two or three sample rows so it can have its try-out: `npx flowbound import sample.csv --as leads`.
 2. Add the `hook({ ... })` line. `npx flowbound schedules new-leads` shows its address and that no signing secret is
    saved yet.
-3. **The signing secret** is typed by the person on the Keys page, like any key ("New leads webhook: signing
+3. **The signing secret** is typed by the person on the Connections page, like any key ("New leads webhook: signing
    secret"). It is the secret the sender signs with: the one the sender shows them, or a long random one they make
    up and give the sender too. Never ask for it in the chat and never put it in a command or a file.
 4. Tell them how the sender must sign. Each delivery is a `POST` to the address with a JSON object (or a list of up
