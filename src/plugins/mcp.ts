@@ -11,11 +11,12 @@ import { findRoot } from "../core/load.ts"
 import { ensure, join } from "../core/local.ts"
 import { type Flowbound, plugin } from "../core/plugin.ts"
 import { about } from "../core/server.ts"
+import catalog from "./mcp/catalog.json" with { type: "json" }
 import { execute } from "./mcp/execute.ts"
 
 type About = { url: string; live: boolean; tools: { name: string; about: string; input: Record<string, { type?: string; about: string; required?: boolean }>; price?: string; docs?: string }[] }
 /** What the MCP door needs from the Flowbound behind it. The same two calls locally (over HTTP) and live (in process). */
-type Behind = { about: () => Promise<About>; call: (tool: string, input: unknown) => Promise<unknown> }
+type Behind = { about: (project?: unknown) => Promise<About>; call: (tool: string, input: unknown, project?: unknown) => Promise<unknown> }
 type Rpc = { jsonrpc: "2.0"; id?: number | string; method: string; params?: any }
 
 const version = () => {
@@ -25,29 +26,9 @@ const version = () => {
     return "0"
   }
 }
-const VERSIONS = ["2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05"]
 // Chat apps that run in a browser call from another origin. The token is the only way in, so any origin may ask.
 const CORS = { "access-control-allow-origin": "*", "access-control-allow-headers": "authorization, content-type, mcp-protocol-version, mcp-session-id", "access-control-allow-methods": "POST, OPTIONS" }
 const text = (s: string, more = {}) => ({ content: [{ type: "text", text: s }], ...more })
-
-const TOOLS = [
-  {
-    name: "search",
-    title: "Find Flowbound tools",
-    annotations: { readOnlyHint: true },
-    description:
-      "Find Flowbound tools and read their inputs and prices. Leave query empty to list every tool. Search docs for the current guide, available without a shell. Flowbound runs GTM workflows (list building, research, enrichment) and keeps every paid fact, on the person's own data provider keys, under their permissions.",
-    inputSchema: { type: "object", properties: { query: { type: "string", description: "words to look for, like: run, table, import, lookup, firecrawl" } } },
-  },
-  {
-    name: "execute",
-    title: "Run code against Flowbound",
-    annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: true },
-    description:
-      'Run JavaScript that calls Flowbound tools and returns what you need. Each tool is an async function: `return await flowbound.runs({ state: "running" })`, `await flowbound["schedule-run"]({ name })`. Call several with Promise.all, filter big answers before returning them, console.log to see steps. It reaches only the tools, as you, with your rights: no files, no network, no keys. Find tools and their inputs with search first.',
-    inputSchema: { type: "object", properties: { code: { type: "string", description: "the body of an async function; return the answer" } }, required: ["code"] },
-  },
-]
 
 export async function answer(msg: Rpc, behind: Behind): Promise<object | undefined> {
   const ok = (result: unknown) => ({ jsonrpc: "2.0", id: msg.id, result })
@@ -55,20 +36,19 @@ export async function answer(msg: Rpc, behind: Behind): Promise<object | undefin
   try {
     if (msg.method === "initialize")
       return ok({
-        protocolVersion: VERSIONS.includes(msg.params?.protocolVersion) ? msg.params.protocolVersion : VERSIONS[0],
+        protocolVersion: catalog.versions.includes(msg.params?.protocolVersion) ? msg.params.protocolVersion : catalog.versions[0],
         capabilities: { tools: {} },
         serverInfo: { name: "flowbound", version: version() },
-        instructions:
-          'Flowbound: GTM workflows and kept facts on the person\'s own data provider keys, under their permissions. Use search to find tools, execute to call them in a few lines of JavaScript. First read the current guide: execute `return await flowbound.docs({ topic: "start" })`. Read a part with topic "workflow-sdk", "ledger", or "recipes"; topic "topics" lists them. No shell needed. Workflows are TypeScript files in the project Git repo. To edit from chat, read the guide topic "changes", read the file with workflow-file, and use workflow-save to save a branch. Use workflow-change for checks and preview. Publish only when the person asks you to publish this change. GitHub rules still apply. People see everything on Flowbound\'s page: give them its links.',
+        instructions: catalog.instructions,
       })
     if (msg.method === "ping") return ok({})
-    if (msg.method === "tools/list") return ok({ tools: TOOLS })
+    if (msg.method === "tools/list") return ok({ tools: catalog.tools })
     if (msg.method === "resources/list") return ok({ resources: [] })
     if (msg.method === "resources/templates/list") return ok({ resourceTemplates: [] })
     if (msg.method !== "tools/call") return { jsonrpc: "2.0", id: msg.id, error: { code: -32601, message: `Flowbound's MCP server has no ${msg.method}.` } }
     const { name, arguments: args = {} } = msg.params ?? {}
     if (name === "search") {
-      const info = await behind.about()
+      const info = await behind.about(args.project)
       const words = String(args.query ?? "")
         .toLowerCase()
         .split(/\s+/)
@@ -85,7 +65,7 @@ export async function answer(msg: Rpc, behind: Behind): Promise<object | undefin
       )
     }
     if (name === "execute") {
-      const out = (await behind.call("execute", { code: String(args.code ?? "") })) as { result: unknown; logs: string[] }
+      const out = (await behind.call("execute", { code: String(args.code ?? "") }, args.project)) as { result: unknown; logs: string[] }
       const shown = typeof out.result === "string" ? out.result : JSON.stringify(out.result, null, 2)
       return ok(text(`${out.logs.length ? `${out.logs.join("\n")}\n---\n` : ""}${shown}`, { structuredContent: { result: out.result, logs: out.logs } }))
     }
@@ -96,7 +76,9 @@ export async function answer(msg: Rpc, behind: Behind): Promise<object | undefin
 }
 
 /** `flowbound mcp`: speak MCP on stdin and stdout, and pass every call to this folder's running Flowbound. */
-async function stdio() {
+export async function stdio(remote?: URL) {
+  const end = new AbortController()
+  let connected: ReturnType<typeof import("./mcp/company.ts").signIn> | undefined
   let root: string | undefined
   let selecting: Promise<string> | undefined
   let leave: (() => void) | undefined
@@ -105,12 +87,16 @@ async function stdio() {
   const waiting = new Map<number, (result: any) => void>()
   const send = (o: object) => process.stdout.write(`${JSON.stringify(o)}\n`)
   let canAskRoots = false
-  const select = async () => {
+  const select = async (project?: unknown) => {
     const cwd = fs.realpathSync(process.cwd())
-    const here = findRoot(cwd)
+    const pluginParent = process.env.PLUGIN_ROOT ?? process.env.CLAUDE_PLUGIN_ROOT
+    const packageDir = pluginParent && fs.existsSync(pluginParent) ? fs.realpathSync(pluginParent) : undefined
+    const inside = (dir: string) => packageDir && (dir === packageDir || dir.startsWith(packageDir + path.sep))
+    const provided = typeof project === "string" && path.isAbsolute(project) ? fs.realpathSync(project) : undefined
+    const here = !provided && !inside(cwd) && findRoot(cwd)
     if (here) return here
     const folders = new Set<string>()
-    if (canAskRoots) {
+    if (!provided && canAskRoots) {
       // Some agent apps start the server away from the project. Ask the app which folders it has open.
       const got: any = await new Promise((done) => {
         const id = --asked
@@ -127,15 +113,15 @@ async function stdio() {
       for (const r of got?.roots ?? []) {
         try {
           const folder = fs.realpathSync(fileURLToPath(r.uri))
-          if (fs.statSync(folder).isDirectory()) folders.add(folder)
+          if (fs.statSync(folder).isDirectory() && !inside(folder)) folders.add(folder)
         } catch {
           // Some clients report locations that aren't on this machine.
         }
       }
     }
-    const folder = folders.has(cwd) || !folders.size ? cwd : folders.size === 1 ? [...folders][0]! : undefined
-    if (!folder || folder === path.parse(folder).root || folder === fs.realpathSync(os.homedir())) {
-      throw new Error("Open one project folder in your agent app, then try Flowbound again.")
+    const folder = provided ?? (folders.has(cwd) || !folders.size ? cwd : folders.size === 1 ? [...folders][0]! : undefined)
+    if (!folder || inside(folder) || folder === path.parse(folder).root || folder === path.resolve(os.homedir()) || !fs.statSync(folder).isDirectory()) {
+      throw new Error("Pass the absolute path of the open project folder as the Flowbound tool's project argument.")
     }
     const existing = findRoot(folder)
     if (existing) return existing
@@ -143,16 +129,19 @@ async function stdio() {
     await scaffold(folder)
     return folder
   }
-  const address = async () => {
-    root ??= await (selecting ??= select().finally(() => {
+  const address = async (project?: unknown) => {
+    root ??= await (selecting ??= select(project).finally(() => {
       selecting = undefined
     }))
     if (closed) throw new Error("The agent session ended.")
+    if (typeof project === "string" && path.isAbsolute(project) && findRoot(fs.realpathSync(project)) !== root) {
+      throw new Error("This agent session is using another Flowbound project. Start a new session in this folder.")
+    }
     leave ??= join(root)
     return ensure(root, true)
   }
-  const api = async (pathname: string, body?: unknown) => {
-    const res = await fetch(`${await address()}${pathname}`, {
+  const api = async (pathname: string, body?: unknown, project?: unknown) => {
+    const res = await fetch(`${await address(project)}${pathname}`, {
       method: body === undefined ? "GET" : "POST",
       headers: { "content-type": "application/json", "x-flowbound-via": "mcp" },
       body: body === undefined ? undefined : JSON.stringify(body),
@@ -160,12 +149,28 @@ async function stdio() {
     return res
   }
   const behind: Behind = {
-    about: async () => (await api("/api")).json(),
-    call: async (tool, input) => {
-      const out = await (await api(`/api/${encodeURIComponent(tool)}`, input)).json()
+    about: async (project) => (await api("/api", undefined, project)).json(),
+    call: async (tool, input, project) => {
+      const out = await (await api(`/api/${encodeURIComponent(tool)}`, input, project)).json()
       if (!out.ok) throw new Error(out.error)
       return out.result
     },
+  }
+  const respond = async (msg: Rpc) => {
+    if (!remote || msg.method !== "tools/call" || msg.id === undefined) return answer(msg, behind)
+    const ok = (result: unknown) => ({ jsonrpc: "2.0", id: msg.id, result })
+    const session = (connected ??= import("./mcp/company.ts").then(({ signIn }) => signIn(remote, end.signal)))
+    try {
+      const client = await session
+      const { project: _local, ...args } = msg.params?.arguments ?? {}
+      return ok(await client.callTool({ ...msg.params, arguments: args }, { signal: end.signal, timeout: 600_000 }))
+    } catch {
+      if (connected === session) {
+        connected = undefined
+        void session.then((client) => client.close()).catch(() => {})
+      }
+      return ok(text(`Company Flowbound did not confirm this call. Check your work sign-in and the Flowbound page before repeating a run or change. Company: ${remote.origin}`, { isError: true }))
+    }
   }
   for await (const line of readline.createInterface({ input: process.stdin })) {
     if (!line.trim()) continue
@@ -181,13 +186,15 @@ async function stdio() {
       continue
     }
     if (msg.method === "initialize") canAskRoots = !!msg.params?.capabilities?.roots
-    answer(msg, behind).then((out) => {
+    respond(msg).then((out) => {
       if (out && !closed) send(out)
     })
   }
   closed = true
+  end.abort()
   for (const done of waiting.values()) done(undefined)
   leave?.()
+  void connected?.then((client) => client.close()).catch(() => {})
 }
 
 export const mcp = () => {
@@ -231,7 +238,7 @@ export const mcp = () => {
       },
     },
     commands: {
-      mcp: { about: "the MCP server for agent apps (search, execute), over stdio", run: stdio },
+      mcp: { about: "the MCP server for agent apps (search, execute), over stdio", run: () => stdio() },
     },
     docs: `## MCP
 \`flowbound mcp\` is the MCP server (stdio). It has two tools however many plugins are installed: \`search\` (find tools and read their inputs and prices) and \`execute\` (a few lines of JavaScript that call tools as \`flowbound.<name>(input)\` and return what you need; several at once with Promise.all). Each tool is also a command: \`npx flowbound <tool>\`, and \`npx flowbound execute "<code>"\` runs the same code.

@@ -7,7 +7,10 @@ Flowbound is installed per project, and its instructions ship with the installed
 
 Start with the Flowbound `execute` tool and run `return await flowbound.docs({ topic: "start" })`.
 The first call in a local project sets up the folder and starts Flowbound automatically. It needs no account.
+In a coding agent, pass the absolute path of its open project folder in the tool's `project` argument.
 In a connected chat, the same call reads the guide from the live Flowbound. Use `search` to find tools.
+If the plugin is connected to a company, use the tools for company work. The person signs in through their
+browser. For a local copy, use the project files and shell commands, then use Save and Publish to ship changes.
 `topic: "topics"` lists parts, `"workflow-sdk"` explains workflows, and `"recipes"` gives examples. Every tool
 below is available as `flowbound.<tool>(input)` through `execute`, including `doctor`, `permissions`, and `yes`.
 With a shell and no Flowbound tools configured, run `npx flowbound init` once and read `npx flowbound docs`.

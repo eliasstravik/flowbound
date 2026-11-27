@@ -37,6 +37,8 @@ The npm release is pending. Install from a tarball of this repo
 Claude Code and Codex first need the marketplace: `/plugin marketplace add eliasstravik/flowbound`,
 `codex plugin marketplace add eliasstravik/flowbound`.
 
+The plugin starts in **Run here**. To use a company installation, run `npx flowbound connect https://your-company.example` once and restart the agent app. Flowbound opens your browser for work sign-in on the first tool call. Switch back with `npx flowbound connect --local` and restart the app. Cloud chat apps connect directly to the company’s `/mcp` address.
+
 Agents reach it through two MCP tools, however many providers you add: `search` finds a tool and its inputs,
 `execute` runs a few lines of JavaScript that call tools (`await flowbound.runs({})`), several at once, keeping only
 what is needed. Every tool is also a command: `npx flowbound <tool>`.
