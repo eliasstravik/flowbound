@@ -1,0 +1,103 @@
+{
+  "name": "flowbound",
+  "version": "0.1.0",
+  "description": "An open-source agent plugin for GTM workflows: run workflows, and store and enrich your GTM data, on your own keys and database. No credits, no sign-up.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/eliasstravik/flowbound.git"
+  },
+  "homepage": "https://github.com/eliasstravik/flowbound#readme",
+  "bugs": {
+    "url": "https://github.com/eliasstravik/flowbound/issues"
+  },
+  "keywords": [
+    "gtm",
+    "workflows",
+    "agent",
+    "mcp",
+    "claude-code",
+    "codex",
+    "enrichment",
+    "list-building"
+  ],
+  "type": "module",
+  "private": true,
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "engines": {
+    "node": ">=22.18"
+  },
+  "bin": {
+    "flowbound": "dist/core/start.js"
+  },
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "workflow": "./dist/workflow.js",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "docs/start.md",
+    "docs/decisions.md",
+    "docs/design.md",
+    "docs/homes.md",
+    "docs/scale.md",
+    "docs/sign-in.md",
+    "docs/if-it-breaks.md",
+    "skills",
+    "template",
+    "plugin.json",
+    "mcp.json",
+    ".claude-plugin",
+    "gemini-extension.json",
+    "LICENSE",
+    "README.md",
+    "CHANGELOG.md",
+    "SECURITY.md"
+  ],
+  "scripts": {
+    "build": "rm -rf dist && node scripts/build-pages.mjs && tsc -p tsconfig.build.json && node scripts/copy-assets.mjs",
+    "types": "tsc --noEmit",
+    "lint": "biome check .",
+    "format": "biome check --write .",
+    "test": "node --test --test-concurrency=1 \"test/*.test.ts\"",
+    "check": "npm run lint && npm run types && npm run build && npm test",
+    "test:scale": "node test/scale/run.ts"
+  },
+  "dependencies": {
+    "@better-auth/cimd": "1.7.28",
+    "@better-auth/mcp": "1.7.28",
+    "@electric-sql/pglite": "^0.6.0",
+    "@jitl/quickjs-wasmfile-release-sync": "0.32.0",
+    "@workflow/builders": "^5.0.0",
+    "acorn": "^8.19.0",
+    "better-auth": "1.7.28",
+    "esbuild": "^0.28.0",
+    "kysely": "^0.28.17",
+    "pg": "^8.23.1",
+    "quickjs-emscripten-core": "0.32.0",
+    "workflow": "^5.8.0"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.0.0",
+    "@fontsource-variable/geist": "^5.3.0",
+    "@fontsource-variable/geist-mono": "^5.3.0",
+    "@modelcontextprotocol/client": "^2.4.0",
+    "@modelcontextprotocol/ext-apps": "^2.0.4",
+    "@tailwindcss/cli": "^4.3.5",
+    "@types/node": "^24.0.0",
+    "@types/pg": "^8.11.0",
+    "@workflow/world-postgres": "^5.5.0",
+    "basecoat-css": "^1.3.0",
+    "lucide-static": "^1.81.0",
+    "tailwindcss": "^4.3.5",
+    "typescript": "^6.0.0"
+  }
+}

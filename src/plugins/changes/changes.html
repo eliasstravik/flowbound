@@ -1,0 +1,76 @@
+<div data-view></div>
+<script>
+fb.page("/changes", async (root, params) => {
+  const { h, call, ui } = fb
+  const view = root.querySelector("[data-view]")
+  const status = (change) => {
+    if (change.state === "published") return ui.status("done", "Published")
+    if (change.state === "closed") return ui.status("stopped", "Closed")
+    if (change.checks.some((check) => check.state === "failed")) return ui.status("failed", "Checks failed")
+    if (change.blocked) return ui.status("waiting", "Needs attention")
+    if (change.checks.length && change.checks.every((check) => check.state === "passed")) return ui.status("done", "Ready to publish")
+    return ui.status("waiting", "Checking")
+  }
+  const names = { types: "Types", workflows: "Workflow check", tests: "Tests" }
+  if (!params.id) {
+    const published = params.published === "1"
+    const { changes, setup } = await call("workflow-changes", { published })
+    const sub = published ? "Open a published change to see it or save an undo." : fb.can("member") ? "Ask your chat to change a workflow and save it. Open the saved change here to check it, try it, or publish it." : "Saved workflow changes and their checks."
+    return view.replaceChildren(
+      ui.head({ title: "Changes", sub }),
+      ...(setup ? [ui.note(setup, "warn")] : [
+        h("div", { class: "actions" }, ui.link("/changes", published ? {} : { published: "1" }, published ? "Unpublished changes" : "Published changes", { class: "link" })),
+      ]),
+      changes.length
+        ? h("ul", { class: "rows sm:grid-cols-[minmax(12rem,3fr)_auto]", role: "list" }, ...changes.map((change) => h("li", {}, ui.link("/changes", { id: change.id }, [h("span", {}, change.title), status(change)]))))
+        : ui.empty({ title: published ? "No published changes" : "No unpublished changes" }),
+    )
+  }
+
+  const change = await call("workflow-change", { id: params.id })
+  const action = (text, run, outline) => {
+    const button = h("button", { class: "btn", type: "button", "data-variant": outline ? "outline" : "primary" }, text)
+    button.onclick = () => fb.act(button, run)
+    return button
+  }
+  const member = fb.can("member")
+  const ready = !change.blocked && change.checks.length && change.checks.every((check) => check.state === "passed")
+  const refresh = action("Refresh", () => fb.redraw(), true)
+  const external = (url, title) => h("a", { href: url, class: "btn", "data-variant": "outline", rel: "noopener" }, title)
+  const preview = change.preview ? external(change.preview, "Open preview") : !fb.live && member && ready && change.state === "open"
+    ? action("Start preview", async () => {
+        await call("workflow-change", { id: change.id, head: change.head, startPreview: true })
+        await fb.redraw()
+      }, true)
+    : null
+  const publish = member && ready && change.state === "open" ? action("Publish", async () => {
+    if (!(await fb.confirm({ title: "Publish this change?", text: "This replaces the published version with the saved workflow change.", yes: "Publish" }))) return
+    await call("workflow-publish", { id: change.id, head: change.head })
+    fb.say("Published.")
+    await fb.redraw()
+  }) : null
+  const undo = member && change.state === "published" ? action("Undo", async () => {
+    if (!(await fb.confirm({ title: "Save an undo?", text: "This saves a revert so you can check it and publish it.", yes: "Save undo" }))) return
+    const saved = await call("workflow-undo", { id: change.id })
+    fb.say("Undo saved.")
+    await fb.stay({ id: saved.id })
+  }, true) : null
+  view.replaceChildren(...[
+    ui.head({ title: change.title, back: ["/changes", "All changes"], status: status(change), actions: [publish, undo].filter(Boolean) }),
+    change.blocked ? ui.note(change.blocked, "warn") : null,
+    change.state === "open" ? h("section", { class: "flex flex-col gap-3 max-w-2xl" },
+      h("h2", {}, "Checks"),
+      h("ul", { class: "todo", role: "list" }, ...change.checks.map((check) => h("li", { class: "flex items-center justify-between gap-3 py-2 border-b" },
+        check.url ? h("a", { href: check.url, class: "link", rel: "noopener" }, names[check.name] || check.name) : h("span", {}, names[check.name] || check.name),
+        ui.status(check.state === "passed" ? "done" : check.state, { waiting: "Waiting", passed: "Passed", failed: "Failed" }[check.state]),
+      ))),
+      h("p", { class: "sub" }, change.previewState || ""),
+    ) : null,
+    h("div", { class: "actions" }, ...[
+      preview,
+      change.pull ? external(change.pull, "Open pull request") : null,
+      change.state === "open" ? refresh : null,
+    ].filter(Boolean)),
+  ].filter(Boolean))
+})
+</script>

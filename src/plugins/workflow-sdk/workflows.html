@@ -1,0 +1,79 @@
+<div data-view></div>
+<script>
+fb.page("/workflows", async (root, params) => {
+  const { h, call, ui } = fb
+  const view = root.querySelector("[data-view]")
+
+  if (!params.workflow) {
+    const all = await call("workflows")
+    const head = ui.head({ title: "Workflows", sub: "Each job your agent wrote, explained by your agent in words and a diagram." })
+    if (!all.length) return view.replaceChildren(head, ui.empty({ title: "No workflows yet", text: "Ask your agent for a job, like finding the head of sales at each company in a list. It writes the workflow and explains it here." }))
+    const state = (w) => (w.problem ? ui.status("paused", "Not ready", "warn") : !w.summary ? ui.status("idle", "No summary yet") : ui.status("done", "Ready"))
+    return view.replaceChildren(
+      head,
+      h("ul", { class: "rows sm:grid-cols-[minmax(12rem,3fr)_auto_minmax(10rem,3fr)_minmax(8rem,2fr)]", role: "list" },
+        h("li", { class: "rows-head", "aria-hidden": "true" }, ...["Workflow", "State", "Reads and fills", "Runs"].map((t) => h("span", {}, t))),
+        ...all.map((w) => h("li", {}, ui.link("/workflows", { workflow: w.id }, [
+          h("span", {}, w.title),
+          h("span", {}, state(w)),
+          h("span", { class: "meta" },
+            h("span", { class: "font-mono sm:truncate" }, `${w.from || "?"} → ${w.into || "?"}`),
+            h("span", { class: "sm:truncate" }, w.runsBy === "when asked" ? "When asked" : w.runsBy)),
+        ])))))
+  }
+
+  const w = await call("workflow", { id: params.workflow })
+
+  // The code, to read: notes, text in quotes and the language's own words in three quiet colours. Set as text, never as HTML.
+  const WORDS = /^(?:import|export|from|const|let|var|async|await|function|return|if|else|for|of|in|while|do|try|catch|finally|throw|new|null|undefined|true|false|typeof|switch|case|break|continue|default|class|extends)$/
+  const paint = (code) => {
+    const out = []
+    const re = /(\/\/[^\n]*|\/\*[\s\S]*?\*\/)|("(?:[^"\\\n]|\\.)*"|'(?:[^'\\\n]|\\.)*'|`(?:[^`\\]|\\.)*`)|\b(\d[\d_.]*)\b|([A-Za-z_$][\w$]*)/g
+    let at = 0
+    for (let m; (m = re.exec(code)); ) {
+      const kind = m[1] ? "tok-note" : m[2] || m[3] ? "tok-text" : WORDS.test(m[4]) ? "tok-word" : null
+      if (!kind) continue
+      if (m.index > at) out.push(code.slice(at, m.index))
+      out.push(h("span", { class: kind }, m[0]))
+      at = m.index + m[0].length
+    }
+    out.push(code.slice(at))
+    return out
+  }
+  const lines = (w.code || "").replace(/\n$/, "").split("\n")
+  const codeBox = h("div", { class: "code", tabindex: "0", role: "region", "aria-label": `The code of ${w.file}` }, h("div", { "aria-hidden": "true" }, lines.map((_, i) => h("span", {}, i + 1))), h("pre", {}, h("code", {}, paint(lines.join("\n")))))
+  const copy = h("button", { class: "btn", "data-variant": "outline", "data-size": "sm", type: "button", onclick: () => fb.copy(w.code) }, ui.icon("copy"), "Copy")
+  // The diagram the agent drew. Flowbound cleaned it so it can only draw (no scripts, no links), and only shows it.
+  const diagram = () => {
+    if (!w.diagram) return null
+    const box = h("figure", { class: "diagram", "aria-label": `Diagram of ${w.title}, drawn by your agent` })
+    const t = document.createElement("template")
+    t.innerHTML = w.diagram
+    box.append(...t.content.childNodes)
+    return box
+  }
+  view.replaceChildren(...[
+    ui.head({ title: w.title, back: ["/workflows", "All workflows"], status: w.problem ? ui.status("paused", "Not ready", "warn") : null }),
+    w.problem ? ui.note(`This workflow is not ready: ${w.problem}.`, "warn") : null,
+    h("div", { class: "workflow" },
+      w.summary
+        ? [
+            h("p", { class: "lead" }, w.summary),
+            diagram(),
+            w.diagramProblem ? ui.note(`The diagram cannot be shown: ${w.diagramProblem}.`, "warn") : null,
+            h("p", { class: "sub" }, w.diagram ? "Summary and diagram written by your agent, for people, in the file beside the code. Flowbound only shows them." : "Summary written by your agent, for people, in the file beside the code. No diagram yet: ask your agent to draw one."),
+          ]
+        : h("p", { class: "lead text-muted-foreground" }, "No summary yet: ask your agent to write one."),
+      w.lastRun ? h("p", { class: "sub" }, ui.link("/runs", { run: w.lastRun.run }, `Last run: ${w.lastRun.text}`, { class: "link" })) : null,
+      w.waitingYes && /schedule/.test(w.runsBy) ? ui.note("A yes waits for this workflow under Needs you, so its schedule skips its next run until it is answered.", "warn") : null,
+      ui.facts([
+        w.from ? ["Reads", ui.link("/tables", { table: w.from }, w.from, { class: "link font-mono" })] : null,
+        w.into ? ["Fills", ui.link("/tables", { table: w.into }, w.into, { class: "link font-mono" })] : null,
+        w.rows ? ["Rows", w.rows] : null,
+        ["Runs", w.runsBy === "when asked" ? "When asked" : w.runsBy],
+        ["Permission", { ask: "Ask every time", auto: "Auto inside caps", skip: "Skip asking" }[w.mode] || w.mode],
+      ])),
+    h("section", { class: "flex flex-col gap-3", "aria-label": "Code" }, h("div", { class: "flex items-center justify-between gap-2" }, h("h2", { class: "font-mono" }, w.file), copy), codeBox),
+  ].flat().filter(Boolean))
+})
+</script>

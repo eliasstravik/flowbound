@@ -1,0 +1,46 @@
+<div data-view></div>
+<script>
+fb.page("/permissions", async (root) => {
+  const { h, call, money, num, ui } = fb
+  const view = root.querySelector("[data-view]")
+  const p = await call("permissions")
+  const MODES = [
+    ["ask", "Ask every time", "Every paid run asks first, even a 10-row try."],
+    ["auto", "Auto inside caps", "Spends freely up to your caps."],
+    ["skip", "Skip asking (dangerous)", "No asking, no caps."],
+  ]
+  const CAPS = { perRun: "A run", perMonth: "A month", callsPerRun: "Calls a run", callsPerMonth: "Calls a month", writesPerRun: "Writes a run", writesPerMonth: "Writes a month" }
+  const amount = (k, v) => (/^(calls|writes)/.test(k) ? num(v) : money(v))
+  const caps = (c) => Object.entries(c).map(([k, v]) => `${CAPS[k] || k}: ${amount(k, v)}`).join(", ")
+  const rule = (r) => [r.title, [r.mode ? MODES.find((m) => m[0] === r.mode)?.[1] : null, caps(r.caps), r.thisMonth && r.thisMonth.usd ? `${money(r.thisMonth.usd)} this month` : null].filter(Boolean).join(" · ") || "No rule of its own"]
+  view.replaceChildren(...[
+    ui.head({ title: "Permissions", sub: "Like your agent's own permission modes: how much it may do without asking. Change it any time." }),
+    h("ul", { class: "modes", role: "list", "aria-label": "Mode" },
+      MODES.map(([key, name, text]) => h("li", { "aria-current": p.mode === key ? "true" : null }, h("b", {}, name, p.mode === key ? h("span", { class: "badge", "data-variant": "secondary" }, "Now") : null), h("span", {}, text)))),
+    h("section", { class: "flex flex-col gap-3", "aria-labelledby": "caps-title" },
+      h("h2", { id: "caps-title" }, "Caps"),
+      p.mode === "skip"
+        ? h("p", { class: "text-muted-foreground" }, "None: in skip asking, only a budget you say in chat holds.")
+        : ui.facts([
+            ...Object.entries(p.caps).map(([k, v]) => [CAPS[k] || k, amount(k, v)]),
+            !Object.keys(p.caps).length ? ["Caps", "None set"] : null,
+          ]),
+      ui.stats([
+        ["Spent this month", money(p.thisMonth.usd), p.caps.perMonth ? ui.progress(p.thisMonth.usd, p.caps.perMonth, p.thisMonth.usd >= p.caps.perMonth ? "warn" : null) : null],
+        ["Writes this month", num(p.thisMonth.writes), p.caps.writesPerMonth ? ui.progress(p.thisMonth.writes, p.caps.writesPerMonth) : null],
+      ])),
+    p.workflows.length || p.providers.length
+      ? h("section", { class: "flex flex-col gap-3", "aria-labelledby": "rules-title" },
+          h("h2", { id: "rules-title" }, "Rules of their own"),
+          ui.facts([...p.workflows.map(rule), ...p.providers.map(rule)]))
+      : null,
+    h("section", { class: "flex flex-col gap-3", "aria-labelledby": "how-title" },
+      h("h2", { id: "how-title" }, "How it works"),
+      h("p", { class: "text-muted-foreground" }, "The modes are three presets over caps. A workflow or provider can have its own mode or caps; the strictest one wins. Writes to other tools count by number, not dollars. When a cap is hit, the run pauses and a yes appears under Needs you; it waits there until answered, and a schedule skips its next run meanwhile. A budget you say in chat is that run's cap, in every mode."),
+      h("p", { class: "text-muted-foreground" }, `Kept facts are used again for ${num(p.freshDays)} days, then bought again.`),
+      h("p", { class: "text-muted-foreground" }, "To change it, tell your agent, or edit permissions in flowbound.config.ts:"),
+      h("pre", { class: "snippet" }, p.written)),
+    fb.live && fb.can("viewer") ? h("p", {}, ui.link("/people", {}, "People and what each may do", { class: "link" })) : null,
+  ].filter(Boolean))
+})
+</script>

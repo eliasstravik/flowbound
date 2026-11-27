@@ -1,0 +1,279 @@
+/* Flowbound's own layer on Basecoat (shadcn/ui's design system as plain CSS): the tokens, the type, the frame
+   around every page, and the few parts Basecoat has no word for. scripts/build-pages.mjs puts Tailwind and the
+   Basecoat parts in front of this file. One sheet for every page: the pages, sign-in and "Allow an app". */
+
+/* Geist. Addresses are beside the sheet. */
+@font-face { font-family: Geist; font-style: normal; font-weight: 100 900; font-display: swap; src: url("geist.woff2") format("woff2"); unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD; }
+@font-face { font-family: Geist; font-style: normal; font-weight: 100 900; font-display: swap; src: url("geist-ext.woff2") format("woff2"); unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF; }
+@font-face { font-family: "Geist Mono"; font-style: normal; font-weight: 100 900; font-display: swap; src: url("geist-mono.woff2") format("woff2"); }
+
+/* Tokens. shadcn/ui's names, Flowbound's values: black on white, hairlines, one blue for focus, and four colours
+   that only ever say a state. Every pair of text and ground here is at least 4.5 to 1. */
+:root {
+  --radius: 0.5rem;
+  --background: #fff;
+  --foreground: #171717;
+  --card: #fff;
+  --card-foreground: #171717;
+  --popover: #fff;
+  --popover-foreground: #171717;
+  --primary: #171717;
+  --primary-foreground: #fff;
+  --secondary: #f5f5f5;
+  --secondary-foreground: #171717;
+  --muted: #f5f5f5;
+  --muted-foreground: #666;
+  --accent: #f2f2f2;
+  --accent-foreground: #171717;
+  --destructive: #c62a2f;
+  --border: rgb(0 0 0 / 0.1);
+  --input: rgb(0 0 0 / 0.16);
+  --ring: #0070f3;
+  --sidebar: #fafafa;
+  --ok: #0c7530;
+  --running: #0068d6;
+  --warn: #a35200;
+  --code-word: #7a3eb1;
+  --code-text: #0b5d8c;
+}
+.dark {
+  --background: #0a0a0a;
+  --foreground: #ededed;
+  --card: #0a0a0a;
+  --card-foreground: #ededed;
+  --popover: #111;
+  --popover-foreground: #ededed;
+  --primary: #ededed;
+  --primary-foreground: #0a0a0a;
+  --secondary: #1c1c1c;
+  --secondary-foreground: #ededed;
+  --muted: #1c1c1c;
+  --muted-foreground: #a1a1a1;
+  --accent: #212121;
+  --accent-foreground: #ededed;
+  --destructive: #ff6166;
+  --border: rgb(255 255 255 / 0.12);
+  --input: rgb(255 255 255 / 0.18);
+  --ring: #52a8ff;
+  --sidebar: #111;
+  --ok: #62c073;
+  --running: #52a8ff;
+  --warn: #ffb224;
+  --code-word: #c4a1f5;
+  --code-text: #7cc4f0;
+}
+@theme inline {
+  --color-ok: var(--ok);
+  --color-running: var(--running);
+  --color-warn: var(--warn);
+}
+/* On a phone text is 16px (nothing is zoomed on focus, nothing is squinted at); from 640px it is 14px. */
+@media (max-width: 639.9px) {
+  :root { --text-sm: 1rem; --text-sm--line-height: 1.5rem; --text-xs: 0.8125rem; --text-xs--line-height: 1.125rem; }
+}
+
+@layer base {
+  [hidden] { display: none !important; }
+  html { -webkit-text-size-adjust: 100%; scroll-behavior: auto; }
+  body { @apply font-sans text-sm antialiased; }
+  h1 { @apply text-xl font-semibold tracking-tight text-balance; }
+  h2 { @apply text-base font-semibold text-balance; }
+  h3 { @apply text-sm font-medium; }
+  p { @apply text-pretty; }
+  code, pre, kbd, .mono { @apply font-mono text-[0.92em]; }
+  pre { @apply bg-muted overflow-x-auto rounded-md px-3 py-2 break-all whitespace-pre-wrap; }
+  pre.snippet { @apply break-normal whitespace-pre; }
+  dialog { @apply text-foreground; }
+  :focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+  ::selection { background: color-mix(in srgb, var(--ring) 28%, transparent); }
+}
+
+@layer components {
+  /* The frame: a sidebar from 1024px; under it a top bar and a menu that slides in. */
+  .app { @apply isolate min-h-dvh lg:grid lg:grid-cols-[15rem_minmax(0,1fr)]; }
+  .side { @apply bg-sidebar sticky top-0 flex h-dvh flex-col gap-4 overflow-y-auto border-r px-3 py-4 max-lg:hidden; }
+  .top { @apply bg-background sticky top-0 z-20 flex h-14 items-center gap-1 border-b px-2 lg:hidden; }
+  .brand { @apply flex min-h-8 items-center gap-2 px-2 text-[0.9375rem] font-semibold tracking-tight no-underline; }
+  .menu { @apply flex flex-col gap-px; }
+  .menu a { @apply text-muted-foreground hover:bg-accent hover:text-foreground flex min-h-8 items-center rounded-md px-2 no-underline max-lg:min-h-11; }
+  .menu a[aria-current="page"] { @apply bg-accent text-foreground; }
+  .me { @apply text-muted-foreground mt-auto flex items-center justify-between gap-2 px-2 pt-2; }
+  .me > span { @apply truncate; }
+  .drawer { @apply bg-sidebar m-0 h-dvh max-h-none w-[min(19rem,86vw)] max-w-none rounded-none border-0 border-r p-0 backdrop:bg-black/50; }
+  .drawer > div { @apply flex h-full flex-col gap-3 overflow-y-auto px-3 pt-2 pb-4; }
+  .skip { @apply bg-background fixed top-2 left-2 z-50 -translate-y-20 rounded-md border px-3 py-1.5 focus-visible:translate-y-0; }
+  .place { @apply bg-background text-muted-foreground inline-flex h-5 items-center gap-1.5 rounded-full border px-2 text-xs font-medium; }
+  .place::before { @apply bg-ok size-1.5 rounded-full content-['']; }
+  .place[data-place="local"]::before { @apply bg-warn; }
+  main { @apply min-w-0 outline-none; }
+  .page { @apply mx-auto flex w-full max-w-5xl min-w-0 flex-col gap-6 px-4 pt-6 pb-16 sm:px-6 lg:px-8; }
+  .page [data-view], .page section[data-page] { @apply flex min-w-0 flex-col gap-6; }
+
+  /* A page's top: where you are, what it is, what you can do. */
+  .page-head { @apply flex flex-wrap items-start justify-between gap-x-4 gap-y-3; }
+  .page-head > div:first-child { @apply flex min-w-0 flex-col gap-1; }
+  .page-head p { @apply text-muted-foreground; }
+  .crumb { @apply text-muted-foreground hover:text-foreground -ml-1 inline-flex min-h-8 w-fit items-center gap-1 rounded-md pr-2 pl-1 no-underline max-sm:min-h-11; }
+  .title { @apply flex flex-wrap items-center gap-x-3 gap-y-1; }
+  .actions { @apply flex flex-wrap items-center gap-2; }
+  .sub { @apply text-muted-foreground text-xs; }
+  .link { @apply decoration-foreground/30 hover:decoration-foreground underline underline-offset-4; }
+  .num { @apply tabular-nums; }
+  .cut { @apply max-w-[36ch] truncate; }
+
+  /* A state, in words with a dot: never by colour alone. */
+  .status { @apply inline-flex items-center gap-1.5 whitespace-nowrap; }
+  .status::before { @apply bg-muted-foreground size-2 shrink-0 rounded-full content-['']; }
+  .status[data-tone="ok"]::before { @apply bg-ok; }
+  .status[data-tone="bad"]::before { @apply bg-destructive; }
+  .status[data-tone="warn"]::before { @apply bg-warn; }
+  .status[data-tone="running"]::before { @apply bg-running; animation: fb-pulse 1.6s ease-in-out infinite; }
+  .status[data-tone="idle"]::before { @apply border-muted-foreground border bg-transparent; }
+  .badge[data-tone="warn"] { @apply text-warn border-transparent bg-[color-mix(in_srgb,var(--warn)_12%,transparent)]; }
+  .badge[data-tone="ok"] { @apply text-ok border-transparent bg-[color-mix(in_srgb,var(--ok)_12%,transparent)]; }
+  .alert[data-tone="warn"] { @apply border-warn/40 [&>svg]:text-warn; }
+  .progress { @apply block w-full overflow-hidden; }
+  .progress > span { @apply block h-full rounded-full transition-[width] duration-500; }
+  .progress[data-tone="running"] > span { @apply bg-running; }
+  .progress[data-tone="warn"] > span { @apply bg-warn; }
+
+  /* Small facts: a strip of numbers, and a list of name and value. */
+  .stats { @apply grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-4; }
+  .stats > div { @apply flex min-w-0 flex-col gap-1; }
+  .stats dt, .facts dt { @apply text-muted-foreground; }
+  .stats dd { @apply text-base font-medium tabular-nums; }
+  .facts { @apply grid w-full max-w-xl grid-cols-[auto_minmax(0,1fr)] gap-x-6; }
+  :is(.dialog, .card) .facts { @apply max-w-none; }
+  .facts > div { @apply col-span-full grid min-h-10 grid-cols-subgrid items-center gap-y-0.5 border-b py-2 last:border-0; }
+  .facts dd { @apply min-w-0 justify-self-end text-right tabular-nums wrap-anywhere; }
+  /* With room, a value starts right after its name, so the eye does not cross the whole card to find it. */
+  @media (min-width: 40rem) {
+    .facts { @apply grid-cols-[minmax(7rem,11rem)_minmax(0,1fr)]; }
+    .facts dd { @apply justify-self-start text-left; }
+    .facts dd > .flex { @apply items-start; }
+  }
+
+  /* Lists whose rows lead somewhere: columns on a desktop, two lines on a phone. */
+  .rows { @apply grid border-t sm:gap-x-6; }
+  .rows.narrow { @apply max-w-2xl; }
+  .rows > li { @apply col-span-full grid grid-cols-subgrid border-b; }
+  .rows > .rows-head { @apply text-muted-foreground items-center py-2 font-medium max-sm:hidden; }
+  .rows a { @apply hover:bg-muted/60 col-span-full -mx-2 flex min-h-12 flex-wrap items-center gap-x-3 gap-y-0.5 rounded-md px-2 py-2.5 no-underline sm:grid sm:grid-cols-subgrid sm:gap-x-6; }
+  .rows a > :first-child { @apply min-w-0 flex-1 truncate font-medium; }
+  .rows .meta { @apply text-muted-foreground flex basis-full flex-wrap gap-x-3 sm:contents; }
+  .rows .meta > * { @apply sm:text-foreground min-w-0 tabular-nums; }
+
+  /* Tables of data: a header that stays, hairlines, cells cut at a readable width. */
+  .table-container { @apply -mx-4 w-auto px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8; }
+  .table :is(th, td):last-child { @apply pr-0; }
+  .table th { @apply text-muted-foreground bg-background h-9 px-0 pr-6 font-medium max-sm:h-11; }
+  .table th > button { @apply max-sm:min-h-11; }
+  .table td { @apply px-0 py-2 pr-6; }
+  .table tr { @apply hover:bg-transparent; }
+  .table td.none, .table td.none button { @apply text-muted-foreground; }
+  .table td > button { @apply decoration-foreground/25 hover:decoration-foreground max-w-[36ch] cursor-pointer truncate rounded-sm text-left underline decoration-dotted underline-offset-4; }
+  .table .wrap { @apply whitespace-normal; }
+  /* Under an answer: where it came from, how old it is, what it cost. */
+  .table td > .src { @apply text-muted-foreground block max-w-[36ch] truncate text-[0.6875rem]/4; }
+  /* A table that fills the window (class "fill"): its header and its first column stay put and the rest scrolls under
+     them. Not on a screen too short for it (a phone on its side), where the page scrolls as usual. */
+  @media (min-height: 36rem) {
+    .page:has(section:not([hidden]) .fill) { @apply h-dvh max-w-none pb-4 max-lg:h-[calc(100dvh-3.5rem)]; }
+    .page:has(.fill) :is(section:not([hidden]), section:not([hidden]) > [data-view]) { @apply min-h-0 flex-1 gap-4; }
+    .fill { @apply min-h-0 flex-1 overflow-auto border-y px-0; }
+    .fill thead th { @apply sticky top-0 z-10 shadow-[inset_0_-1px_0_var(--border)]; }
+    .fill thead tr { @apply border-0; }
+    .fill :is(th, td):first-child { @apply bg-background sticky left-0 z-[5] pl-4 shadow-[inset_-1px_0_0_var(--border)] max-sm:max-w-[45vw] max-sm:truncate sm:pl-6 lg:pl-8; }
+    .fill thead th:first-child { @apply z-20 shadow-[inset_-1px_-1px_0_var(--border)]; }
+    .fill :is(th, td):nth-child(2) { @apply pl-4; }
+    .fill :is(th, td):last-child { @apply pr-4 sm:pr-6 lg:pr-8; }
+  }
+  .pager { @apply text-muted-foreground flex flex-wrap items-center justify-between gap-3; }
+  .toolbar { @apply flex flex-wrap items-center gap-2; }
+  .toolbar .input { @apply w-full sm:w-64; }
+  .toolbar .filter { @apply flex w-full flex-wrap items-center gap-2 sm:w-auto; }
+  .toolbar .filter .select { @apply w-auto max-w-full max-sm:h-11 max-sm:flex-1; }
+  .toolbar .filter .input { @apply sm:w-40; }
+  .dialog pre { @apply max-h-[50dvh] overflow-auto; }
+  .toolbar .select { @apply max-sm:h-11 max-sm:min-w-0 max-sm:flex-1; }
+
+  /* What needs a person: what is the matter, the one thing to do about it, and the way there. */
+  .todo { @apply flex flex-col border-t; }
+  .todo > li { @apply flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b py-3; }
+  .todo > li > div { @apply flex min-w-0 flex-1 basis-72 flex-col gap-0.5; }
+  .todo > li p:first-child { @apply font-medium; }
+  .todo > li p + p { @apply text-muted-foreground; }
+  /* Needs you: what kind of thing it is, beside it (Yes?, Key), as the phone shows it. */
+  .needs > li { @apply grid grid-cols-[3rem_minmax(0,1fr)] items-start gap-x-3 gap-y-2 sm:grid-cols-[3rem_minmax(0,1fr)_auto]; }
+  .needs .kind { @apply text-muted-foreground pt-px font-medium; }
+  .todo.needs > li > div.actions { @apply col-start-2 flex basis-auto flex-row flex-nowrap gap-2 sm:col-start-3; }
+
+  /* The yes: the one place a person lets money be spent. It never looks like anything else. */
+  .decision { @apply bg-muted/50 flex w-full max-w-xl flex-col gap-4 rounded-lg border p-4; }
+  .card .decision { @apply max-w-none; }
+  .decision > h2, .decision > h3 { @apply text-base font-semibold; }
+  .decision .ask { @apply flex flex-col gap-1 whitespace-pre-line; }
+  .decision .amount { @apply flex flex-wrap items-end justify-between gap-x-6 gap-y-3; }
+  .decision .amount > div { @apply flex flex-col gap-1; }
+  .decision .amount b { @apply text-2xl font-semibold tracking-tight tabular-nums; }
+  .input.money { @apply w-32 text-right tabular-nums; }
+
+  /* Forms: a name, the field, a line of help. */
+  .field { @apply flex w-full flex-col gap-2; }
+  .field > p { @apply text-muted-foreground; }
+  .input { @apply max-sm:h-11; }
+  /* On a phone everything that is tapped is at least 44px tall. */
+  .btn { @apply max-sm:min-h-11 cursor-pointer; }
+  .btn[data-size^="icon"] { @apply max-sm:min-w-11; }
+  .btn[aria-busy="true"] { @apply pointer-events-none opacity-70; }
+  .btn[aria-busy="true"]::before { @apply size-3.5 rounded-full border-2 border-current border-r-transparent content-['']; animation: fb-spin 0.7s linear infinite; }
+  .card { @apply shadow-none; }
+  .empty { @apply items-start px-0 py-4 text-left sm:items-center sm:px-12 sm:py-10 sm:text-center; }
+  .empty > header, .empty > :is(section, footer) { @apply items-start sm:items-center; }
+
+  /* What just happened, said once over the page so nothing moves. */
+  .toast { @apply bg-popover fixed bottom-4 left-1/2 z-50 flex w-max max-w-[calc(100vw-1.5rem)] -translate-x-1/2 items-center gap-3 rounded-lg px-4 py-2.5 shadow-lg ring-1 ring-foreground/10; }
+  .toast[data-tone="bad"] { @apply text-destructive; }
+  #offline { @apply bottom-16; }
+  .skeleton { @apply block h-4 animate-pulse; }
+  .loading { @apply flex flex-col gap-3 opacity-0; animation: fb-in 0.2s 0.2s forwards; }
+  .steps { @apply flex flex-col gap-0 border-t; counter-reset: step; }
+  .steps > li { @apply flex min-h-12 items-center gap-3 border-b py-2.5; counter-increment: step; }
+  .steps > li::before { @apply text-muted-foreground flex size-6 shrink-0 items-center justify-center rounded-full border text-xs tabular-nums; content: counter(step); }
+  .steps > li > span { @apply flex-1; }
+
+  .chips { @apply flex flex-wrap gap-1.5; }
+  .chips > * { @apply bg-muted rounded-md px-1.5 py-0.5 font-mono text-xs; }
+
+  /* A file's code, to read: numbered lines that scroll sideways rather than wrap, and three quiet colours. */
+  /* The three permission modes, the one in force marked. */
+  .modes { @apply flex flex-col gap-2; }
+  .modes > li { @apply flex flex-col gap-0.5 rounded-lg border px-3 py-2.5; }
+  .modes > li[aria-current] { @apply border-foreground; }
+  .modes b { @apply flex items-center gap-2 font-medium; }
+  .modes span:not(.badge) { @apply text-muted-foreground; }
+  /* A workflow: the agent's summary and diagram for people, then its code. The diagram is drawn in the text colour. */
+  .workflow { @apply flex max-w-2xl min-w-0 flex-col gap-4; }
+  .workflow .lead { @apply text-base/7 text-pretty; }
+  .diagram { @apply text-foreground rounded-lg border p-4; }
+  .diagram > svg { @apply mx-auto h-auto w-full max-w-80; }
+  .code { @apply bg-muted/40 grid max-h-[80dvh] grid-cols-[auto_minmax(0,1fr)] overflow-auto rounded-lg border font-mono text-xs leading-5; }
+  .code > :first-child { @apply text-muted-foreground bg-background/60 sticky left-0 flex flex-col border-r px-2 text-right tabular-nums select-none; }
+  .code > :first-child > [data-on] { @apply text-foreground font-semibold; }
+  .code pre { @apply m-0 overflow-visible rounded-none bg-transparent px-3 py-0 text-[1em] break-normal whitespace-pre; }
+  .code :is(pre, pre code) { @apply text-[length:inherit]; }
+  .tok-note { @apply text-muted-foreground italic; }
+  .tok-word { color: var(--code-word); }
+  .tok-text { color: var(--code-text); }
+
+  /* Sign-in and "Allow an app": one narrow column in the middle of a white page. */
+  .door { @apply mx-auto flex min-h-dvh w-full max-w-xs flex-col justify-center gap-5 px-4 py-10; }
+  .door form { @apply flex flex-col gap-4; }
+  .or { @apply text-muted-foreground flex items-center gap-3 text-xs before:flex-1 before:border-t before:content-[''] after:flex-1 after:border-t after:content-['']; }
+}
+@keyframes fb-pulse { 50% { opacity: 0.35; } }
+@keyframes fb-spin { to { rotate: 360deg; } }
+@keyframes fb-in { to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+}

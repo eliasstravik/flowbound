@@ -1,0 +1,6 @@
+{
+  "$schema": "https://antigravity.google/schemas/v1/plugin.json",
+  "name": "flowbound",
+  "version": "0.1.0",
+  "description": "GTM workflows for your agent: list building, research and enrichment on your own data provider keys."
+}

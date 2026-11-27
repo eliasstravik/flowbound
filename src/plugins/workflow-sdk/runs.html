@@ -1,0 +1,104 @@
+<div data-view></div>
+<script>
+fb.page("/runs", async (root, params) => {
+  const { h, call, money, num, ui } = fb
+  const view = root.querySelector("[data-view]")
+  const show = (...kids) => view.replaceChildren(...kids.flat().filter(Boolean))
+  /** A run's state as a dot and a word. A run paused at a cap waits for a yes: amber, not red. */
+  const state = (r) => ui.status(r.state, r.asks ? "Waits for a yes" : null, r.asks ? "warn" : null)
+  const of = (a, b) => `${num(a)} of ${num(b)}`
+
+  if (!params.run) {
+    // The address keeps the filter, so a link to "everything that is paused" stays one.
+    const STATES = ["running", "waiting", "paused", "stopped", "done"]
+    const only = { state: STATES.includes(params.state) ? params.state : undefined, workflow: params.workflow || undefined }
+    const filtered = !!(only.state || only.workflow)
+    const [runs, flows] = await Promise.all([call("runs", only), call("workflows").catch(() => [])])
+    const pick = (name, label, all, options) => {
+      const s = h("select", { class: "select", name, "aria-label": label }, h("option", { value: "" }, all), ...options.map(([value, text]) => h("option", { value, selected: only[name] === value ? "" : null }, text)))
+      s.onchange = () => fb.stay({ [name]: s.value || null })
+      return s
+    }
+    const toolbar = h("div", { class: "toolbar", role: "group", "aria-label": "Show" },
+      pick("state", "State", "Every state", STATES.map((s) => [s, s === "waiting" ? "Waits for a yes" : s.replace(/^./, (c) => c.toUpperCase())])),
+      flows.length > 1 || only.workflow ? pick("workflow", "Workflow", "Every workflow", flows.map((w) => [w.id, w.title])) : null)
+    if (!runs.length && filtered)
+      return show(ui.head({ title: "Runs" }), toolbar, ui.empty({ title: "No run fits", text: "Nothing is in that state for that workflow.", actions: [h("button", { class: "btn", "data-variant": "outline", type: "button", onclick: () => fb.stay({ state: null, workflow: null }) }, "Show every run")] }))
+    if (!runs.length) return show(ui.head({ title: "Runs" }), ui.empty({ title: "No runs yet", text: "Ask your agent to try a workflow on a list, and it shows up here." }))
+    const line = (r) =>
+      h("li", {}, ui.link("/runs", { run: r.run }, [
+        h("span", {}, r.name),
+        h("span", { "data-live": `state${r.run}` }, state(r)),
+        h("span", { class: "meta", "data-live": `meta${r.run}` },
+          h("span", { class: "flex flex-col gap-1" }, h("span", {}, of(r.rows.done, r.rows.of), h("span", { class: "sm:sr-only" }, " rows")), r.state === "running" ? h("span", { class: "max-sm:hidden" }, ui.progress(r.rows.done + r.rows.failed, r.rows.of, "running")) : null),
+          h("span", { class: r.rows.failed ? null : "max-sm:hidden" }, num(r.rows.failed), h("span", { class: "sm:sr-only" }, " failed")),
+          h("span", {}, r.spent.text),
+          h("span", { class: "max-sm:basis-full", title: r.started ? new Date(r.started).toLocaleString() : null }, r.started ? [fb.when(r.started), h("span", { class: "text-muted-foreground" }, ` · ${r.took}`)] : "Not begun")),
+      ]))
+    show(
+      ui.head({ title: "Runs", sub: "What ran, what failed and why. Tap a run for its failed rows." }),
+      toolbar,
+      h("ul", { class: "rows sm:grid-cols-[minmax(12rem,5fr)_auto_7rem_auto_auto_minmax(8rem,3fr)]", role: "list" },
+        h("li", { class: "rows-head", "aria-hidden": "true" }, ...["Run", "State", "Rows", "Failed", "Spent", "Started"].map((t) => h("span", {}, t))),
+        ...runs.map(line)),
+      runs.length === 50 ? h("p", { class: "sub" }, filtered ? "The 50 latest runs that fit." : "The 50 latest runs.") : null)
+    if (runs.some((r) => r.state === "running")) fb.poll(3000)
+    return
+  }
+
+  const r = await call("runs", { run: Number(params.run) })
+  const t = r.tryout
+  /** The yes a run waits for: the question, said back plainly, answered through your agent. Not now stops it here. */
+  const asks = r.asks
+    ? (() => {
+        const notNow = fb.can("member") ? h("button", { class: "btn", "data-variant": "outline", type: "button" }, "Not now") : null
+        if (notNow) notNow.onclick = () => fb.act(notNow, async () => (await call("no", { run: r.run }), fb.redraw()))
+        return h("section", { class: "decision", "aria-label": "Your yes" },
+          h("div", { class: "amount" }, h("div", {}, h("span", { class: "text-muted-foreground" }, "Yes?"), h("b", {}, r.asks.question))),
+          h("p", { class: "text-muted-foreground" }, `${r.asks.why} Tell your agent yes, with a cap if you like, and it passes it on.`),
+          h("div", { class: "actions" }, notNow))
+      })()
+    : null
+  const paidTo = () =>
+    (r.paidTo || []).length
+      ? h("section", { class: "flex flex-col gap-3", "data-live": "paid" }, h("h2", {}, "Paid to"),
+          ui.facts(r.paidTo.map((x) => [x.from, `${num(x.calls)} call${x.calls === 1 ? "" : "s"}, ${money(x.usd)}${x.fromMemory ? `, ${num(x.fromMemory)} already known` : ""}`])))
+      : null
+  const stop = h("button", { class: "btn", "data-variant": "outline", type: "button" }, "Stop")
+  stop.onclick = () => fb.act(stop, async () => (await call("stop", { run: r.run }), fb.redraw()))
+  const cut = r.rows.failed > r.failedRows.length
+  const mode = { ask: "Ask every time", auto: "Auto inside caps", skip: "Skip asking" }[r.mode] || r.mode
+  show(
+    ui.head({ title: t ? `${r.title}: try-out` : r.name, back: ["/runs", "All runs"], status: h("span", { "data-live": "state" }, state(r)), actions: [r.state === "running" && fb.can("member") ? stop : null] }),
+    asks,
+    r.why && !r.asks ? ui.note(r.why, r.state === "paused" ? "warn" : r.state === "stopped" ? "bad" : null) : null,
+    r.why && r.asks && r.state === "paused" ? ui.note(r.why, "warn") : null,
+    // One set of numbers, out of the same rows: done, failed, to go.
+    ui.stats([
+      ["Done", of(r.rows.done, r.rows.of), r.state === "running" ? ui.progress(r.rows.done + r.rows.failed, r.rows.of, "running") : null],
+      ["Failed", num(r.rows.failed)],
+      ["To go", num(Math.max(0, r.rows.of - r.rows.done - r.rows.failed))],
+      r.spent.writes ? ["Writes", num(r.spent.writes)] : ["Spent", r.spent.text, r.cap && r.cap.usd ? ui.progress(r.spent.usd, r.cap.usd, r.spent.usd >= r.cap.usd ? "warn" : null) : null],
+    ], { "data-live": "stats" }),
+    t && r.state === "done" && t.left ? ui.note(`All ${num(t.all)} would cost about ${t.estimateCalls && !t.estimateUsd ? `${num(t.estimateCalls)} calls` : money(t.estimateUsd)}${t.estimateWrites ? ` and ${num(t.estimateWrites)} writes` : ""}. Ask your agent to run the rest.`) : null,
+    ui.facts([
+      r.spent.writes ? ["Written", `${num(r.spent.writes)} ${r.spent.writes === 1 ? "write" : "writes"}`] : ["Found", `${num(r.rows.found)} rows with an answer`],
+      ["Mode", mode],
+      r.capHit ? ["Paused at", r.capHit.replace(/^the /, "")] : r.cap && r.cap.usd != null ? ["Cap", `${money(r.cap.usd)}, from ${r.capFrom}`] : null,
+      ["Yes", r.yesBy],
+      r.askedBy ? ["Asked by", r.askedBy] : null,
+      r.startedBy ? ["Started by", r.startedBy.replace(":", " ")] : null,
+      r.started ? ["Started", h("span", { title: new Date(r.started).toLocaleString() }, fb.when(r.started))] : null,
+      r.started ? [r.state === "running" ? "Going for" : "Took", r.took] : null,
+      ["Results", ui.link("/tables", { table: r.into }, r.into, { class: "link font-mono" })],
+    ], { "data-live": "facts" }),
+    paidTo(),
+    r.failedRows.length
+      ? h("section", { class: "flex flex-col gap-3", "data-live": "failed" },
+          h("h2", {}, "Failed rows"),
+          cut ? h("p", { class: "text-muted-foreground" }, `The first ${num(r.failedRows.length)} of ${num(r.rows.failed)} failed rows.`) : null,
+          ui.table(["Row", "Why"], r.failedRows.map((f) => [h("td", { class: "num align-top" }, num(f.row)), h("td", { class: "wrap min-w-64" }, ui.linked(f.reason))]), { label: "Failed rows" }))
+      : null)
+  if (r.state === "running") fb.poll(2000)
+})
+</script>

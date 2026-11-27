@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+__HEAD__
+</head>
+<body>
+<main class="door">
+<h1>Flowbound</h1>
+<div id="no" class="alert" data-variant="destructive" role="alert" hidden><section><p id="no-text"></p></section></div>
+<form id="login" action="/door/login" method="get" hidden>
+  <input type="hidden" name="to" id="to2">
+  <button class="btn w-full" type="submit" id="with"></button>
+  <p class="text-muted-foreground" id="what"></p>
+</form>
+<div class="or" id="or" hidden>or, for a first try-out</div>
+<form id="team" action="/door/password" method="post" hidden>
+  <div class="field"><label for="name">Your name</label><input class="input" type="text" id="name" name="name" autocomplete="name" required maxlength="60"></div>
+  <div class="field"><label for="password">Team password</label><input class="input" id="password" name="password" type="password" autocomplete="current-password" required></div>
+  <input type="hidden" name="to" id="to">
+  <button class="btn w-full" data-variant="outline" type="submit" id="enter">Enter</button>
+  <p class="sub">One password for the whole team. It is not an account: your name is saved as you type it, and shown as not checked.</p>
+</form>
+<form id="out" action="/door/out" method="post" hidden><button class="btn w-full" data-variant="outline" type="submit">Sign in as someone else</button></form>
+</main>
+<script>
+const login = __LOGIN__, password = __PASSWORD__, no = __NO__, wait = __WAIT__
+const el = (id) => document.getElementById(id)
+el("to").value = el("to2").value = __TO__
+el("no-text").textContent = wait || no || ""
+el("no").hidden = !(wait || no)
+if (wait) el("out").hidden = false
+else {
+  el("login").hidden = !login
+  el("team").hidden = !password
+  el("or").hidden = !(login && password)
+  if (!login) el("enter").removeAttribute("data-variant")
+  el("with").textContent = `Sign in with ${login}`
+  el("what").textContent = login === "your work account" ? "Use the account your company gave you." : `Use the ${login} account you already have at work. No new account, no new password.`
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,8 @@
+{
+  "name": "flowbound",
+  "description": "Flowbound: the open-source GTM workflows plugin for your agent.",
+  "owner": { "name": "Flowbound" },
+  "plugins": [
+    { "name": "flowbound", "source": "./", "description": "GTM workflows on your own data provider keys: the skill and the MCP server." }
+  ]
+}

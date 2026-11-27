@@ -1,0 +1,37 @@
+<div data-view></div>
+<script>
+fb.page("/needs", async (root) => {
+  const { h, call, ui } = fb
+  const view = root.querySelector("[data-view]")
+  const none = (fallback) => () => fallback
+  const [check, runs] = await Promise.all([call("doctor"), call("runs").catch(none([]))])
+  const going = runs.filter((r) => r.state === "running")
+  const needs = check.needs
+
+  /** One thing that needs you: a yes that waits (answered through your agent, or Not now here), or anything else with its way there. */
+  const item = (n) => {
+    const kind = n.yes ? "Yes?" : n.page === "/keys" ? "Key" : n.when === "soon" ? "Soon" : "Fix"
+    const notNow = n.yes && fb.can("member") ? h("button", { class: "btn", "data-variant": "outline", "data-size": "sm", type: "button" }, "Not now") : null
+    if (notNow) notNow.onclick = () => fb.act(notNow, async () => (await call("no", { run: n.yes.run }), fb.say("Stopped. Nothing more is spent."), fb.redraw()))
+    return h("li", {},
+      h("span", { class: "kind" }, kind),
+      h("div", {}, h("p", {}, n.what), h("p", {}, n.yes ? `Tell your agent yes, and it passes it on.${/ Its schedule skips[^.]*\./.exec(n.fix)?.[0] ?? ""}` : n.fix)),
+      h("div", { class: "actions" }, notNow, n.page ? ui.link(n.page, n.params || {}, "Open", { class: "btn", "data-variant": "outline", "data-size": "sm" }) : null))
+  }
+  const first = !runs.length && !needs.length
+    ? h("section", { class: "flex flex-col gap-3", "aria-labelledby": "start-title" },
+        h("h2", { id: "start-title" }, "Start here"),
+        h("ol", { class: "steps w-full max-w-xl", role: "list" },
+          h("li", {}, h("span", {}, "Add a provider key"), ui.link("/keys", {}, "Keys", { class: "btn", "data-variant": "outline", "data-size": "sm" })),
+          h("li", {}, h("span", {}, "Add a list"), ui.link("/tables", {}, "Tables", { class: "btn", "data-variant": "outline", "data-size": "sm" })),
+          h("li", {}, h("span", {}, "Ask your agent for a job, like finding the head of sales at each company"))))
+    : null
+  view.replaceChildren(...[
+    ui.head({ title: needs.length ? `Needs you (${needs.length})` : "Needs you" }),
+    first,
+    h("section", { class: "flex flex-col gap-3", "aria-label": "Needs you", "data-live": "needs" },
+      needs.length ? h("ul", { class: "todo needs", role: "list" }, needs.map(item)) : h("p", { class: "text-muted-foreground" }, going.length ? `Nothing needs you right now. ${going.length === 1 ? "1 run is" : `${going.length} runs are`} going: see Runs.` : "Nothing needs you right now.")),
+  ].filter(Boolean))
+  if (going.length || needs.some((n) => n.yes)) fb.poll(4000)
+})
+</script>

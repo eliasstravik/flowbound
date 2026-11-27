@@ -1,0 +1,94 @@
+<div data-view></div>
+<script>
+fb.page("/keys", async (root) => {
+  const { h, call, ui } = fb
+  const view = root.querySelector("[data-view]")
+  const [{ cards }, flows] = await Promise.all([call("keys"), call("workflows").catch(() => [])])
+  // Which workflows reach each card with use("..."): read from the workflow files, so nothing has to be declared.
+  const usedBy = (c) => flows.filter((w) => (w.uses || []).includes(c.name)).map((w) => w.title)
+  const words = (names) => (names.length < 3 ? names.join(" and ") : `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`)
+  const need = cards.filter((c) => c.needsKey)
+  const missing = need.filter((c) => !c.hasKey)
+  // What stops a workflow comes first: a card with no key that a workflow uses. Then the other missing ones, then the saved.
+  const rank = (c) => (c.hasKey ? 2 : usedBy(c).length ? 0 : 1)
+  need.sort((a, b) => rank(a) - rank(b))
+  const blocking = missing.filter((c) => usedBy(c).length)
+
+  const may = fb.can("admin")
+  // A key is typed once and never shown again. It is not a password of this site, so password managers are told to leave it alone.
+  const fields = need.map((c) => ({
+    card: c,
+    input: h("input", { class: "input font-mono", type: "password", name: c.name, autocomplete: "off", spellcheck: "false", "data-1p-ignore": true, "data-lpignore": "true", "data-bwignore": true, disabled: !may, placeholder: c.hasKey ? "•••••••••••• saved" : /key|secret|token/i.test(c.label) ? c.label : `${c.label} key` }),
+  }))
+  const save = h("button", { class: "btn", type: "submit" }, "Save")
+  const state = (c) => (c.hasKey ? ui.badge("Saved", "ok") : ui.badge("No key yet", "warn"))
+  /** Who needs it, in words. A signing secret is used by its webhook line, not by a workflow file. */
+  const use = (c) => {
+    const by = usedBy(c)
+    if (c.incoming) return null
+    if (!by.length) return flows.length ? "No workflow uses it yet." : null
+    return `${c.hasKey ? "Used by" : "Needed by"} ${words(by)}.`
+  }
+  // Taking a key away is asked once more, and the question names what stops.
+  const remove = (c) => {
+    const b = h("button", { class: "btn shrink-0", "data-variant": "outline", type: "button", "aria-label": `Remove the ${c.label} key` }, "Remove")
+    b.onclick = async () => {
+      const by = usedBy(c)
+      const what = c.incoming
+        ? "Rows sent to its webhook are refused until a new secret is saved."
+        : by.length
+          ? `${words(by)} ${by.length === 1 ? "stops" : "stop"} at ${by.length === 1 ? "its" : "their"} next call to ${c.label}, until a new key is saved. Nothing that was already bought is lost.`
+          : "No workflow uses it now. Nothing that was already bought is lost."
+      if (!(await fb.confirm({ title: `Remove the ${c.label}${/key|secret|token/i.test(c.label) ? "" : " key"}?`, text: what, yes: "Remove", tone: "bad" }))) return
+      fb.act(b, async () => {
+        await call("set-key", { name: c.name, value: "" })
+        await fb.redraw()
+        fb.say(`Removed: ${c.label}.`)
+      })
+    }
+    return b
+  }
+  const form = h("form", { class: "flex w-full max-w-xl flex-col gap-6", "aria-label": "Add keys" },
+    ...fields.map((f) => {
+      const field = ui.field(f.card.label, f.input, [f.card.hint, use(f.card)].filter(Boolean).join(" ") || null)
+      field.querySelector("label").append(" ", state(f.card))
+      // A saved key has its way out beside its box: typing a new one replaces it, Remove takes it away.
+      if (f.card.hasKey && may) {
+        const slot = document.createComment("")
+        f.input.replaceWith(slot)
+        slot.replaceWith(h("div", { class: "flex items-center gap-2" }, f.input, remove(f.card)))
+      }
+      return field
+    }),
+    need.length ? (may ? h("div", { class: "actions" }, save) : h("p", { class: "text-muted-foreground" }, "Only a manager adds or changes keys.")) : null)
+  form.onsubmit = (e) => {
+    e.preventDefault()
+    const typed = fields.filter((f) => f.input.value.trim())
+    if (!typed.length) return fb.say("Nothing typed, nothing changed.")
+    fb.act(save, async () => {
+      const done = []
+      try {
+        for (const f of typed) (await call("set-key", { name: f.card.name, value: f.input.value }), done.push(f.card.label))
+      } catch (err) {
+        // One was refused: the ones before it are saved, and the page says so before it says what went wrong.
+        if (done.length) await fb.redraw()
+        throw err
+      }
+      await fb.redraw()
+      fb.say(`Saved: ${done.join(", ")}.`)
+    })
+  }
+  const proxied = cards.filter((c) => !c.needsKey)
+  const sub = missing.length
+      ? `${missing.length} of ${need.length} still need${missing.length === 1 ? "s" : ""} a key.`
+      : null
+  view.replaceChildren(
+    ui.head({ title: "Keys", sub }),
+    need.length ? form : ui.empty({ title: "No key is needed", text: "No provider card in flowbound.config.ts needs a key." }),
+    ...proxied.map((c) => h("p", { class: "text-muted-foreground" }, `${c.label}: its key is kept by a proxy at ${c.host}, not here.`)),
+    h("p", { class: "text-muted-foreground max-w-xl" }, fb.live
+      ? "Keys are saved locked in your own database. One secret on the host unlocks them, and a workflow step only ever gets the key of the card it calls."
+      : "On your own computer, keys are kept out of the chat and out of the project folder. An agent with your whole machine could still dig one out. For a hard wall, use a proxy."),
+    ...(fb.live ? [h("p", {}, ui.link("/connect", {}, "Connect an agent that cannot sign in by itself", { class: "link" }))] : []))
+})
+</script>

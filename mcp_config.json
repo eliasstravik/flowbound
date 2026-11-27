@@ -1,0 +1,1 @@
+{ "mcpServers": { "flowbound": { "command": "npx", "args": ["-y", "flowbound", "mcp"] } } }

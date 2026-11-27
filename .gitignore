@@ -1,0 +1,8 @@
+node_modules
+dist
+*.tgz
+.flowbound
+.vercel
+.env*
+.swc
+src/plugins/pages/built

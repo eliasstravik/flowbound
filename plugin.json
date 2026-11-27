@@ -1,0 +1,8 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "flowbound",
+  "version": "0.1.0",
+  "description": "An open-source agent plugin for GTM workflows: run workflows, and store and enrich your GTM data, on your own keys and database. No credits, no sign-up.",
+  "license": "MIT",
+  "keywords": ["gtm", "enrichment", "workflows", "list-building"]
+}

@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+__HEAD__
+</head>
+<body>
+<main class="door">
+<h1 id="title"></h1>
+<p class="font-medium" id="back"></p>
+<div>
+<p class="text-muted-foreground">It will be able to:</p>
+<ul class="mt-1 list-disc pl-5"><li>read your lists, tables and runs</li><li>try a workflow on 10 rows</li><li>add rows to a list</li><li>ask for a full run, which waits for your yes on a page</li></ul>
+</div>
+<p class="sub" id="as"></p>
+<p class="sub">It acts as you and can never do more than you can. It cannot approve spending or see keys. You can take this away on the Connect page.</p>
+<form action="/door/allow" method="post">
+  <input type="hidden" name="query" id="query">
+  <div class="actions">
+    <button class="btn" type="submit" name="answer" value="allow">Allow</button>
+    <button class="btn" data-variant="outline" type="submit" name="answer" value="no">Not now</button>
+  </div>
+</form>
+</main>
+<script>
+document.getElementById("title").textContent = `Let ${__APP__} use this Flowbound?`
+const back = __BACK__
+document.getElementById("back").textContent = back ? `You will be sent back to ${back}.` : ""
+document.getElementById("back").hidden = !back
+document.getElementById("query").value = __QUERY__
+document.getElementById("as").textContent = `You are signed in as ${__WHO__}. Everything it does here is saved under your name.`
+</script>
+</body>
+</html>

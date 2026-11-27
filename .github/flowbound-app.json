@@ -1,0 +1,14 @@
+{
+  "name": "Flowbound Workflows",
+  "url": "https://github.com/eliasstravik/flowbound",
+  "public": false,
+  "hook_attributes": { "active": false },
+  "default_permissions": {
+    "contents": "write",
+    "pull_requests": "write",
+    "checks": "read",
+    "deployments": "read",
+    "statuses": "read"
+  },
+  "default_events": []
+}
