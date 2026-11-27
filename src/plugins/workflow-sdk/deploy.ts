@@ -21,13 +21,23 @@ function vercel(root: string, args: string[], opts: { input?: string; show?: boo
   const r = spawnSync("npx", ["--yes", "vercel", ...args], { cwd: root, encoding: "utf8", input: opts.input, stdio: opts.show ? "inherit" : ["pipe", "pipe", "pipe"] })
   return { ok: r.status === 0, out: `${r.stdout ?? ""}`, err: `${r.stderr ?? ""}` }
 }
-const envFile = (root: string) => path.join(root, ".flowbound", "live.env")
-function pullEnv(root: string): Record<string, string> {
-  vercel(root, ["env", "pull", envFile(root), "--environment", "production", "--yes"])
-  if (!fs.existsSync(envFile(root))) return {}
-  const env = Object.fromEntries([...fs.readFileSync(envFile(root), "utf8").matchAll(/^([A-Z0-9_]+)="?(.*?)"?$/gm)].map((m) => [m[1]!, m[2]!]))
-  fs.rmSync(envFile(root), { force: true })
-  return env
+function liveSettings(root: string): Set<string> {
+  const names = vercel(root, ["env", "ls", "production"])
+  if (!names.ok) throw new Error("Could not read production setting names from Vercel. Check your login and project link.")
+  return new Set((names.out + names.err).match(/\b[A-Z][A-Z_]+\b/g))
+}
+
+function linkProject(root: string, name: string) {
+  const file = path.join(root, ".vercel", "project.json")
+  if (fs.existsSync(file)) return
+  // Vercel's link command also downloads Development settings to disk. The project IDs are enough to link the CLI.
+  let project = vercel(root, ["api", `/v9/projects/${encodeURIComponent(name)}`, "--raw"])
+  if (!project.ok) project = vercel(root, ["api", "/v10/projects", "-X", "POST", "-f", `name=${name}`, "--raw"])
+  if (!project.ok) throw new Error(`Could not make or link Vercel project "${name}". Check your Vercel account and project name.`)
+  const { id, accountId, name: projectName } = JSON.parse(project.out)
+  if (!id || !accountId || !projectName) throw new Error("Vercel did not return a project ID and team ID.")
+  fs.mkdirSync(path.dirname(file), { recursive: true })
+  fs.writeFileSync(file, JSON.stringify({ projectId: id, orgId: accountId, projectName }))
 }
 
 /** Write .vercel/output for this project: the workflow functions from the Workflow SDK's builder, plus Flowbound itself. */
@@ -174,6 +184,25 @@ export async function deploy(args: string[], cl: CommandLine, on?: string): Prom
   const root = cl.root
   const flag = (name: string) => args.includes(`--${name}`)
   const value = (name: string) => (args.includes(`--${name}`) ? args[args.indexOf(`--${name}`) + 1] : undefined)
+
+  if (flag("prepare-database")) {
+    const url = process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL
+    if (!url) throw new Error("No database address is available to the migration command.")
+    const facts = JSON.parse(fs.readFileSync(0, "utf8") || "[]")
+    const db = await migrate(root, await readList(root), url)
+    try {
+      say(`Tables: ${db.applied} change${db.applied === 1 ? "" : "s"} applied`)
+      for (const f of facts)
+        await db.query(
+          "insert into fb_ledger.facts (key, provider, request, status, answer, cost_usd, by, at) select $1, $2, $3, $4, $5, $6, $7, $8 where not exists (select 1 from fb_ledger.facts where key = $1 and at = $8)",
+          [f.key, f.provider, JSON.stringify(f.request), f.status, JSON.stringify(f.answer), f.cost_usd, f.by, f.at],
+        )
+      if (facts.length) say(`Copied ${facts.length} paid facts`)
+    } finally {
+      await db.close()
+    }
+    return
+  }
   if (on === "local") return say('This project is set to run on your computer only. To go live, change the line in flowbound.config.ts to workflowSdk() or workflowSdk({ on: "vercel" }).')
   if (on === "postgres" || on === "cloudflare") return say(`workflowSdk({ on: "${on}" }) has a written guide, not a deploy command: see docs/homes.md in the flowbound package (node_modules/flowbound/docs/homes.md).`)
   if (flag("build-only")) {
@@ -194,7 +223,7 @@ export async function deploy(args: string[], cl: CommandLine, on?: string): Prom
       .basename(root)
       .toLowerCase()
       .replace(/[^a-z0-9-]+/g, "-")}`
-  if (!fs.existsSync(path.join(root, ".vercel", "project.json")) && !vercel(root, ["link", "--yes", "--project", name]).ok) throw new Error(`Could not make or link the Vercel project "${name}". Try: npx vercel link`)
+  linkProject(root, name)
 
   // The normal Vercel way from here on: with this file in the repo, a git push builds the same thing this command does.
   const vercelJson = path.join(root, "vercel.json")
@@ -203,43 +232,37 @@ export async function deploy(args: string[], cl: CommandLine, on?: string): Prom
     say("Wrote vercel.json: connect this repo to the project in Vercel and every push builds it (see docs/homes.md in the flowbound package).")
   }
 
-  let env = pullEnv(root)
-  if (!env.DATABASE_URL) {
+  let env = liveSettings(root)
+  if (!env.has("DATABASE_URL")) {
     vercel(root, ["integration", "accept-terms", "neon", "--yes"])
-    const added = vercel(root, ["integration", "add", "neon", "--name", `${name}-db`.slice(0, 32), "-m", "auth=false", "--plan", "free_v3", "-e", "production", "-e", "preview", "-e", "development", "--no-env-pull"], {
+    vercel(root, ["integration", "add", "neon", "--name", `${name}-db`.slice(0, 32), "-m", "auth=false", "--plan", "free_v3", "-e", "production", "-e", "preview", "-e", "development", "--no-env-pull"], {
       show: !!rl,
     })
-    env = pullEnv(root)
-    if (!env.DATABASE_URL) throw new Error(`Vercel did not add a Neon database${added.err ? `: ${added.err.trim().split("\n").pop()}` : ""}. Add one yourself with: npx vercel integration add neon  Then deploy again.`)
+    env = liveSettings(root)
+    if (!env.has("DATABASE_URL")) throw new Error("Vercel did not add a Neon database. Connect one in the project’s Storage tab and try again.")
     say("Database: Neon (made for you)")
   } else say("Database: Neon")
-  if (!env.FLOWBOUND_SECRET) vercel(root, ["env", "add", "FLOWBOUND_SECRET", "production"], { input: crypto.randomBytes(32).toString("base64url") })
+  if (!env.has("FLOWBOUND_SECRET")) vercel(root, ["env", "add", "FLOWBOUND_SECRET", "production"], { input: crypto.randomBytes(32).toString("base64url") })
   // Vercel's schedules call /clock with this secret, and the clock ticks for nobody else. Made here, never shown.
-  if (!env.CRON_SECRET) vercel(root, ["env", "add", "CRON_SECRET", "production"], { input: crypto.randomBytes(32).toString("base64url") })
+  if (!env.has("CRON_SECRET")) vercel(root, ["env", "add", "CRON_SECRET", "production"], { input: crypto.randomBytes(32).toString("base64url") })
 
   const list = await readList(root)
-  const db = await migrate(root, list, env.DATABASE_URL_UNPOOLED ?? env.DATABASE_URL)
-  say(`Tables: ${db.applied} change${db.applied === 1 ? "" : "s"} applied`)
-  try {
-    // Local tables never move to live. Only the memory of paid facts can be copied up, so nothing is bought twice.
-    const facts: any[] = []
-    // The sql tool answers 500 rows at a time: read the whole memory, page by page.
-    for (let from = 0; await running(root); from += 500) {
-      const page = await cl.call("sql", { query: `select key, provider, request, status, answer, cost_usd, by, at from fb_ledger.facts order by id limit 500 offset ${from}` }).catch(() => undefined)
-      facts.push(...(page?.rows ?? []))
-      if ((page?.rows?.length ?? 0) < 500) break
-    }
-    if (facts.length && (flag("copy-facts") || (await ask(`Copy ${facts.length} paid facts to live?`, false)))) {
-      for (const f of facts)
-        await db.query(
-          "insert into fb_ledger.facts (key, provider, request, status, answer, cost_usd, by, at) select $1, $2, $3, $4, $5, $6, $7, $8 where not exists (select 1 from fb_ledger.facts where key = $1 and at = $8)",
-          [f.key, f.provider, JSON.stringify(f.request), f.status, JSON.stringify(f.answer), f.cost_usd, f.by, f.at],
-        )
-      say(`Copied ${facts.length} paid facts`)
-    }
-  } finally {
-    await db.close()
+
+  const facts: any[] = []
+  // The sql tool answers 500 rows at a time: read the whole memory, page by page.
+  for (let from = 0; await running(root); from += 500) {
+    const page = await cl.call("sql", { query: `select key, provider, request, status, answer, cost_usd, by, at from fb_ledger.facts order by id limit 500 offset ${from}` }).catch(() => undefined)
+    facts.push(...(page?.rows ?? []))
+    if ((page?.rows?.length ?? 0) < 500) break
   }
+
+  const copy = facts.length && (flag("copy-facts") || (await ask(`Copy ${facts.length} paid facts to live?`, false)))
+  const prepared = vercel(root, ["env", "run", "--environment", "production", "--", process.execPath, process.argv[1]!, "deploy", "--prepare-database"], {
+    input: JSON.stringify(copy ? facts : []),
+  })
+  if (!prepared.ok && copy) throw new Error("Could not copy the requested facts. Check that Vercel can supply the production database address to a command.")
+  if (!prepared.ok) say("The deployment will apply its table changes on the first request.")
+  else for (const line of prepared.out.split("\n").filter((line) => /^(Tables: \d+ changes? applied|Copied \d+ paid facts)$/.test(line))) say(line)
 
   await buildVercel(root)
   const shipped = vercel(root, ["deploy", "--prebuilt", "--prod", "--yes"])
@@ -260,7 +283,7 @@ export async function deploy(args: string[], cl: CommandLine, on?: string): Prom
   rl?.close()
   const signIn = list.find((p) => p.provides === "door")?.signIn as string | undefined
   say(`live at ${url}${signIn ? ` · sign in with ${signIn}` : ""}`)
-  if (!env.FLOWBOUND_LOGIN_CLIENT_ID && !env.FLOWBOUND_PASSWORD)
+  if (!env.has("FLOWBOUND_LOGIN_CLIENT_ID") && !env.has("FLOWBOUND_PASSWORD"))
     say(
       [
         "",
