@@ -108,12 +108,12 @@ test("`flowbound plugins` prints the parts inside and what the project adds", ()
   assert.match(out, /mcp\s+-\s+flowbound/)
   assert.match(out, /ledger\s+ledger\s+flowbound/)
   assert.match(out, /firecrawl\s+-\s+flowbound/)
-  assert.match(out, /13 plugins, 0 problems$/)
+  assert.match(out, /14 plugins, 0 problems$/)
 })
 
 test("the project says only its providers and permissions; a part inside is swapped in one line", () => {
   const names = (l: Plugin[]) => l.map((x) => x.name)
-  assert.deepEqual(names(flowbound({})), ["postgres", "workflow-sdk", "keys", "ledger", "overview", "pages", "mcp", "changes", "cli", "door"])
+  assert.deepEqual(names(flowbound({})), ["postgres", "workflow-sdk", "keys", "ledger", "overview", "context", "pages", "mcp", "changes", "cli", "door"])
   const mine = plugin({ name: "my-store", provides: "records" })
   assert.equal(flowbound({ parts: { store: mine } })[0], mine)
   const s = schedule({ id: "weekly-heads", workflow: "w", every: "hour" })
@@ -271,7 +271,7 @@ test("a schedule line as a host's cron line; one it cannot say exactly gets the 
 test("schedule() and hook() are lines that need the schedules part, and say what is wrong with a line when the list is read", () => {
   const s = schedule({ id: "weekly-heads", workflow: "find-sales-heads", every: "monday 08:00", timezone: "Europe/Stockholm" })
   assert.deepEqual([s.name, s.needs], ["weekly-heads", ["schedules"]])
-  assert.match(table([...starter(), schedules(), s, hook({ id: "new-leads", workflow: "lead-heads" })]), /16 plugins, 0 problems$/)
+  assert.match(table([...starter(), schedules(), s, hook({ id: "new-leads", workflow: "lead-heads" })]), /17 plugins, 0 problems$/)
   assert.match(table([...starter(), s]), /problem: weekly-heads needs schedules, and no plugin in the list gives it/)
   assert.throws(() => schedule({ id: "weekly", workflow: "x", every: "now and then" }), /not a schedule Flowbound knows/)
   assert.throws(() => schedule({ id: "Weekly Heads", workflow: "x", every: "hour" }), /short name in lower-case letters/)
