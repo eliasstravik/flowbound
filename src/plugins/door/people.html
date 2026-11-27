@@ -20,7 +20,7 @@ fb.page("/people", async (root, params) => {
       a.click()
     })
   const historyPart = h("section", { class: "flex max-w-2xl flex-col gap-2" },
-    h("div", { class: "flex flex-wrap items-center justify-between gap-2" }, h("h2", {}, "Who changed what"), download),
+    h("div", { class: "flex flex-wrap items-center justify-between gap-2" }, h("h2", {}, "Who changed what"), fb.embedded ? null : download),
     h("p", { class: "text-muted-foreground" }, "Kept as it was written: a line cannot be changed or deleted."),
     history.length ? h("ul", { class: "border-t", role: "list" }, ...history.map(line)) : h("p", { class: "text-muted-foreground" }, "Nothing has been changed yet."),
     history.length >= shown ? h("div", { class: "actions pt-2" }, h("span", { class: "text-muted-foreground" }, `The latest ${shown}.`), h("button", { class: "btn", "data-variant": "outline", "data-size": "sm", type: "button", onclick: () => fb.stay({ history: shown + 50 }) }, "Show more")) : null)
@@ -59,7 +59,8 @@ fb.page("/people", async (root, params) => {
     : null
   view.replaceChildren(
     ...[
-      ui.head({ title: "People", sub: `People sign in with ${p.signIn}. Signing in gives nothing by itself: ${p.rightsFrom === "groups" ? "each person's rights come from their groups in the login." : "a manager gives each person their rights."}` }),
+      ui.head({ title: "People", sub: `People sign in with ${p.signIn}. Signing in gives nothing by itself: ${p.rightsFrom === "groups" ? "each person's rights come from their groups in the login." : "a manager gives each person their rights."}`,
+        actions: fb.embedded && fb.can("admin") ? [ui.link("/people", {}, "Manage people on the web", { class: "btn", "data-variant": "outline", "data-web": true })] : [] }),
       h("p", { class: "text-muted-foreground max-w-2xl" }, "Viewers can look. Members can save, run and publish workflows. Admins also manage people, keys and settings. Owners can do everything, including deleting the project."),
       h("div", { class: "max-w-2xl" }, ui.table(["Person", "May"], p.people.map(person), { label: "People" })),
       add,

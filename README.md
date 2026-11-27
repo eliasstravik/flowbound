@@ -39,9 +39,17 @@ Claude Code and Codex first need the marketplace: `/plugin marketplace add elias
 
 The plugin starts in **Run here**. To use a company installation, run `npx flowbound connect https://your-company.example` once and restart the agent app. Flowbound opens your browser for work sign-in on the first tool call. Switch back with `npx flowbound connect --local` and restart the app. Cloud chat apps connect directly to the company’s `/mcp` address.
 
-Agents reach it through two MCP tools, however many providers you add: `search` finds a tool and its inputs,
+Agents do the work through two MCP tools: `search` finds a tool and its inputs,
 `execute` runs a few lines of JavaScript that call tools (`await flowbound.runs({})`), several at once, keeping only
-what is needed. Every tool is also a command: `npx flowbound <tool>`.
+what is needed. `show` opens Flowbound inside chat. You can see run progress, spending questions, result tables
+and workflow diagrams right there, and expand to the app when your chat supports it. Text-only apps still get a
+web link. Embedded views reuse the connector's sign-in.
+
+## Try the demo
+
+Add `https://flowbound-demo.vercel.app/mcp` as a custom connector in Claude. Choose **No sign in**, turn it on
+in a chat and ask “Run the free sample-contacts workflow and show me the results in Flowbound.” The demo uses
+four fictional companies and costs $0. [Open the demo website](https://flowbound-demo.vercel.app/)
 
 ## Use Flowbound from a phone
 

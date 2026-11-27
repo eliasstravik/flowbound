@@ -102,5 +102,6 @@ fb.page("/runs", async (root, params) => {
           ui.table(["Row", "Why"], r.failedRows.map((f) => [h("td", { class: "num align-top" }, num(f.row)), h("td", { class: "wrap min-w-64" }, ui.linked(f.reason))]), { label: "Failed rows" }))
       : null)
   if (r.state === "running") fb.poll(2000)
+  else if (fb.embedded && r.asks) fb.poll(6000)
 })
 </script>

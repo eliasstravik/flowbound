@@ -394,13 +394,19 @@ test("a chat app signs in as a named person, and can never do more than they can
     const got = await (await claude.swap!()).json()
     assert.ok(got.access_token && got.refresh_token)
 
-    // The token opens MCP: two tools, and every call arrives as "Claude, for" the person.
+    // The same signed-in connection opens the app and calls tools as "Claude, for" the person.
     const tools = (await fb.rpc(got.access_token, "tools/list")).body.result.tools
     assert.deepEqual(
       tools.map((t: any) => t.name),
-      ["search", "execute"],
+      ["search", "execute", "show"],
     )
     const run = (tool: string) => fb.rpc(got.access_token, "tools/call", { name: "execute", arguments: { code: `return await flowbound["${tool}"]({})` } })
+    const uri = tools.find((t: any) => t.name === "show")._meta.ui.resourceUri
+    assert.equal((await fb.rpc(undefined, "resources/read", { uri })).status, 401)
+    assert.equal((await fb.rpc(got.access_token, "resources/read", { uri })).body.result.contents[0].uri, uri)
+    const shown = await fb.rpc(got.access_token, "tools/call", { name: "show", arguments: { page: "permissions" } })
+    assert.equal(shown.body.result.structuredContent.view.path, "/permissions")
+    assert.equal(shown.body.result._meta.flowbound.role, "member")
     const who = JSON.parse((await run("change")).body.result.content[0].text).who
     assert.deepEqual(who, { kind: "token", name: "Claude, for Maya Manager (maya@acme.example)", checked: true, via: "mcp", email: "maya@acme.example", role: "member", personName: "Maya Manager" })
     // Maya may approve: the app that acts for her passes her yes on, saved with its name. It still cannot manage.

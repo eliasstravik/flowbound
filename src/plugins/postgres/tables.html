@@ -49,7 +49,9 @@ fb.page("/tables", async (root, params) => {
       file.value = ""
       upload(csv, f.name, {})
     }
-    const add = fb.can("member") ? [pick, file] : []
+    const add = fb.can("member") && fb.supports("import")
+      ? fb.embedded ? [ui.link("/tables", {}, "Upload a CSV on the web", { class: "btn", "data-variant": "outline", "data-web": true })] : [pick, file]
+      : []
     const head = ui.head({ title: "Tables", sub: "Your lists and results. Each answer says where it came from, how old it is and what it cost.", actions: tables.length ? add : [] })
     if (!tables.length) return view.replaceChildren(head, choice, ui.empty({ title: "No tables yet", text: "Upload a CSV (the first line is the column names), or ask your agent to import one.", actions: add }))
     return view.replaceChildren(
@@ -61,7 +63,8 @@ fb.page("/tables", async (root, params) => {
   }
 
   // One page of the table at a time: the address keeps the page, the search and the order, so a reload or a link lands on the same rows.
-  const size = 100
+  const compact = fb.compact()
+  const size = compact ? 5 : fb.embedded ? 20 : 100
   const page = Math.max(1, Math.floor(Number(params.page)) || 1)
   const t = await call("table", { name: params.table, limit: size, offset: (page - 1) * size, search: params.q || undefined, sort: params.sort || undefined, desc: params.desc ? true : undefined })
   const all = t.found ?? t.total
@@ -93,7 +96,7 @@ fb.page("/tables", async (root, params) => {
       if (c.of !== "result") return h("td", { class: "cut", title: v.length > 34 ? v : null }, v)
       // Where it came from, how old it is and what it cost: on every answered cell, as one small line.
       const src = r.sources && r.sources[i]
-      return h("td", { class: v ? null : "none" }, h("button", { type: "button", title: v.length > 34 ? v : null, onclick: () => source(r, i) }, v || "not found"), src ? h("span", { class: "src" }, src) : null)
+      return h("td", { class: v ? null : "none" }, fb.supports("fact") ? h("button", { type: "button", title: v.length > 34 ? v : null, onclick: () => source(r, i) }, v || "not found") : v || "not found", src ? h("span", { class: "src" }, src) : null)
     }))
   /** A column's name is also how to sort by it: once from the lowest, again from the highest, a third time as it was. */
   const heading = (c) => {
@@ -116,14 +119,15 @@ fb.page("/tables", async (root, params) => {
   q.addEventListener("input", () => (clearTimeout(typing), (typing = setTimeout(find, 350))))
   const from = all ? (page - 1) * size + 1 : 0
   const turn = (label, icon, to, off) => h("button", { class: "btn", "data-variant": "outline", "data-size": "sm", type: "button", disabled: off, onclick: () => fb.stay({ page: to > 1 ? to : null }) }, icon === "chevron-left" ? ui.icon(icon) : null, label, icon === "chevron-right" ? ui.icon(icon) : null)
-  view.replaceChildren(
-    ui.head({ title: t.name, mono: true, back: ["/tables", "All tables"], sub: `${num(t.total)} rows, ${t.origin}`, actions: [download] }),
-    h("form", { class: "toolbar", role: "search", onsubmit: (e) => (e.preventDefault(), find()) }, q, t.kind === "results" ? h("p", { class: "text-muted-foreground" }, "Tap an answer for the whole kept fact behind it.") : null),
+  view.replaceChildren(...[
+    ui.head({ title: t.name, mono: true, back: ["/tables", "All tables"], sub: `${num(t.total)} rows, ${t.origin}`, actions: compact || !fb.supports("export") ? [] : [fb.embedded ? ui.link("/tables", { table: t.name }, "Download on the web", { class: "btn", "data-variant": "outline", "data-web": true }) : download] }),
+    !compact ? h("form", { class: "toolbar", role: "search", onsubmit: (e) => (e.preventDefault(), find()) }, q, t.kind === "results" && fb.supports("fact") ? h("p", { class: "text-muted-foreground" }, "Tap an answer for the whole kept fact behind it.") : null) : null,
     t.rows.length
       ? h("div", { class: "table-container fill", tabindex: "0", role: "region", "aria-label": t.name }, h("table", { class: "table" }, h("thead", {}, h("tr", {}, ...t.columns.map(heading))), h("tbody", {}, ...t.rows.map(line))))
       : ui.empty(params.q ? { title: `Nothing in ${t.name} has "${params.q}"`, actions: [h("button", { class: "btn", "data-variant": "outline", type: "button", onclick: () => fb.stay({ q: null, page: null }) }, "Show every row")] } : { title: "No rows yet" }),
     h("div", { class: "pager" },
       h("p", { class: "num", role: "status" }, all ? `${num(from)} to ${num(from + t.rows.length - 1)} of ${num(all)}${t.found === undefined ? "" : " found"}` : ""),
-      all > size ? h("div", { class: "actions" }, turn("Previous", "chevron-left", page - 1, page <= 1), turn("Next", "chevron-right", page + 1, from + t.rows.length - 1 >= all)) : null))
+      all > size ? h("div", { class: "actions" }, turn("Previous", "chevron-left", page - 1, page <= 1), turn("Next", "chevron-right", page + 1, from + t.rows.length - 1 >= all)) : null),
+  ].filter(Boolean))
 })
 </script>

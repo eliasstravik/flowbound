@@ -127,8 +127,18 @@ ${shown.map(([p, x]) => `<section data-page="${p}" hidden>\n${read(x.file)}\n</s
 }
 
 // Built-in views only. Hosts can fetch the static resource before the person opens a project.
-export const appPages = new Map<string, Page>([["/runs", { title: "Runs", file: asset("workflow-sdk/runs.html"), menu: true }]])
-export const renderApp = () => render(appPages, { app: true })
+export const appPages = new Map<string, Page>([
+  ["/needs", { title: "Needs you", file: asset("overview/overview.html"), menu: true, first: true }],
+  ["/runs", { title: "Runs", file: asset("workflow-sdk/runs.html"), menu: true }],
+  ["/tables", { title: "Tables", file: asset("postgres/tables.html"), menu: true }],
+  ["/workflows", { title: "Workflows", file: asset("workflow-sdk/workflows.html"), menu: true }],
+  ["/changes", { title: "Changes", file: asset("changes/changes.html"), menu: true }],
+  ["/keys", { title: "Keys", file: asset("keys/keys.html"), menu: true }],
+  ["/permissions", { title: "Permissions", file: asset("ledger/permissions.html"), menu: true }],
+  ["/people", { title: "People", file: asset("door/people.html") }],
+])
+let appDocument: string | undefined
+export const renderApp = () => (appDocument ??= render(appPages, { app: true }))
 
 export const pages = () => {
   let fb: Flowbound
@@ -160,7 +170,7 @@ export const pages = () => {
     },
     docs: `## The page, for people
 People read, find their way, understand, and see what needs them, on a phone or a desktop. The page is at the address \`flowbound dev\` prints (http://localhost:4111). Tabs: \`/needs\` (Needs you: each yes that waits, a key that is missing), \`/runs\` (what ran, what failed and why), \`/tables\` (results, each cell with its source, age and cost; upload a CSV; download one), \`/workflows\` (your summary and diagram of each workflow, and its code), \`/changes\` (saved changes, checks, preview and Publish), \`/keys\` (keys are typed only there), \`/permissions\` (the mode and caps, and what this month has used).
-When the person needs to see something, give them the link. A yes is never a button on the page: the person tells you, and you pass it on.
+When the person needs to see something, use the MCP show tool. In text-only chats, give them the link. A yes is never a button on the page: the person tells you, and you pass it on.
 A plugin's own page is one HTML file (\`pages: { "/path": { title, file, menu: true } }\`) with one script, \`fb.page("/path", async (root, params) => { ... })\`. Build it from the shared parts so it looks and behaves like the rest: \`fb.ui.head\`, \`fb.ui.status\`, \`fb.ui.facts\`, \`fb.ui.table\`, \`fb.ui.empty\`, \`fb.ui.note\`, \`fb.ui.field\`, buttons with \`class="btn"\`, and \`fb.call\`, \`fb.act\`, \`fb.confirm\`, \`fb.say\`, \`fb.poll\`. Only those parts are styled: other class names do nothing.`,
   })
   return self

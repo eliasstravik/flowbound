@@ -14,6 +14,14 @@ fb.page("/keys", async (root) => {
   need.sort((a, b) => rank(a) - rank(b))
   const blocking = missing.filter((c) => usedBy(c).length)
 
+  if (fb.embedded) {
+    return view.replaceChildren(
+      ui.head({ title: "Keys", actions: [ui.link("/keys", {}, "Manage keys on the web", { class: "btn", "data-variant": "outline", "data-web": true })] }),
+      need.length ? ui.facts(need.map((c) => [c.label, ui.badge(c.hasKey ? "Saved" : "No key yet", c.hasKey ? "ok" : "warn")]))
+        : ui.empty({ title: "No key is needed" }),
+    )
+  }
+
   const may = fb.can("admin")
   // A key is typed once and never shown again. It is not a password of this site, so password managers are told to leave it alone.
   const fields = need.map((c) => ({

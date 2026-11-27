@@ -306,7 +306,7 @@ test("MCP show opens a run without calling a work tool", async () => {
   const behind = {
     about: async () => ({ url: "https://example.test/flowbound", live: true, tools: [] }),
     call: async () => assert.fail("Showing a view cannot execute work"),
-    app: { url: "https://example.test/flowbound", live: true, role: "viewer", tools: ["runs"] },
+    app: { url: "https://example.test/flowbound", live: true, role: "viewer", tools: ["runs"], paths: ["/runs", "/tables", "/workflows"] },
   }
   const rpc = (method: string, params?: unknown) => answer({ jsonrpc: "2.0", id: 1, method, params }, behind) as Promise<any>
   const { tools } = (await rpc("tools/list")).result
@@ -328,6 +328,8 @@ test("MCP show opens a run without calling a work tool", async () => {
   assert.match(result.content[0].text, /Open Flowbound run 2: https:\/\/example\.test\/flowbound\/runs\?run=2/)
   assert.equal(result._meta.flowbound.role, "viewer")
   assert.equal((await rpc("tools/call", { name: "show", arguments: { run: "bad" } })).result.isError, true)
+  assert.equal((await rpc("tools/call", { name: "show", arguments: { page: "keys" } })).result.isError, true)
+  assert.equal((await rpc("tools/call", { name: "show", arguments: { table: "example & test" } })).result.structuredContent.link, "https://example.test/flowbound/tables?table=example+%26+test")
 })
 
 test("execute runs code in a sandbox of its own: it reaches only the tools, as the caller, with time and memory capped", async () => {

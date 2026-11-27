@@ -702,7 +702,7 @@ export const workflowSdk = (opts: { on?: Home } = {}) => {
       workflow: {
         about: "One workflow as people see it on the Workflows page: the summary and diagram you wrote for them, its code, and its last run.",
         role: "viewer",
-        input: { id: { about: "the workflow's id", required: true } },
+        input: { id: { about: "the workflow's id", required: true }, includeCode: { type: "boolean", about: "include the source code (default true)" } },
         run: async (i) => {
           const w = manifest.workflows[String(i.id)]
           if (!w) throw new Refused(`There is no workflow called "${i.id}". Workflows: ${Object.keys(manifest.workflows).join(", ") || "none yet"}`)
@@ -714,7 +714,7 @@ export const workflowSdk = (opts: { on?: Home } = {}) => {
             ...(await listed(w)),
             file: `workflows/${w.id}.ts`,
             diagram: w.diagram ?? null,
-            code: w.text ?? "",
+            ...(i.includeCode === false ? {} : { code: w.text ?? "" }),
             page: `${fb.url}/workflows?workflow=${w.id}`,
             lastRun: v
               ? {

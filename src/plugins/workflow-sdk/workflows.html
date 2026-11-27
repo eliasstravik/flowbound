@@ -22,7 +22,8 @@ fb.page("/workflows", async (root, params) => {
         ])))))
   }
 
-  const w = await call("workflow", { id: params.workflow })
+  const compact = fb.compact()
+  const w = await call("workflow", { id: params.workflow, includeCode: !compact })
 
   // The code, to read: notes, text in quotes and the language's own words in three quiet colours. Set as text, never as HTML.
   const WORDS = /^(?:import|export|from|const|let|var|async|await|function|return|if|else|for|of|in|while|do|try|catch|finally|throw|new|null|undefined|true|false|typeof|switch|case|break|continue|default|class|extends)$/
@@ -61,19 +62,19 @@ fb.page("/workflows", async (root, params) => {
             h("p", { class: "lead" }, w.summary),
             diagram(),
             w.diagramProblem ? ui.note(`The diagram cannot be shown: ${w.diagramProblem}.`, "warn") : null,
-            h("p", { class: "sub" }, w.diagram ? "Summary and diagram written by your agent, for people, in the file beside the code. Flowbound only shows them." : "Summary written by your agent, for people, in the file beside the code. No diagram yet: ask your agent to draw one."),
+            !compact ? h("p", { class: "sub" }, w.diagram ? "Summary and diagram written by your agent, for people, in the file beside the code. Flowbound only shows them." : "Summary written by your agent, for people, in the file beside the code. No diagram yet: ask your agent to draw one.") : null,
           ]
         : h("p", { class: "lead text-muted-foreground" }, "No summary yet: ask your agent to write one."),
       w.lastRun ? h("p", { class: "sub" }, ui.link("/runs", { run: w.lastRun.run }, `Last run: ${w.lastRun.text}`, { class: "link" })) : null,
       w.waitingYes && /schedule/.test(w.runsBy) ? ui.note("A yes waits for this workflow under Needs you, so its schedule skips its next run until it is answered.", "warn") : null,
-      ui.facts([
+      !compact ? ui.facts([
         w.from ? ["Reads", ui.link("/tables", { table: w.from }, w.from, { class: "link font-mono" })] : null,
         w.into ? ["Fills", ui.link("/tables", { table: w.into }, w.into, { class: "link font-mono" })] : null,
         w.rows ? ["Rows", w.rows] : null,
         ["Runs", w.runsBy === "when asked" ? "When asked" : w.runsBy],
         ["Permission", { ask: "Ask every time", auto: "Auto inside caps", skip: "Skip asking" }[w.mode] || w.mode],
-      ])),
-    h("section", { class: "flex flex-col gap-3", "aria-label": "Code" }, h("div", { class: "flex items-center justify-between gap-2" }, h("h2", { class: "font-mono" }, w.file), copy), codeBox),
+      ]) : null),
+    !compact ? h("section", { class: "flex flex-col gap-3", "aria-label": "Code" }, h("div", { class: "flex items-center justify-between gap-2" }, h("h2", { class: "font-mono" }, w.file), copy), codeBox) : null,
   ].flat().filter(Boolean))
 })
 </script>

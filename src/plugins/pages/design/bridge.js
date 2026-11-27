@@ -47,9 +47,13 @@ window.FB_BRIDGE = {
         window.fb.trouble(error)
       }
     } }, "Expand Flowbound")
-    const web = window.fb.h("button", { class: "btn", type: "button", "data-variant": "ghost", "data-size": "sm", onclick: () => window.fb.act(web, () => this.open(window.FB.url + window.fb.route())) }, "Open web page")
+    const web = window.fb.h("button", { class: "btn", type: "button", "data-variant": "ghost", "data-size": "sm", disabled: true, onclick: () => window.fb.act(web, () => this.open(window.FB.url + window.fb.route())) }, "Open web page")
     actions.replaceChildren(expand, web)
     actions.hidden = false
+    display = (view) => {
+      web.disabled = false
+      show(view)
+    }
     await app.connect()
     update(app.getHostContext())
   },

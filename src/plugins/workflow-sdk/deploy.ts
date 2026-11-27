@@ -127,8 +127,9 @@ export { answer as GET, answer as POST, answer as PUT, answer as PATCH, answer a
   // Pages and docs are plain files read at run time: put them beside the bundle, where the plugins look for them.
   for (const file of fs.readdirSync(dist, { recursive: true })) {
     const from = path.join(dist, String(file))
-    // The pages' own script (pages/built/page.js) is one of those files: it is sent to the browser, never run here.
-    if (fs.statSync(from).isDirectory() || (/\.(js|ts|map)$/.test(from) && !from.endsWith(path.join("pages", "built", "page.js")))) continue
+    // The built page and MCP App scripts are sent to the browser, never run here.
+    const browserScript = ["page.js", "app.js"].some((name) => file === path.join("pages", "built", name))
+    if (fs.statSync(from).isDirectory() || (/\.(js|ts|map)$/.test(from) && !browserScript)) continue
     fs.mkdirSync(path.dirname(path.join(app, String(file))), { recursive: true })
     fs.copyFileSync(from, path.join(app, String(file)))
   }

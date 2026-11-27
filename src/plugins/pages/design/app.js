@@ -37,6 +37,7 @@ const fb = (() => {
   let params = Object.fromEntries(new URLSearchParams(location.search))
   let current = boot.page
   let tools
+  let paths
 
   /** h("div", { class: "card" }, child, "text") - text is always set as text, never as HTML. */
   function h(tag, attrs, ...kids) {
@@ -94,7 +95,7 @@ const fb = (() => {
   /** Move to another page. */
   function go(path, p) {
     if (bridge) {
-      if (!renders[path]) return open(path, p)
+      if (!paths?.has(path)) return open(path, p)
       current = path
       params = p || {}
       for (const el of document.querySelectorAll(".menu [data-go]")) {
@@ -374,10 +375,12 @@ const fb = (() => {
       const address = link.getAttribute("href")
       if (!address.startsWith("/") && !/^https?:/.test(address)) return
       e.preventDefault()
+      if (link.classList.contains("brand")) return paths?.size && go(paths.values().next().value, {})
       if (link.dataset.go) return go(link.dataset.go, {})
       if (/^https?:/.test(address)) return open(address)
       const [path, query] = address.slice(base.length).split("?")
-      return go(path, Object.fromEntries(new URLSearchParams(query)))
+      const args = Object.fromEntries(new URLSearchParams(query))
+      return link.hasAttribute("data-web") ? open(path, args) : go(path, args)
     })
     for (const s of document.querySelectorAll("section[data-page]")) {
       const t = s.cloneNode(true)
@@ -396,8 +399,10 @@ const fb = (() => {
             place.dataset.place = view.live ? "live" : "local"
             place.textContent = view.live ? "Live" : "Your computer"
           }
-          boot.who = { role: view.role }
+          boot.who = { role: view.role ?? "viewer" }
           tools = new Set(view.tools ?? [])
+          paths = new Set(view.paths)
+          for (const link of document.querySelectorAll(".menu [data-go]")) link.hidden = !paths.has(link.dataset.go)
           go(view.path, view.params)
         })
       } catch (error) {

@@ -5,7 +5,7 @@
     "2025-03-26",
     "2024-11-05"
   ],
-  "instructions": "Start with execute: return await flowbound.docs({ topic: \"start\" }). When running locally in a coding agent, pass the absolute path of the open project as the project argument. Workflows live in Git. From chat, save edits with workflow-save, check with workflow-change, and publish only when the person asks. Share Flowbound page links.",
+  "instructions": "Start with execute: return await flowbound.docs({ topic: \"start\" }). When running locally in a coding agent, pass the absolute path of the open project as the project argument. Workflows live in Git. From chat, save edits with workflow-save, check with workflow-change, and publish only when the person asks.",
   "tools": [
     {
       "name": "search",
