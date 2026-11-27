@@ -108,7 +108,7 @@ ${
     : `<script src="${at(base, "page.js")}"></script>`
 }
 </head>
-<body${app ? ' data-embedded data-mode="inline"' : ""}>
+<body${app ? ' data-embedded data-mode="inline" hidden' : ""}>
 <a class="skip" href="#main">Skip to the page</a>
 <div class="app">
 <aside class="side"><div class="flex items-center justify-between gap-2">${brand}${place}</div><nav class="menu" aria-label="Pages">${links}</nav>${me}</aside>
@@ -170,7 +170,7 @@ export const pages = () => {
     },
     docs: `## The page, for people
 People read, find their way, understand, and see what needs them, on a phone or a desktop. The page is at the address \`flowbound dev\` prints (http://localhost:4111). Tabs: \`/needs\` (Needs you: each yes that waits, a key that is missing), \`/runs\` (what ran, what failed and why), \`/tables\` (results, each cell with its source, age and cost; upload a CSV; download one), \`/workflows\` (your summary and diagram of each workflow, and its code), \`/changes\` (saved changes, checks, preview and Publish), \`/keys\` (keys are typed only there), \`/permissions\` (the mode and caps, and what this month has used).
-When the person needs to see something, use the MCP show tool. In text-only chats, give them the link. A yes is never a button on the page: the person tells you, and you pass it on.
+When the person needs to see something, return the run, table or workflow from MCP execute. In text-only chats, give them the link. A yes is never a button on the page: the person tells you, and you pass it on.
 A plugin's own page is one HTML file (\`pages: { "/path": { title, file, menu: true } }\`) with one script, \`fb.page("/path", async (root, params) => { ... })\`. Build it from the shared parts so it looks and behaves like the rest: \`fb.ui.head\`, \`fb.ui.status\`, \`fb.ui.facts\`, \`fb.ui.table\`, \`fb.ui.empty\`, \`fb.ui.note\`, \`fb.ui.field\`, buttons with \`class="btn"\`, and \`fb.call\`, \`fb.act\`, \`fb.confirm\`, \`fb.say\`, \`fb.poll\`. Only those parts are styled: other class names do nothing.`,
   })
   return self

@@ -41,8 +41,8 @@ The plugin starts in **Run here**. To use a company installation, run `npx flowb
 
 Agents do the work through two MCP tools: `search` finds a tool and its inputs,
 `execute` runs a few lines of JavaScript that call tools (`await flowbound.runs({})`), several at once, keeping only
-what is needed. `show` opens Flowbound inside chat. You can see run progress, spending questions, result tables
-and workflow diagrams right there, and expand to the app when your chat supports it. Text-only apps still get a
+what is needed. Returning a run, table or workflow from `execute` opens its view inside chat. You can see run progress,
+spending questions, result tables and workflow diagrams, and expand to the app when your chat supports it. Text-only apps still get a
 web link. Embedded views reuse the connector's sign-in.
 
 ## Try the demo

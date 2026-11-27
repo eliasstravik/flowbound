@@ -302,34 +302,51 @@ test("MCP offers search and execute when no app pages are installed", async () =
   assert.equal(await answer({ jsonrpc: "2.0", method: "notifications/initialized" }, behind), undefined)
 })
 
-test("MCP show opens a run without calling a work tool", async () => {
+test("MCP execute selects a view for displayable results and keeps other results plain", async () => {
+  const url = "https://example.test/flowbound"
+  const run = { run: 2, page: `${url}/runs?run=2`, state: "waiting" }
+  const workflow = { id: "sample", page: `${url}/workflows?workflow=sample` }
+  const table = { name: "sample", total: 4, columns: [], rows: [] }
+  const values = { run, workflow, table, guide: "# Guide", invalid: { flowboundView: { page: "keys" } }, pick: { flowboundView: { table: "example & test" } } }
+  let calls = 0
   const behind = {
-    about: async () => ({ url: "https://example.test/flowbound", live: true, tools: [] }),
-    call: async () => assert.fail("Showing a view cannot execute work"),
-    app: { url: "https://example.test/flowbound", live: true, role: "viewer", tools: ["runs"], paths: ["/runs", "/tables", "/workflows"] },
+    about: async () => ({ url, live: true, tools: [] }),
+    call: async (_tool: string, input: unknown) => {
+      calls++
+      return { result: values[(input as { code: keyof typeof values }).code], logs: [] }
+    },
+    app: { url, live: true, role: "viewer", tools: ["runs"], paths: ["/runs", "/tables", "/workflows"] },
   }
   const rpc = (method: string, params?: unknown) => answer({ jsonrpc: "2.0", id: 1, method, params }, behind) as Promise<any>
   const { tools } = (await rpc("tools/list")).result
   assert.deepEqual(
     tools.map((t: any) => t.name),
-    ["search", "execute", "show"],
+    ["search", "execute"],
   )
-  assert.equal(tools[1]._meta?.ui, undefined)
-  const uri = tools[2]._meta.ui.resourceUri
+  assert.equal(tools[0]._meta?.ui, undefined)
+  const uri = tools[1]._meta.ui.resourceUri
   const {
     contents: [resource],
   } = (await rpc("resources/read", { uri })).result
   assert.equal(resource.uri, uri)
   assert.equal(resource.mimeType, "text/html;profile=mcp-app")
   assert.match(resource.text, /data-page="\/runs"/)
+  assert.match(resource.text, /<body[^>]+ hidden>/)
   assert.doesNotMatch(resource.text, /example\.test/)
-  const { result } = await rpc("tools/call", { name: "show", arguments: { run: 2 } })
-  assert.equal(result.structuredContent.link, "https://example.test/flowbound/runs?run=2")
-  assert.match(result.content[0].text, /Open Flowbound run 2: https:\/\/example\.test\/flowbound\/runs\?run=2/)
-  assert.equal(result._meta.flowbound.role, "viewer")
-  assert.equal((await rpc("tools/call", { name: "show", arguments: { run: "bad" } })).result.isError, true)
-  assert.equal((await rpc("tools/call", { name: "show", arguments: { page: "keys" } })).result.isError, true)
-  assert.equal((await rpc("tools/call", { name: "show", arguments: { table: "example & test" } })).result.structuredContent.link, "https://example.test/flowbound/tables?table=example+%26+test")
+  const call = async (args: object) => (await rpc("tools/call", { name: "execute", arguments: args })).result
+  assert.equal((await call({})).structuredContent.view.path, "/runs")
+  assert.equal(calls, 0)
+  const shown = await call({ code: "run" })
+  assert.deepEqual(shown.structuredContent.result, run)
+  assert.equal(shown.structuredContent.link, `${url}/runs?run=2`)
+  assert.ok(shown.content[0].text.includes(`${url}/runs?run=2`))
+  assert.equal(shown._meta.flowbound.role, "viewer")
+  assert.equal((await call({ code: "workflow" })).structuredContent.link, `${url}/workflows?workflow=sample`)
+  assert.equal((await call({ code: "table" })).structuredContent.link, `${url}/tables?table=sample`)
+  assert.equal((await call({ code: "pick" })).structuredContent.link, `${url}/tables?table=example+%26+test`)
+  assert.deepEqual((await call({ code: "guide" })).structuredContent, { result: "# Guide", logs: [] })
+  assert.equal((await call({ code: "invalid" })).structuredContent.view, undefined)
+  assert.deepEqual((await call({ code: "run", render: false })).structuredContent, { result: run, logs: [] })
 })
 
 test("execute runs code in a sandbox of its own: it reaches only the tools, as the caller, with time and memory capped", async () => {

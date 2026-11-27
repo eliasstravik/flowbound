@@ -1,4 +1,4 @@
-// The MCP door: search finds work, execute does it, and show opens a view for the person.
+// The MCP door: search finds work and execute does it and returns views.
 // Over stdio on your own computer (`flowbound mcp`); over HTTPS when live (/mcp).
 import fs from "node:fs"
 import os from "node:os"
@@ -23,46 +23,42 @@ type Behind = {
 }
 type Rpc = { jsonrpc: "2.0"; id?: number | string; method: string; params?: any }
 
-const viewUri = "ui://flowbound/app.html"
+const viewUri = "ui://flowbound/app-v2.html"
 const resource = { uri: viewUri, name: "Flowbound", mimeType: "text/html;profile=mcp-app" }
 const ui = { resourceUri: viewUri, visibility: ["model", "app"] }
-const showTool = {
-  name: "show",
-  title: "Show Flowbound",
-  description:
-    "Open Flowbound in chat, or show a run (including its approval question), results table, or workflow diagram. Use it after starting or inspecting a run or when handing back results. This only opens a view.",
-  annotations: { readOnlyHint: true, openWorldHint: false },
-  inputSchema: {
-    type: "object",
-    properties: {
-      run: { type: "integer", minimum: 1, description: "Run number from Flowbound" },
-      table: { type: "string", maxLength: 200, description: "Flowbound table name" },
-      workflow: { type: "string", maxLength: 200, description: "Flowbound workflow ID" },
-      page: { type: "string", enum: [...appPages.keys()].map((p) => p.slice(1)), description: "Page to open when there is no item to select" },
-      project: { type: "string", description: "Absolute path to the open project folder for local Flowbound." },
-    },
-  },
-  _meta: { ui },
-}
+type Selection = { run?: unknown; table?: unknown; workflow?: unknown; page?: unknown }
+type AppContext = NonNullable<Behind["app"]>
+const object = (value: unknown): Record<string, unknown> | undefined => (value !== null && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : undefined)
 
-function showView(args: { run?: unknown; table?: unknown; workflow?: unknown; page?: unknown }, paths: string[]) {
-  if (args.run !== undefined && (typeof args.run !== "number" || !Number.isSafeInteger(args.run) || args.run <= 0)) throw new Error("Use a positive run number.")
-  if ([args.table, args.workflow].some((id) => id !== undefined && (typeof id !== "string" || !id.trim() || id.length > 200))) throw new Error("Use a Flowbound table name or workflow ID.")
-  const selected = [
-    ["run", args.run, "/runs"],
-    ["table", args.table, "/tables"],
-    ["workflow", args.workflow, "/workflows"],
-  ] as const
-  const items = selected.filter(([, value]) => value !== undefined)
-  if (items.length > 1) throw new Error("Choose one run, table or workflow to show.")
+function selectView(value: unknown, app: AppContext) {
+  const result = object(value)
+  if (!result) return
+  let selected: Selection | undefined = object(result.flowboundView)
+  if (!selected && typeof result.run === "number" && result.page === `${app.url}/runs?run=${result.run}`) selected = { run: result.run }
+  if (!selected && typeof result.id === "string" && result.page === `${app.url}/workflows?workflow=${result.id}`) selected = { workflow: result.id }
+  if (!selected && typeof result.name === "string" && Array.isArray(result.columns) && Array.isArray(result.rows) && typeof result.total === "number") selected = { table: result.name }
+  if (!selected) return
+
+  const { run, table, workflow, page } = selected
+  if (run !== undefined && (typeof run !== "number" || !Number.isSafeInteger(run) || run <= 0)) return
+  if ([table, workflow].some((id) => id !== undefined && (typeof id !== "string" || !id.trim() || id.length > 200))) return
+  if (page !== undefined && typeof page !== "string") return
+  const items = [
+    ["run", run, "/runs"],
+    ["table", table, "/tables"],
+    ["workflow", workflow, "/workflows"],
+  ].filter(([, id]) => id !== undefined)
+  if (items.length > 1) return
   const item = items[0]
-  if (args.page !== undefined && (typeof args.page !== "string" || !appPages.has(`/${args.page}`))) throw new Error("Choose a Flowbound page from the list.")
-  if (item && args.page !== undefined && `/${args.page}` !== item[2]) throw new Error("The item does not match the page you chose.")
-  const path = item?.[2] ?? (args.page === undefined ? paths[0] : `/${args.page}`)
-  if (!path || !paths.includes(path)) throw new Error("That view is not available in this Flowbound.")
-  const params = item ? { [item[0]]: String(item[1]) } : {}
+  if (item && page !== undefined && `/${page}` !== item[2]) return
+  const path = item?.[2] ?? (page === undefined ? app.paths[0] : `/${page}`)
+  if (typeof path !== "string" || !app.paths.includes(path)) return
+  const params = item ? { [String(item[0])]: String(item[1]) } : {}
   const query = new URLSearchParams(params).toString()
-  return { path, params, suffix: path + (query ? `?${query}` : ""), title: item ? `${item[0]} ${item[1]}` : appPages.get(path)!.title.toLowerCase() }
+  return {
+    view: { path, params, url: app.url, live: app.live, paths: app.paths },
+    link: app.url + path + (query ? `?${query}` : ""),
+  }
 }
 
 const version = () => {
@@ -88,13 +84,13 @@ export async function answer(msg: Rpc, behind: Behind, hasApp = !!behind.app): P
         instructions:
           catalog.instructions +
           (hasApp
-            ? " Use show to open Flowbound in chat after running or retrieving something for the person. Pass its run number, table name or workflow ID. Share the returned web link if chat cannot display the view."
+            ? " Return a run, table or workflow directly from execute to display it in chat. To open a specific view, return { flowboundView: { run: 123 } } (or table, workflow, or page). For background reads pass render: false. Give people the returned web link when the chat cannot display the view."
             : ""),
       })
     if (msg.method === "ping") return ok({})
     if (msg.method === "tools/list") {
-      const openApp = behind.app?.live ? { ...showTool, _meta: { ui, "openai/ui": { entrypoints: [{ type: "global" }] } } } : showTool
-      return ok({ tools: hasApp ? [...catalog.tools, openApp] : catalog.tools })
+      const meta = behind.app?.live ? { ui, "openai/ui": { entrypoints: [{ type: "global" }] } } : { ui }
+      return ok({ tools: catalog.tools.map((tool) => (hasApp && tool.name === "execute" ? { ...tool, _meta: meta } : tool)) })
     }
     if (msg.method === "resources/list") return ok({ resources: hasApp ? [resource] : [] })
     if (msg.method === "resources/read") {
@@ -104,17 +100,6 @@ export async function answer(msg: Rpc, behind: Behind, hasApp = !!behind.app): P
     if (msg.method === "resources/templates/list") return ok({ resourceTemplates: [] })
     if (msg.method !== "tools/call") return { jsonrpc: "2.0", id: msg.id, error: { code: -32601, message: `Flowbound's MCP server has no ${msg.method}.` } }
     const { name, arguments: args = {} } = msg.params ?? {}
-    if (name === "show" && behind.app) {
-      const { url, live, paths, role, tools } = behind.app
-      const { path, params, suffix, title } = showView(args, paths)
-      const link = url + suffix
-      return ok(
-        text(`Open Flowbound ${title}: ${link}`, {
-          structuredContent: { view: { path, params, url, live, paths }, link },
-          _meta: { flowbound: { role, tools } },
-        }),
-      )
-    }
     if (name === "search") {
       const info = await behind.about(args.project)
       const words = String(args.query ?? "")
@@ -133,11 +118,19 @@ export async function answer(msg: Rpc, behind: Behind, hasApp = !!behind.app): P
       )
     }
     if (name === "execute") {
-      const out = (await behind.call("execute", { code: String(args.code ?? "") }, args.project)) as { result: unknown; logs: string[] }
+      const app = args.render === false ? undefined : behind.app
+      const out = app && args.code === undefined ? { result: { flowboundView: {} }, logs: [] } : ((await behind.call("execute", { code: String(args.code ?? "") }, args.project)) as { result: unknown; logs: string[] })
+      const presentation = app && selectView(out.result, app)
       const shown = typeof out.result === "string" ? out.result : JSON.stringify(out.result, null, 2)
-      return ok(text(`${out.logs.length ? `${out.logs.join("\n")}\n---\n` : ""}${shown}`, { structuredContent: { result: out.result, logs: out.logs } }))
+      const link = presentation ? `\n\nOpen Flowbound: ${presentation.link}` : ""
+      return ok(
+        text(`${out.logs.length ? `${out.logs.join("\n")}\n---\n` : ""}${shown}${link}`, {
+          structuredContent: { result: out.result, logs: out.logs, ...presentation },
+          ...(presentation && app ? { _meta: { flowbound: { role: app.role, tools: app.tools } } } : {}),
+        }),
+      )
     }
-    return ok(text(`Flowbound has ${hasApp ? "search, execute and show" : "two MCP tools: search and execute"}. There is no "${name}".`, { isError: true }))
+    return ok(text(`Flowbound has two MCP tools: search and execute. There is no "${name}".`, { isError: true }))
   } catch (e: any) {
     return ok(text(String(e?.message ?? e), { isError: true }))
   }
@@ -225,10 +218,10 @@ export async function stdio(remote?: URL) {
     },
   }
   const respond = async (msg: Rpc) => {
-    const show = msg.method === "tools/call" && msg.params?.name === "show"
+    const executeWithView = msg.method === "tools/call" && msg.params?.name === "execute" && msg.params?.arguments?.render !== false
     if (msg.id === undefined || msg.method !== "tools/call") return answer(msg, behind, true)
     if (!remote) {
-      if (!show) return answer(msg, behind, true)
+      if (!executeWithView) return answer(msg, behind, true)
       try {
         return await (await api("/mcp", msg, msg.params?.arguments?.project)).json()
       } catch (error) {
@@ -328,7 +321,7 @@ export const mcp = (options: { timeoutMs?: number } = {}) => {
       mcp: { about: "the MCP server for agent apps, over stdio", run: () => stdio() },
     },
     docs: `## MCP
-Search finds work tools and execute calls them as \`flowbound.<name>(input)\`. Show opens Flowbound in chat and returns a web link. Its optional inputs are \`run\`, \`table\`, \`workflow\` or \`page\`.
+Search finds work tools and execute calls them as \`flowbound.<name>(input)\`. Return a run, table or workflow directly from execute to open it in chat and get a web link. For an explicit view, return \`{ flowboundView: { page: "needs" } }\`. Set \`render: false\` on the MCP call for background work.
 The server speaks stdio over \`flowbound mcp\` and HTTPS at \`/mcp\`. Add the HTTPS address as a custom connector and sign in once. The embedded app reuses the connection. An agent that cannot sign in uses a token a signed-in person made. Both act with the person's permissions. Pass on their yes only after they give it. Key and people management stays on the signed-in website.`,
   })
 }

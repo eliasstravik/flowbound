@@ -11,9 +11,10 @@ if it is not running (`.flowbound/dev.log` is its log); `npx flowbound dev` runs
 again; the parts are the plugin names `npx flowbound plugins` lists (`workflow-sdk`, `postgres`, `keys`, `ledger`, ...).
 Over MCP, `search` finds tools and their inputs, and `execute` runs a few lines of JavaScript that
 call them (`return await flowbound.runs({ state: "running" })`); `npx flowbound execute "<code>"` does the same here.
-When handing something back to the person, call `show` once with its `run` number, `table` name or `workflow` ID.
-Use `show({})` to open Flowbound. Let the app display the details where the chat supports it. In a text-only chat,
-give the short result and the link from `show`. Show opens a view and does not run or approve work.
+Return a run, table or workflow directly from `execute` when handing it to the person. This opens its view in
+supported chats and returns a web link for text-only chats. To open the app home, call `execute` without code.
+To pick a specific view without changing anything, return `{ flowboundView: { run: 123 } }` (or use `table`,
+`workflow` or `page`). Set `render: false` on background calls.
 The first local tool call sets up the open project folder and starts the database, runner and pages. The runner
 started by the agent shuts down when the last agent session using it ends. Use `npx flowbound dev` before
 connecting the agent if runs or schedules need to keep going on this computer after the session ends.
@@ -94,7 +95,7 @@ The person says something like "find the head of sales at each of these 200 comp
    http://localhost:4111/workflows?workflow=<id>. The estimate counts every row in the list, so it errs high.
 6. **Run the rest:** `npx flowbound run <id>`. A budget the person said ("don't spend more than $5") goes in as
    `--max-usd 5`. Add `--wait` to wait for the end, or look with `npx flowbound runs <number>`.
-7. **Hand over.** Use `show` with the results table. Each field says where it came from, how old it is and what it
+7. **Hand over.** Return the results table from `execute`, for example `return await flowbound.table({ name: "results", limit: 5 })`. Each field says where it came from, how old it is and what it
    cost. The web page can download it, and `npx flowbound export <results table> --csv` writes it to your folder.
 
 ## Jobs that run by themselves

@@ -229,7 +229,7 @@ test("the company plugin signs in through its loopback callback and acts as the 
   t.after(() => client.close())
   assert.deepEqual(
     (await client.listTools()).tools.map((tool) => tool.name),
-    ["search", "execute", "show"],
+    ["search", "execute"],
   )
   const result = await client.callTool({ name: "execute", arguments: { code: "return await flowbound.change({})" } })
   assert.equal(result.isError, undefined)
@@ -398,13 +398,13 @@ test("a chat app signs in as a named person, and can never do more than they can
     const tools = (await fb.rpc(got.access_token, "tools/list")).body.result.tools
     assert.deepEqual(
       tools.map((t: any) => t.name),
-      ["search", "execute", "show"],
+      ["search", "execute"],
     )
     const run = (tool: string) => fb.rpc(got.access_token, "tools/call", { name: "execute", arguments: { code: `return await flowbound["${tool}"]({})` } })
-    const uri = tools.find((t: any) => t.name === "show")._meta.ui.resourceUri
+    const uri = tools.find((t: any) => t.name === "execute")._meta.ui.resourceUri
     assert.equal((await fb.rpc(undefined, "resources/read", { uri })).status, 401)
     assert.equal((await fb.rpc(got.access_token, "resources/read", { uri })).body.result.contents[0].uri, uri)
-    const shown = await fb.rpc(got.access_token, "tools/call", { name: "show", arguments: { page: "permissions" } })
+    const shown = await fb.rpc(got.access_token, "tools/call", { name: "execute", arguments: { code: 'return { flowboundView: { page: "permissions" } }' } })
     assert.equal(shown.body.result.structuredContent.view.path, "/permissions")
     assert.equal(shown.body.result._meta.flowbound.role, "member")
     const who = JSON.parse((await run("change")).body.result.content[0].text).who

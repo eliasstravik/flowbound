@@ -1,18 +1,24 @@
 // The shared pages use the host's connection inside chat. No cookies, credentials or requests from this frame.
 import { App } from "@modelcontextprotocol/ext-apps"
 
-const app = new App({ name: "Flowbound", version: "1.0.0" }, { availableDisplayModes: ["inline", "fullscreen"] })
+const app = new App({ name: "Flowbound", version: "1.0.0" }, { availableDisplayModes: ["inline", "fullscreen"] }, { autoResize: false })
 let display
 let context
+let stopSizing
+async function collapse() {
+  stopSizing?.()
+  stopSizing = undefined
+  document.body.hidden = true
+  await app.sendSizeChanged({ height: 0 })
+}
 app.ontoolresult = (result) => {
   const view = result.structuredContent?.view
-  if (result.isError || !view) {
-    window.fb.trouble(result.content?.find((item) => item.type === "text")?.text || "Flowbound could not open this view.")
-    return
-  }
+  if (result.isError || !view) return collapse()
+  document.body.hidden = false
   display({ ...view, ...result._meta?.flowbound })
+  stopSizing ??= app.setupSizeChangedNotifications()
 }
-app.ontoolcancelled = () => window.fb.trouble("Opening Flowbound was cancelled.")
+app.ontoolcancelled = collapse
 app.onhostcontextchanged = (change) => update(change)
 
 function update(change) {
@@ -56,10 +62,11 @@ window.FB_BRIDGE = {
     }
     await app.connect()
     update(app.getHostContext())
+    if (document.body.hidden) await collapse()
   },
   async call(name, input) {
     const code = `return await flowbound[${JSON.stringify(name)}](${JSON.stringify(input ?? {})})`
-    return (await tool("execute", { code })).result
+    return (await tool("execute", { code, render: false })).result
   },
   async open(url) {
     if ((await app.openLink({ url })).isError) throw new Error("The chat could not open this link.")
