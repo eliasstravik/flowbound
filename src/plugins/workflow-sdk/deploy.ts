@@ -27,6 +27,19 @@ function liveSettings(root: string): Set<string> {
   return new Set((names.out + names.err).match(/\b[A-Z][A-Z_]+\b/g))
 }
 
+function linkProject(root: string, name: string) {
+  const file = path.join(root, ".vercel", "project.json")
+  if (fs.existsSync(file)) return
+  // Vercel's link command also downloads Development settings to disk. The project IDs are enough to link the CLI.
+  let project = vercel(root, ["api", `/v9/projects/${encodeURIComponent(name)}`, "--raw"])
+  if (!project.ok) project = vercel(root, ["api", "/v10/projects", "-X", "POST", "-f", `name=${name}`, "--raw"])
+  if (!project.ok) throw new Error(`Could not make or link Vercel project "${name}". Check your Vercel account and project name.`)
+  const { id, accountId, name: projectName } = JSON.parse(project.out)
+  if (!id || !accountId || !projectName) throw new Error("Vercel did not return a project ID and team ID.")
+  fs.mkdirSync(path.dirname(file), { recursive: true })
+  fs.writeFileSync(file, JSON.stringify({ projectId: id, orgId: accountId, projectName }))
+}
+
 /** Write .vercel/output for this project: the workflow functions from the Workflow SDK's builder, plus Flowbound itself. */
 export async function buildVercel(root: string): Promise<{ out: string; workflows: number; schedules: number }> {
   const workflows = await readWorkflows(root)
@@ -210,7 +223,7 @@ export async function deploy(args: string[], cl: CommandLine, on?: string): Prom
       .basename(root)
       .toLowerCase()
       .replace(/[^a-z0-9-]+/g, "-")}`
-  if (!fs.existsSync(path.join(root, ".vercel", "project.json")) && !vercel(root, ["link", "--yes", "--project", name]).ok) throw new Error(`Could not make or link the Vercel project "${name}". Try: npx vercel link`)
+  linkProject(root, name)
 
   // The normal Vercel way from here on: with this file in the repo, a git push builds the same thing this command does.
   const vercelJson = path.join(root, "vercel.json")
