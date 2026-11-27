@@ -11,11 +11,12 @@ if it is not running (`.flowbound/dev.log` is its log); `npx flowbound dev` runs
 again; the parts are the plugin names `npx flowbound plugins` lists (`workflow-sdk`, `postgres`, `keys`, `ledger`, ...).
 Over MCP, `search` finds tools and their inputs, and `execute` runs a few lines of JavaScript that
 call them (`return await flowbound.runs({ state: "running" })`); `npx flowbound execute "<code>"` does the same here.
-Return a run, table or workflow directly from `execute` when handing it to the person. This opens its view in
-supported chats and returns a web link for text-only chats. To open the app home, call `execute` without code.
+Return a run, table or workflow directly from `execute` to get the arguments for `show` in supported chats.
+Call `show` only when a view helps the person. If they ask for no app, skip `show`. To open the app home,
+call `show` without a selection.
 The run view updates live and shows the outcome or when it needs input. Open it once, tell the person it updates,
 and pass along any question the run is waiting on. Leave the link to the app's **Open web page** button.
-In text-only chats, share the returned page link when the person can reach it. If the person needs the outcome
+In text-only chats, `show` and displayable `execute` results return a web link. Share it if the person can reach it. If the person needs the outcome
 in text, wait in the same execute call:
 
 ```js
@@ -25,8 +26,9 @@ return await flowbound.wait({ run: run.run, seconds: 30 })
 
 The wait returns the latest run when it leaves `running` (including a pause or a request for approval), or when
 the time runs out. The wait is capped at 30 seconds and may be shorter if execute has less time left.
-To pick a specific view without changing anything, return `{ flowboundView: { run: 123 } }` (or use `table`,
-`workflow` or `page`). Set `render: false` on background calls.
+To open a known run, call `show` with `{ run: 123 }`. You can also pick a `table`, `workflow` or `page`
+(such as `{ page: "needs" }` for waiting approvals). Set `render: false` on background `execute` calls
+or to get full text results in an app-capable chat without suggesting a view.
 The first local tool call sets up the open project folder and starts the database, runner and pages. The runner
 started by the agent shuts down when the last agent session using it ends. Use `npx flowbound dev` before
 connecting the agent if runs or schedules need to keep going on this computer after the session ends.
@@ -106,7 +108,7 @@ The person says something like "find the head of sales at each of these 200 comp
    http://localhost:4111/workflows?workflow=<id>. The estimate counts every row in the list, so it errs high.
 6. **Run the rest:** `npx flowbound run <id>`. A budget the person said ("don't spend more than $5") goes in as
    `--max-usd 5`. Add `--wait` to wait for the end, or look with `npx flowbound runs <number>`.
-7. **Hand over.** Return the results table from `execute`, for example `return await flowbound.table({ name: "results", limit: 5 })`. Each field says where it came from, how old it is and what it
+7. **Hand over.** Return the results table from `execute`, for example `return await flowbound.table({ name: "results", limit: 5 })`. Call `show` with the suggested arguments if the person wants the view. Each field says where it came from, how old it is and what it
    cost. The web page can download it, and `npx flowbound export <results table> --csv` writes it to your folder.
 
 ## Jobs that run by themselves

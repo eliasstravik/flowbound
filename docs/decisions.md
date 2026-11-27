@@ -13,7 +13,7 @@ holds the normal diff, checks and optional company review. Vercel previews the b
 branch for projects using Neon. Publish merges after the types, workflow and test checks pass and GitHub allows
 the merge. Undo saves a revert that goes through the same checks. Local projects use the same steps with local Git.
 
-The connector keeps search and execute. Its change tools work only with workflow files in the configured repo.
+The connector’s change tools work only with workflow files in the configured repo.
 Engineers can use Git and GitHub directly and their workflow pull requests show in Changes. Viewers can look.
 Members can make, change, run and publish workflows. Admins also manage people, keys and settings. Owners can
 also remove the project. The Changes guide records the old-role mapping and setup.
@@ -21,22 +21,15 @@ also remove the project. The Changes guide records the old-role mapping and setu
 ## Flowbound opens in the chat (27 Nov 2026)
 
 The [MCP Apps specification, 2026-01-26](https://github.com/modelcontextprotocol/ext-apps/blob/main/specification/2026-01-26/apps.mdx)
-links each tool to a fixed `ui://` resource at discovery. Flowbound offers just `search` and `execute` so the same
-call can do the work and open the result. `search` stays text. A run, table, workflow or explicit
-`flowboundView` selection opens the app when the connection declares support for MCP App HTML. The agent
-gets the result and a short instruction to summarize, and the app has **Open web page**. Text-only clients get
-the web link with the result. Calls without a view still return their usual text and structured result.
+links a view to a tool at discovery. Flowbound offers three MCP tools, `search`, `execute` and `show`. Only
+`show` declares a `ui://` resource. A separate view tool keeps search, execution and background reads clean in hosts
+that draw a frame for every call of a tool with a view. When a person asks for no app, the agent skips `show`.
 
-Declaring support tells Flowbound it can send the view. The host mounts it after the tool returns. If the
-app starts and its page fails to draw, it keeps **Open web page** available. The demo logs the declared
-support at connection time and the page's load or error report when the bridge can reach the server.
-If the host never starts the frame, the frame cannot report back. The protocol provides no way to update
-the original tool result with a link at that point.
-
-The spec provides no result-level opt-out. The app starts hidden and reports a height of zero until a result
-selects a view. Claude documents that a zero-height iframe is invisible. ChatGPT documents the tool-level link
-and may still mount the iframe or show tool chrome. Flowbound draws no empty card content in either host.
-Actual empty-frame behavior in those hosts is a live check. [Claude sizing](https://claude.com/docs/connectors/building/mcp-apps/troubleshooting) · [ChatGPT UI](https://developers.openai.com/plugins/build/chatgpt-ui)
+`execute` returns the arguments for opening a displayable result. The agent uses `show` once per run when a view
+helps the person. The run view updates live and has **Open web page**. Text-only clients get a web link from
+`show` or a displayable `execute` result. If the app starts and the page fails to draw, **Open web page** stays
+available. The demo logs declared support at connection time and the app's load or error report when it can
+reach the server.
 
 The embedded view uses the same Basecoat pages and components as the website. The host bridge uses the existing
 connection for `execute`, so Flowbound checks the same role and caps on every call. People answer spending requests
@@ -159,7 +152,7 @@ A run started by a schedule or webhook uses the same permissions as a manual run
 - The `ai` card: the default model is the cheap current one, `claude-haiku-5-5` (it was `claude-opus-5-5`; a model step runs once per row, so the default should be the one that is safe at 10,000 rows); the worst case of a call (every byte of the prompt as a token, and all of `maxTokens`, now 4,000) is held against the cap first; the cost is the answer's own usage, with cache reads and writes and Haiku's higher prices over 100,000 tokens, priced by the model that answered; a gateway that reports the cost is believed; one step can name its model, `maxTokens`, `effort` and `system`; an answer cut off at `maxTokens` fails the row instead of saving half a sentence. Prices were read from the maker's price page on 26 Nov 2026. `ask` returns text as the prototype shows; `pick` is the same answer carrying its fact. (The reshape: one way only, a key. The signed-in `claude`/`codex` route and the gateway are gone; a model is a provider.)
 
 ## Agents
-- MCP has two tools, `search` and `execute`. A displayable result from `execute` opens the app and returns a web link.
+- MCP offers `search` to find tools, `execute` to do the work, and `show` to open a view.
 - When an agent app starts `flowbound mcp` away from the project (Codex starts plugin servers in its plugin cache), the server asks the app for its open folders (MCP roots) and uses the one with a `flowbound.config.ts`.
 - `npx flowbound init` writes the project MCP setting and the skill for every agent app found on the machine, and one line in `AGENTS.md`. Before the package is on npm it installs from a tarball of itself.
 - `--live` goes through the local Flowbound, which holds the live token like any key: the agent never sees it. The live address is in `.flowbound/live.json`, or `door({ live: "https://..." })`.
@@ -204,7 +197,7 @@ See docs/design.md for the page components and style tokens.
 - Tables show one page of 100 rows, with the page, the search and the order in the address. For that the table tool gained `search`, `sort` and `desc` (added; nothing it did before changed): the database searches and sorts, the page never holds more than it shows. No TanStack Table for the same reason: there is nothing left for it to do in the browser.
 - A person is shown what they may do: someone who may only look sees the yes and its numbers, not a button that refuses. Removing a person, handing over "manage" and removing an agent's token are asked once more. Stop stays one tap, always: stopping spending is never slowed down.
 - Left out on purpose: start time and duration on runs (the runs tool does not return them), a preview before a CSV import, removing a saved key. Each is a change to what Flowbound does, not to how it looks. (Start time and duration, and removing a saved key, were added the same day by the full check: "Carried over" below.)
-- Pages inside chat apps (MCP Apps views) were built here and are **replaced by the reshape**: the MCP door has two tools, and a person opens the page's link.
+- For the current chat views, see “Flowbound opens in the chat” above.
 
 ## Diagrams (26 Nov 2026)
 **Replaced by the reshape.** A picture read from the workflow's code (`outline.ts`, the `inspect()` plug-in, `workflows --check` for a whole picture) was built here and is gone. The agent writes the summary and draws the diagram for people in the workflow file (`export const summary`, `export const diagram`); Flowbound only shows them. See "The reshape to the vision" above.

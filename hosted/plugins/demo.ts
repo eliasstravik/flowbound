@@ -111,7 +111,7 @@ export function demo() {
         return new Response(null, { status: 204 })
       },
     },
-    docs: "## Public demo\nRun sample-contacts on made-up companies whenever asked. Each run starts fresh, even when the rows already show as done. Return the run directly from execute to open its progress. For finished results, return the sample_contacts table from execute. The demo uses no keys and costs $0. Results are shared and reset at 02:00 UTC. The demo allows 20 runs and 400 chat requests per day.",
+    docs: "## Public demo\nRun sample-contacts on made-up companies whenever asked. Each run starts fresh, even when the rows already show as done. Return the run directly from execute. Call show with the suggested arguments once for live progress, or skip show if the person asks for no app. To display finished results when asked, call show with { table: \"sample_contacts\" }. The demo uses no keys and costs $0. Results are shared and reset at 02:00 UTC. The demo allows 20 runs and 400 chat requests per day.",
   })
   const list: Plugin[] = flowbound({
     changes: false,

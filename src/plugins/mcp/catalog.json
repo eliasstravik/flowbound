@@ -5,7 +5,7 @@
     "2025-03-26",
     "2024-11-05"
   ],
-  "instructions": "Start with execute: return await flowbound.docs({ topic: \"start\" }). When running locally in a coding agent, pass the absolute path of the open project as the project argument. Workflows live in Git. From chat, save edits with workflow-save, check with workflow-change, and publish only when the person asks. Return a run, table or workflow directly from execute to open its view. A run view updates live. Open it once and say it will show the outcome. Pass along any approval question. If you need a text outcome, use flowbound.wait({ run, seconds: 30 }) within the same execute call. To pick a view, return { flowboundView: { run: 123 } } (or use table, workflow or page). Set render: false for background reads. Leave the link to the Open web page button when the app shows. In a text-only chat, share the page link when execute returns one.",
+  "instructions": "Start with execute: return await flowbound.docs({ topic: \"start\" }). When running locally in a coding agent, pass the absolute path of the open project as the project argument. Workflows live in Git. From chat, save edits with workflow-save, check with workflow-change, and publish only when the person asks. Return a run, table or workflow directly from execute to get its show arguments. Call show only when the person benefits from a card. Open one view per run and say it updates live with the outcome. Pass along any approval question. If the person asks for no app, do not call show. Set render: false in execute for background or text-only work in an app-capable chat. For a text outcome, use flowbound.wait({ run, seconds: 30 }) within the same execute call. Leave the link to the Open web page button when the app shows. In text-only chats, share a page link returned by show or execute.",
   "tools": [
     {
       "name": "search",
@@ -36,13 +36,13 @@
         "destructiveHint": false,
         "openWorldHint": true
       },
-      "description": "Run JavaScript that calls Flowbound tools and returns what you need. Each tool is an async function: `return await flowbound.runs({ state: \"running\" })`, `await flowbound[\"schedule-run\"]({ name })`. Call several with Promise.all, filter big answers before returning them, console.log to see steps. It reaches only the tools, as you, with your rights: no files, no network, no keys. Return a run directly once to show its live progress and outcome in chat. For a text outcome, call `await flowbound.wait({ run, seconds: 30 })` within execute. It returns the latest run when it leaves running or the wait ends, at most 30 seconds. Return a table or workflow directly to display it. Omit code to open Flowbound. Find tools and their inputs with search first.",
+      "description": "Run JavaScript that calls Flowbound tools and returns what you need. Each tool is an async function: `return await flowbound.runs({ state: \"running\" })`, `await flowbound[\"schedule-run\"]({ name })`. Call several with Promise.all, filter big answers before returning them, console.log to see steps. It reaches only the tools, as you, with your rights: no files, no network, no keys. Return a run, table or workflow directly to get the arguments for show, or a link in text-only chats. If the person asks for no app, skip show. For a text outcome, call `await flowbound.wait({ run, seconds: 30 })` within execute. It returns the latest run when it leaves running or the wait ends, at most 30 seconds. Find tools and their inputs with search first.",
       "inputSchema": {
         "type": "object",
         "properties": {
           "code": {
             "type": "string",
-            "description": "the body of an async function; return the answer. Omit to open Flowbound."
+            "description": "the body of an async function; return the answer"
           },
           "project": {
             "type": "string",
@@ -50,9 +50,48 @@
           },
           "render": {
             "type": "boolean",
-            "description": "Set false for background calls that should have no app content."
+            "description": "Set false to get the full result without a show suggestion or fallback link, for background work or when the person requests text in an app-capable chat."
           }
-        }
+        },
+        "required": [
+          "code"
+        ]
+      }
+    },
+    {
+      "name": "show",
+      "title": "Show Flowbound",
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false
+      },
+      "description": "Open a read-only selection in Flowbound in chat, or get its web link in a text-only client. Use the show arguments returned by execute, or choose one run number, table name, workflow ID, or page. Omit the selection to open Flowbound home. A run view updates live and shows any waiting approval. Open it once per run. Call only when a view helps the person. Skip when they ask for no app.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "run": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Run number. Use the same run for live progress, result, or waiting approval."
+          },
+          "table": {
+            "type": "string",
+            "description": "Table name."
+          },
+          "workflow": {
+            "type": "string",
+            "description": "Workflow ID. Shows its summary and diagram."
+          },
+          "page": {
+            "type": "string",
+            "description": "Page name without the slash, such as needs for waiting approvals."
+          },
+          "project": {
+            "type": "string",
+            "description": "Absolute path to the open project folder. Include it when using local Flowbound from a coding agent."
+          }
+        },
+        "additionalProperties": false
       }
     }
   ]
