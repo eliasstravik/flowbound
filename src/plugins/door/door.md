@@ -20,23 +20,22 @@ The two values from the login's own console go on the host, never in the file or
 try-out, alone or beside a login: names are typed, saved as typed and shown as not checked.
 A live Flowbound with no sign-in set does not start, and neither does one on a public address with `door()`.
 
-- **Signing in gives no access by itself.** An Admin can grant Viewer or Member on the People page.
+- **Who comes in.** People at an allowed domain sign in as Viewers (Owners keep several domains on Permissions → People; the first comes from `domain`). An Admin or Owner invites anyone at any address with a role (Member by default); no email is sent. An Admin can grant Viewer or Member.
   An Owner can also appoint Admins and Owners. Use `owners` to name the first Owner. With `groups`, the
   work login sets roles at sign-in. With just a short email list or team password, people are Admins.
   See the Changes guide for the roles and how old access maps to them.
 - **Chat apps (Claude, ChatGPT)** take no token by hand. The person adds `<address>/mcp` as a custom connector;
-  the app sends them to this Flowbound to sign in and tap Allow (the page linked from Keys, "Connect an agent"). From then on every call arrives as
+  the app sends them to this Flowbound to sign in and tap Allow (the Agents page shows the address with Copy). From then on every call arrives as
   "Claude, for <the person>". Its token lasts an hour and renews by itself.
-- **Coding agents and scripts** sign in the same way where they can, or use a token a signed-in person makes on
-  the Connect page (shown once): `Authorization: Bearer fb_live_...` on `/api/<tool>` and `/mcp`.
+- **Coding agents and scripts** sign in the same way where they can, with `npx flowbound connect <address>` (sign-in in the browser), or a token a
+  signed-in person makes with the `make-token` tool (shown once): `Authorization: Bearer fb_live_...` on `/api/<tool>` and `/mcp`.
   The token belongs to that person and shows their name on everything it does.
 - **A chat acts for its person, up to Member.** It can save, run and publish workflows for a Member. When a run
   needs a yes, ask the person and pass on their own answer. Flowbound records who said yes and which app passed it on.
   Keys and access are managed on the page.
 - **When someone leaves.** A browser session lasts a working day. For agents, Flowbound asks the company's login
-  again once an hour whether their person is still there; when it says no, they stop. A manager's "remove" on the
-  People page (linked from Permissions) stops the person's browser, tokens and chat apps at once.
-- **Who changed what** is on the People page and in `npx flowbound history` (`--csv` writes a file): rights, people,
+  again once an hour whether their person is still there; when it says no, they stop. Remove on Permissions → People stops the person's browser, tokens and chat apps at once.
+- **Who changed what** is in `npx flowbound history` (`--csv` writes a file): rights, people,
   keys (never the key itself), tokens and connected apps, every yes and stop. Each line has who, through what,
   before, after and when, and cannot be changed or deleted. Another plugin adds a line with
   `use("door").wrote(who, "what", "on what", before, after)`.

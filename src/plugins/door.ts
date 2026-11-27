@@ -347,9 +347,9 @@ export const door = (opts: DoorOptions = {}) => {
         if (bearer?.startsWith("fb_live_")) {
           // A token a person made on the Connect page, for an agent that cannot sign in by itself.
           const t = (await q("update fb_door.tokens set used_at = now() where hash = $1 returning label, person, made_by", [sha(bearer)]))[0]
-          if (!t) return needsToken("That token is not known here. Make one on the Connect page.")
+          if (!t) return needsToken("That token is not known here. Connect again with: npx flowbound connect <address>, or make a token with the make-token tool.")
           p = t.person ? await person(t.person) : undefined
-          if (!p || p.blocked) return needsToken("That token's person is not on this Flowbound's list any more. Make a new one on the Connect page.")
+          if (!p || p.blocked) return needsToken("That token's person is not on this Flowbound's list any more. Connect again, or make a new token with the make-token tool.")
           label = t.label
         } else {
           // A chat app that signed a person in.
@@ -373,7 +373,7 @@ export const door = (opts: DoorOptions = {}) => {
         if (p.role === "none" && !url.pathname.startsWith("/api") && !url.pathname.startsWith("/assets")) return signIn({ wait: waiting(p), status: 403 })
         return whoIs(p, "page")
       }
-      if (route?.open === "token") return needsToken("This needs a token: Authorization: Bearer fb_live_... Make one on the Connect page.")
+      if (route?.open === "token") return needsToken("This needs a token: Authorization: Bearer fb_live_... Connect again with: npx flowbound connect <address>, or make a token with the make-token tool.")
       return toDoor(url)
     },
     routes: {

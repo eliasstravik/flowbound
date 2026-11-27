@@ -5,6 +5,7 @@
 //           progress), a 10,000-row list, schedules and a webhook, keys saved and missing, the agent's summary and diagram.
 // "empty" : a first-time user with no data.
 // "live"  : a shared Flowbound behind its door (work login and the team password), for sign-in, People and Connect.
+import { execFileSync } from "node:child_process"
 import fs from "node:fs"
 import http from "node:http"
 import os from "node:os"
@@ -13,6 +14,7 @@ import { PGlite } from "@electric-sql/pglite"
 import { boot, listen } from "../../src/core/server.ts"
 import { door, keys, ledger, mcp, overview, pages, plugin } from "../../src/index.ts"
 import { project } from "../helpers.ts"
+import { CLIENT, standIn } from "../stand-in-idp.ts"
 
 const PORTS = { full: Number(process.env.FULL_PORT ?? 4611), empty: Number(process.env.EMPTY_PORT ?? 4612), live: Number(process.env.LIVE_PORT ?? 4613) }
 const KEY = "sk-design-123"
@@ -108,7 +110,9 @@ say(`empty  ${empty.url()}`)
 
 // Behind the door: a work login (never reached here: the sign-in page only shows its button) and the team password.
 // In this process and in memory, as test/door.test.ts does: a live Flowbound's own postgres plugin wants a real database.
-Object.assign(process.env, { FLOWBOUND_SECRET: "host-secret-for-design", FLOWBOUND_LOGIN_CLIENT_ID: "design", FLOWBOUND_LOGIN_CLIENT_SECRET: "design" })
+// The work login is the stand-in (test/stand-in-idp.ts): pick Maya (Owner) or Sam on its page; no account anywhere.
+const idp = await standIn(Number(process.env.IDP_PORT ?? 0))
+Object.assign(process.env, { FLOWBOUND_SECRET: "host-secret-for-design", FLOWBOUND_LOGIN_CLIENT_ID: CLIENT.id, FLOWBOUND_LOGIN_CLIENT_SECRET: CLIENT.secret })
 const db = new PGlite()
 const records = plugin({
   name: "records",
@@ -119,7 +123,7 @@ const records = plugin({
   },
 })
 const liveUrl = `http://localhost:${PORTS.live}`
-const liveApp = await boot([records, keys(), ledger(), overview(), pages(), mcp(), door({ login: "google", domain: "acme.example", managers: ["maya@acme.example"], password: "team-pass-1" })], {
+const liveApp = await boot([records, keys(), ledger(), overview(), pages(), mcp(), door({ login: "google", domain: "acme.example", managers: ["maya@acme.example"], password: "team-pass-1", issuer: idp.google })], {
   root: fs.mkdtempSync(path.join(os.tmpdir(), "fb-design-")),
   url: liveUrl,
   live: true,
@@ -136,13 +140,18 @@ await fetch(liveUrl + entered.headers.get("location"), { redirect: "manual", hea
 const asMaya = (tool: string, input: unknown) =>
   fetch(`${liveUrl}/api/${tool}`, { method: "POST", headers: { "content-type": "application/json", "x-flowbound-via": "page", origin: liveUrl, cookie }, body: JSON.stringify(input) })
 for (const [email, rights] of [
-  ["jonas@acme.example", "approve"],
-  ["sara@acme.example", "edit"],
-  ["erik@acme.example", "view"],
-  ["lena@acme.example", "none"],
+  ["jonas@acme.example", "member"],
+  ["sara@acme.example", "member"],
+  ["erik@acme.example", "viewer"],
+  ["sam@acme.example", "member"],
+  ["jo@partner-agency.example", "member"],
 ])
   await asMaya("set-rights", { email, rights })
+// A second allowed domain, as an Owner would add it on the People tab; colleagues who have signed in; agents of two people.
+await db.query("insert into fb_door.domains (domain, added_by) values ('acme.ca', 'Maya') on conflict do nothing")
+await db.query("update fb_door.people set seen_at = now() - interval '2 hours' where email in ('jonas@acme.example', 'sara@acme.example', 'erik@acme.example')")
 await asMaya("make-token", { label: "Nightly enrichment script" })
+await db.query("insert into fb_door.tokens (label, hash, made_by, person, used_at) values ('Codex', 'design-sam', 'Sam Seller', 'sam@acme.example', now() - interval '1 day')")
 say(`live   ${liveUrl}   (team password: team-pass-1)`)
 
 const full = make(
@@ -227,6 +236,14 @@ write("case-studies.md", "# Case studies\n\nThree customers who said yes. Northw
 write("voice.md", "# How we write\n\nShort, plain, no buzzwords. One ask per email.\n")
 for (const f of ["nordics.md", "germany.md", "uk.md"]) write(`market-research/${f}`, `# ${f.replace(".md", "")}\n\nNotes on the market, by the agent.\n`)
 for (const f of ["northwind.md", "bluebird.md", "ironclad.md", "redwood.md", "notes.txt"]) write(`competitors/${f}`, `${f.replace(/\..*/, "")}: what they sell, and where we win.\n`)
+// A Git repository, so changes can be saved and listed as "not live" under the menu.
+fs.writeFileSync(path.join(full.root, ".gitignore"), "node_modules\n.flowbound\n.home\n")
+for (const args of [
+  ["init", "-q", "-b", "main"],
+  ["add", "-A"],
+  ["-c", "user.name=Seed", "-c", "user.email=seed@example.com", "commit", "-qm", "Start"],
+])
+  execFileSync("git", args, { cwd: full.root })
 await full.start()
 const fb = async (args: string, o: { fails?: boolean } = {}) => {
   const out = await full.fb(args, o)
@@ -237,6 +254,8 @@ await fb(`keys set fakedata ${KEY}`).catch(async () => full.page("set-key", { na
 for (const list of ["target_list", "accounts", "partners", "company_list", "prospects", "crm_list", "example_companies"]) await fb(`import ${list}.csv --as ${list}${list === "accounts" ? " --folder TAM-mapping" : ""}`)
 await fb("run tidy-companies --try 8 --wait")
 await full.page("set-key", { name: "crm", value: KEY })
+// A connection under a name of the person's own, for a provider Flowbound has never heard of.
+await full.page("set-key", { name: "SAMPLE_DATA_KEY", value: KEY })
 
 // Done, with rows that failed and why.
 await fb("run TAM-mapping/find-sales-heads --try 10 --wait")
@@ -267,6 +286,15 @@ await fb("run champion-tracking/check-partners --try 10 --wait")
 // In progress: a slow provider and a long list.
 await fb("run TAM-mapping/nordics/research-companies --try 10 --wait")
 await fb("run TAM-mapping/nordics/research-companies --max-usd 4")
+// Two changes saved and not live yet: the menu says "2 changes not live · See them".
+for (const [file, title] of [
+  ["workflows/tidy-companies.ts", "Tidy companies: also trims spaces"],
+  ["workflows/TAM-mapping/find-sales-heads.ts", "Find sales heads: also finds a phone number"],
+]) {
+  const { result } = await full.page("workflow-file", { file })
+  const saved = await full.page("workflow-save", { title, head: result.head, files: [{ path: file, text: `${result.text}\n// ${title}\n` }] })
+  if (!saved.ok) say(`could not save a change: ${saved.error}`)
+}
 say(`full   ${full.url()}`)
 say("ready")
 process.on("SIGTERM", async () => (await Promise.all([full.stop(), empty.stop(), liveServer.close()]), process.exit(0)))

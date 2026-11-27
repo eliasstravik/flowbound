@@ -92,7 +92,7 @@ fb.page("/permissions", async (root, params) => {
               } }, ui.icon("x")) : null)),
             !p.domains.length ? h("span", { class: "text-muted-foreground" }, "None: only invited people may sign in.") : null)
           if (p.isOwner) {
-            const field = h("input", { class: "input w-44", type: "text", name: "domain", placeholder: "acme.ca", autocomplete: "off", "aria-label": "Domain" })
+            const field = h("input", { class: "input w-44", type: "text", name: "domain", placeholder: "example.org", autocomplete: "off", "aria-label": "Domain" })
             const addBtn = h("button", { class: "btn", "data-variant": "outline", type: "submit" }, "Add domain")
             const form = h("form", { class: "flex flex-wrap items-center gap-2" }, field, addBtn)
             form.onsubmit = (e) => (e.preventDefault(), field.value.trim() ? fb.act(addBtn, async () => (await call("set-domain", { domain: field.value }), done(`Added: ${field.value.trim().toLowerCase()}.`))) : field.focus())

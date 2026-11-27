@@ -18,7 +18,7 @@ fb.page("/keys", async (root) => {
   /** The box for a key: a new one (a name and a key) or one already named (its key only). */
   const panel = h("div", { hidden: true })
   const open = (c) => {
-    const name = h("input", { class: "input font-mono", type: "text", name: "name", autocomplete: "off", spellcheck: "false", required: true, placeholder: "BISNODE_KEY", value: c ? c.name : "", readonly: !!c, pattern: "[A-Za-z][A-Za-z0-9_.\\-]{0,63}", title: "A letter, then letters, digits, _ . or -" })
+    const name = h("input", { class: "input font-mono", type: "text", name: "name", autocomplete: "off", spellcheck: "false", required: true, placeholder: "MY_SERVICE_KEY", value: c ? c.name : "", readonly: !!c, pattern: "[A-Za-z][A-Za-z0-9_.\\-]{0,63}", title: "A letter, then letters, digits, _ . or -" })
     // A key is typed once and never shown again. It is not a password of this site, so password managers leave it alone.
     const value = h("input", { class: "input font-mono", type: "password", name: "value", autocomplete: "off", spellcheck: "false", required: true, "data-1p-ignore": true, "data-lpignore": "true", "data-bwignore": true, placeholder: c && c.hasKey ? "•••••••••••• set" : "" })
     const save = h("button", { class: "btn", type: "submit" }, "Save")

@@ -60,7 +60,7 @@ fb.page("/connect", async (root) => {
         ? ui.table(["Agent", "For", "Last used"], all.map((t) => [
             h("td", { class: "wrap align-top font-medium" }, t.label),
             h("td", { class: "wrap align-top" }, t.mine ? "You" : t.person),
-            h("td", { class: "align-top" }, t.usedAt ? h("span", { title: new Date(t.usedAt).toLocaleString() }, fb.ago(t.usedAt)) : "never", h("div", { class: "pt-1.5" }, remove(t))),
+            h("td", { class: "align-top" }, t.usedAt ? h("span", { title: new Date(t.usedAt).toLocaleString() }, fb.ago(t.usedAt)) : "never", fb.supports("drop-token") ? h("div", { class: "pt-1.5" }, remove(t)) : null),
           ]), { label: "Connected agents" })
         : h("p", { class: "text-muted-foreground" }, "No agents connected yet.")),
   )

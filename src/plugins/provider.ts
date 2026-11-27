@@ -11,7 +11,7 @@ export type Card = {
   label?: string
   /** Where it lives: "api.blitz-api.ai". Add http:// for a server on your own machine. */
   host: string
-  /** How the key attaches, or false when a proxy at `host` adds it. `name`: the connection its key is kept under (BISNODE_KEY). Default: the card's name in capitals, then _KEY. */
+  /** How the key attaches, or false when a proxy at `host` adds it. `name`: the connection its key is kept under (MY_SERVICE_KEY). Default: the card's name in capitals, then _KEY. */
   key: false | { header: string; prefix?: string; name?: string }
   /** The manual your agent reads before it writes a call. */
   docs: string

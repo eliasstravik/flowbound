@@ -1,12 +1,16 @@
 ## Keys and provider cards
 
 A data provider is a small card: where it lives, how its key attaches, where its manual is, what a call costs.
-You read the manual and write the calls. A key is typed once by the person on the Connections page
-(http://localhost:4111/keys), kept outside the project folder, and attached by Flowbound on the way out, only to
-that card's address. `npx flowbound keys` says which cards have one. Nothing prints or returns a key.
-The Connections page shows under each key which workflows use it (read from each file's `use("...")`), puts a key a
-workflow is waiting for first, and lets the person remove a saved key: the question names the workflows that
-stop. `npx flowbound doctor` says which keys are missing for which workflow; `--deep` also tries every saved key
+You read the manual and write the calls. A connection is a name the person chooses and a key, typed once on the
+Connections page (http://localhost:4111/keys), kept outside the project folder, and attached by Flowbound on the way
+out, only to the address of the card that takes it. A card takes its key by name: a built-in card's is its name in
+capitals and `_KEY` (`BLITZAPI_KEY`; a webhook's is `<ID>_SECRET`); for a provider Flowbound has never heard of, the
+person adds a key under any name (`SAMPLE_DATA_KEY`) and you write a card that takes it:
+`key: { header: "x-api-key", name: "SAMPLE_DATA_KEY" }`. Nothing is checked when it is typed: a wrong key shows when a
+run fails. `npx flowbound keys` says which cards have one. Nothing prints or returns a key.
+The Connections page lists each saved key, and each key a workflow (or webhook) needs and nobody saved, with the
+workflows that use it (read from each file's `use("...")`), Set or Missing, and Change; a missing one a workflow
+waits for comes first. There is no list of known services. `npx flowbound doctor` says which keys are missing for which workflow; `--deep` also tries every saved key
 again at its provider.
 
 A card of your own is one file in `plugins/` plus its line in `providers` in `flowbound.config.ts`:
@@ -24,7 +28,7 @@ export const acmeData = () =>
     docs: "https://docs.acme-data.example",
     price: { perCall: 0.004 }, //              from the price page; leave out when unknown (runs are then capped by calls)
     rate: { perSecond: 2 }, //                 the provider's speed limit, kept across all rows and runs (or perMinute)
-    check: "/v1/me", //                        a free path that answers a bad key with 401: a typed key is tried there first
+    check: "/v1/me", //                        a free path that answers a bad key with 401: `doctor --deep` tries saved keys there
   })
 ```
 
@@ -32,7 +36,7 @@ Other card lines: `price.reported: (answer) => usd` when the provider reports ea
 (`answer.data`, `answer.headers`); that wins over `perCall`. A card that can write to another tool (a CRM, a sequencer) says
 which calls write: `writes: ({ method, path }) => method !== "GET"` (or `true`); each write counts against the write
 caps and is never answered from memory (`hubspot()` is the example). How long a kept fact stays fresh is one setting
-for the project, `facts: { freshDays }`, not a card line. With `check`, a key the provider refuses is not saved and the person is told at once; pick a path
+for the project, `facts: { freshDays }`, not a card line. With `check`, `npx flowbound doctor --deep` finds a saved key the provider no longer takes; pick a path
 from the manual that costs nothing (an account or credits endpoint). A webhook's signing secret is typed on the
 same page (see `npx flowbound docs schedules`).
 

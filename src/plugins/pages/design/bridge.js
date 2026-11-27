@@ -100,14 +100,14 @@ window.FB_BRIDGE = {
   async start(show) {
     display = show
     const actions = document.getElementById("app-actions")
-    const expand = window.fb.h("button", { id: "app-expand", class: "btn", type: "button", "data-variant": "ghost", "data-size": "sm", hidden: true, onclick: async () => {
+    const expand = window.fb.h("button", { id: "app-expand", class: "btn", type: "button", "data-variant": "ghost", "data-size": "icon", "aria-label": "Expand", title: "Expand", hidden: true, onclick: async () => {
       try {
         const { mode } = await app.requestDisplayMode({ mode: "fullscreen" })
         update({ displayMode: mode })
       } catch (error) {
         window.fb.trouble(error)
       }
-    } }, "Expand")
+    } }, window.fb.ui.icon("maximize-2"))
     const web = window.fb.h("button", { class: "btn", type: "button", "data-variant": "outline", "data-size": "sm", disabled: true, onclick: () => window.fb.act(web, () => this.open(fallback ?? (window.FB.url + window.fb.route()))) }, "Open in Flowbound", window.fb.ui.icon("arrow-up-right"))
     actions.append(expand, web)
     actions.hidden = false

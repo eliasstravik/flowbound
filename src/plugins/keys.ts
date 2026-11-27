@@ -1,5 +1,5 @@
 // Keys: used, never read. The key is attached here, on the way out, and only to its own card's address.
-// A connection is a name the person chooses and a secret key (BISNODE_KEY). A card reaches its key by that name: a
+// A connection is a name the person chooses and a secret key (MY_SERVICE_KEY). A card reaches its key by that name: a
 // built-in card's is its own name in capitals (BLITZAPI_KEY), and a card of your own says which name it takes.
 import crypto from "node:crypto"
 import fs from "node:fs"
@@ -123,7 +123,7 @@ export const keys = () => {
     return new Set(fb.live ? (await fb.use("records").query("select name from fb_keys.keys")).rows.map((r: any) => r.name) : Object.keys(readFile()))
   }
   const write = async (name: string, value: string) => {
-    if (!NAME.test(name)) throw new Refused("A connection's name starts with a letter, then letters, digits, _ . or -, like BISNODE_KEY.")
+    if (!NAME.test(name)) throw new Refused("A connection's name starts with a letter, then letters, digits, _ . or -, like MY_SERVICE_KEY.")
     await move()
     if (fb.live) {
       const db = fb.use("records")
@@ -212,7 +212,7 @@ export const keys = () => {
     tools: {
       keys: {
         about:
-          'The connections: each key by its name (BLITZAPI_KEY, or any name a person chose), which cards take it, and whether it is set. Never shows a key. Keys are typed by a person on the Connections page. A card of your own takes a key by its name: key: { header, name: "BISNODE_KEY" }.',
+          'The connections: each key by its name (BLITZAPI_KEY, or any name a person chose), which cards take it, and whether it is set. Never shows a key. Keys are typed by a person on the Connections page. A card of your own takes a key by its name: key: { header, name: "MY_SERVICE_KEY" }.',
         role: "viewer",
         run: async () => ({ cards: await api.cards(), connections: await api.connections(), page: `${fb.url}/keys` }),
         print: (r) => {
@@ -224,7 +224,7 @@ export const keys = () => {
         about: "Save or remove a key by its name (a card's name also works). Any name: a key no card takes yet is kept for a card of your own. Nothing is checked: a wrong key shows when a run fails.",
         by: "people",
         role: "admin",
-        input: { name: { about: "the connection's name, like BISNODE_KEY, or a card's name", required: true }, value: { about: "the key; empty removes it" } },
+        input: { name: { about: "the connection's name, like MY_SERVICE_KEY, or a card's name", required: true }, value: { about: "the key; empty removes it" } },
         run: async (i, who) => {
           const value = String(i.value ?? "").trim()
           const name = nameOf(String(i.name ?? "").trim())
