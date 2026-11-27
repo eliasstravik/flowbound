@@ -669,7 +669,7 @@ export const ledger = (opts: { permissions?: Permissions; freshDays?: number; on
         }),
       )
     },
-    pages: { "/permissions": { title: "Permissions", file: asset("ledger/permissions.html"), menu: true, order: 6 } },
+    pages: { "/permissions": { title: "Permissions", file: asset("ledger/permissions.html"), menu: true, order: 9 } },
     docs: asset("ledger/ledger.md"),
   })
 }

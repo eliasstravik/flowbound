@@ -16,8 +16,8 @@ import { pages } from "../src/plugins/pages.ts"
 import { listName, snake } from "../src/plugins/postgres.ts"
 import { hook, schedule, schedules } from "../src/plugins/schedules.ts"
 import { camel, title, usd } from "../src/plugins/util.ts"
-import { cleanDiagram } from "../src/plugins/workflow-sdk/diagram.ts"
-import { nextAfter, toCron } from "../src/plugins/workflow-sdk/every.ts"
+import { readDiagram, stepsOf } from "../src/plugins/workflow-sdk/diagram.ts"
+import { nextAfter, starts, toCron } from "../src/plugins/workflow-sdk/every.ts"
 
 const p = (name: string, more: Partial<Plugin> = {}): Plugin => ({ name, ...more })
 
@@ -476,12 +476,16 @@ test("kept facts: inputs are cleaned by exact inputs, and no guessing who is who
   assert.equal(age(new Date(Date.now() - 86_400_000)), "1 day")
 })
 
-test("a diagram the agent drew is shown as drawn, with everything that is not drawing taken out", () => {
-  const drawn =
-    '<svg viewBox="0 0 10 10" onload="alert(1)"><script>alert(2)</script><rect x="1" width="2" fill="currentColor" style="x"/><a href="javascript:alert(3)"><text>link</text></a><text x="1">A &amp; B</text><foreignObject><div>html</div></foreignObject><image href="https://evil.example/x.png"/><path d="M0 0" marker-end="url(#m)" fill="url(https://evil.example/f)"/></svg>'
-  const { svg } = cleanDiagram(drawn)
-  assert.equal(svg, '<svg viewBox="0 0 10 10" role="img"><rect x="1" width="2" fill="currentColor"/><text x="1">A &amp; B</text><path d="M0 0" marker-end="url(#m)"/></svg>')
-  assert.deepEqual(cleanDiagram(undefined), {})
-  assert.match(cleanDiagram("<div>no</div>").problem!, /must start with <svg/)
-  assert.match(cleanDiagram(42).problem!, /must be the text of an SVG drawing/)
+test("the agent's Mermaid diagram is read as a chart and the boxes tied to steps; what could change how it runs is taken out", () => {
+  const d = readDiagram('%%{init: {"securityLevel": "loose"}}%%\nflowchart TD\n  a[List] --> b[Find head]\n  b --> c{Found?}\n  click b findHead\n  click c call decide()\n  click a href "https://evil.example"\n')
+  assert.equal(d.source, "flowchart TD\n  a[List] --> b[Find head]\n  b --> c{Found?}")
+  assert.deepEqual(d.clicks, [
+    { node: "b", fn: "findHead" },
+    { node: "c", fn: "decide" },
+  ])
+  assert.deepEqual(readDiagram(undefined), { clicks: [] })
+  assert.match(readDiagram("<svg></svg>").problem!, /must start with flowchart TD/)
+  assert.match(readDiagram(42).problem!, /must be a Mermaid flowchart/)
+  assert.deepEqual(stepsOf('async function a() {\n  "use workflow"\n}\nasync function findHead(c) {\n  // look\n  "use step"\n}\nfunction other() {}\nasync function email() { "use step" }'), ["findHead", "email"])
+  assert.deepEqual([starts("monday 08:00", "Europe/Stockholm"), starts("weekday 7:30"), starts("2 hours"), starts("hour")], ["Every Monday 08:00 (Stockholm)", "Every weekday 07:30", "Every 2 hours", "Every hour"])
 })

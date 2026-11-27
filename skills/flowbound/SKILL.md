@@ -30,8 +30,9 @@ skip. A budget they say in chat is `--max-usd`. Whole workflow files for common 
 Three rules hold everywhere: never ask the person for a provider key or a webhook's signing secret in the chat (they
 are typed on the Keys page); never say yes for them: when a run waits for a yes, show the question word for word and
 pass on their own answer (`npx flowbound yes <run>` or `no <run>`), and never widen their permissions unasked; and
-write a plain summary and a diagram (`export const summary`, `export const diagram`, an SVG) in every workflow file,
-for the people who read it on the page.
+write a plain summary and a diagram (`export const summary`, and `export const diagram`, a Mermaid flowchart with a
+`click <box> <function>` line for every step) in every workflow file, for the people who read it on the page, and
+change the diagram in the same edit as every code change so it never drifts from the code.
 
 Talk to the person in a few plain lines: the numbers first, one question at a time, and a yes or no only for
 spending or for something that cannot be undone.

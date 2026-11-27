@@ -13,6 +13,8 @@ import coins from "lucide-static/icons/coins.svg"
 import copy from "lucide-static/icons/copy.svg"
 import database from "lucide-static/icons/database.svg"
 import download from "lucide-static/icons/download.svg"
+import folder from "lucide-static/icons/folder.svg"
+import squareArrowOutUpRight from "lucide-static/icons/square-arrow-out-up-right.svg"
 import globe from "lucide-static/icons/globe.svg"
 import menu from "lucide-static/icons/menu.svg"
 import play from "lucide-static/icons/play.svg"
@@ -26,7 +28,7 @@ import upload from "lucide-static/icons/upload.svg"
 import userCheck from "lucide-static/icons/user-check.svg"
 import x from "lucide-static/icons/x.svg"
 
-const ICONS = { "arrow-down": arrowDown, "arrow-up": arrowUp, "arrow-up-right": arrowUpRight, "chevron-left": chevronLeft, "chevron-right": chevronRight, "circle-alert": circleAlert, "circle-check": circleCheck, clock, code, coins, copy, database, download, globe, menu, play, repeat, search, sparkles, "square-pen": squarePen, table, "triangle-alert": triangleAlert, upload, "user-check": userCheck, x }
+const ICONS = { "arrow-down": arrowDown, "arrow-up": arrowUp, "arrow-up-right": arrowUpRight, "chevron-left": chevronLeft, "chevron-right": chevronRight, "circle-alert": circleAlert, "circle-check": circleCheck, clock, code, coins, copy, database, download, folder, globe, menu, play, repeat, search, sparkles, "square-pen": squarePen, "square-arrow-out-up-right": squareArrowOutUpRight, table, "triangle-alert": triangleAlert, upload, "user-check": userCheck, x }
 
 const fb = (() => {
   const boot = window.FB
@@ -303,6 +305,31 @@ const fb = (() => {
     if (d.toDateString() === now.toDateString()) return time
     return `${d.toLocaleDateString("en-GB", { day: "numeric", month: "short", ...(d.getFullYear() === now.getFullYear() ? {} : { year: "numeric" }) })}, ${time}`
   }
+  /** How long ago, in plain words: "now", "2 min ago", "3 h ago", "yesterday", "5 days ago", then the date. */
+  function ago(at) {
+    const d = new Date(at)
+    if (!at || Number.isNaN(d.getTime())) return ""
+    const s = (Date.now() - d.getTime()) / 1000
+    if (s < 60) return "now"
+    if (s < 3600) return `${Math.floor(s / 60)} min ago`
+    const days = Math.round((new Date().setHours(0, 0, 0, 0) - new Date(d).setHours(0, 0, 0, 0)) / 86_400_000)
+    if (days === 0) return `${Math.floor(s / 3600)} h ago`
+    if (days === 1) return "yesterday"
+    if (days < 7) return `${days} days ago`
+    return when(at)
+  }
+  /** How soon, in plain words: "in 15 min", "in 3 h", "tomorrow", "in 3 days". */
+  function ahead(at) {
+    const d = new Date(at)
+    if (!at || Number.isNaN(d.getTime())) return ""
+    const s = (d.getTime() - Date.now()) / 1000
+    if (s < 60) return "now"
+    if (s < 3600) return `in ${Math.ceil(s / 60)} min`
+    const days = Math.round((new Date(d).setHours(0, 0, 0, 0) - new Date().setHours(0, 0, 0, 0)) / 86_400_000)
+    if (days === 0) return `in ${Math.round(s / 3600)} h`
+    if (days === 1) return "tomorrow"
+    return `in ${days} days`
+  }
   /** What a person typed as dollars: "$1.64", "1 000", "2,50" (two and a half, as most of Europe writes it) and
       "1,000.50". NaN when it is not an amount, so an empty box is never a cap of $0. */
   function dollars(text) {
@@ -361,6 +388,12 @@ const fb = (() => {
     /** A table of data inside its own sideways scroll: ui.table(["Row", "Why"], rows.map((r) => [r.row, r.reason])) */
     table: (heads, rows, attrs) =>
       h("div", { class: "table-container", tabindex: "0", role: "region", "aria-label": (attrs && attrs.label) || "Table" }, h("table", { class: "table" }, h("thead", {}, h("tr", {}, heads.map((t) => h("th", { scope: "col" }, t)))), h("tbody", {}, rows.map((r) => (r.nodeType ? r : h("tr", {}, r.map((c) => (c && c.nodeType === 1 && c.tagName === "TD" ? c : h("td", {}, c))))))))),
+    /** Where you are, as a path back up: ui.path([["/workflows", {}, "Workflows"], ["/workflows", { folder: "tam" }, "Tam"]], "Find sales heads") */
+    path: (ups, here) =>
+      h("nav", { class: "path", "aria-label": "Where you are" }, ups.map(([p, q, label]) => [link(p, q, label, { class: "link" }), h("span", { "aria-hidden": "true" }, "/")]), h("span", { "aria-current": "page" }, here)),
+    /** Tabs that keep their place in the address: ui.tabs(["Diagram", "Code"], "Code", "tab") */
+    tabs: (names, on, key) =>
+      h("nav", { class: "tabs", "aria-label": "Tabs" }, names.map((n) => link(current, { ...params, [key]: n.toLowerCase() }, n, { "aria-current": n === on ? "page" : null, onclick: (e) => (e.preventDefault(), stay({ [key]: n.toLowerCase() })) }))),
     /** Words with their web addresses made into links (a reason that names a manual page). */
     linked: (text) => String(text).split(/(https?:\/\/[^\s)"]+)/).map((part, i) => (i % 2 ? h("a", { class: "link", href: part, target: "_blank", rel: "noreferrer" }, part) : part)),
   }
@@ -384,11 +417,35 @@ const fb = (() => {
       const args = Object.fromEntries(new URLSearchParams(query))
       return link.hasAttribute("data-web") ? open(path, args) : go(path, args)
     })
+    menuNews()
     for (const s of document.querySelectorAll("section[data-page]")) {
       const t = s.cloneNode(true)
       for (const script of t.querySelectorAll("script")) script.remove()
       templates[s.dataset.page] = t.innerHTML
     }
+  }
+  /** Home's count in the menu: the number of things under Needs attention. */
+  function count(n) {
+    for (const el of document.querySelectorAll(".menu [data-count]")) {
+      el.textContent = n ? String(n) : ""
+      el.hidden = !n
+    }
+  }
+  /** The menu's news, asked once a page opens: Home's count, and how many saved changes are not live yet. */
+  function menuNews() {
+    if (bridge) return
+    if (document.querySelector(".menu [data-count]") && current !== "/home" && current !== "/needs") call("doctor").then((r) => count(r.needs.length), () => {})
+    if (document.querySelector(".menu [data-changes]"))
+      call("workflow-changes", {}).then(
+        (r) => {
+          const n = (r.changes || []).length
+          for (const el of document.querySelectorAll(".menu [data-changes]")) {
+            el.replaceChildren(`${n} ${n === 1 ? "change" : "changes"} not live · `, h("u", {}, "See them"))
+            el.hidden = !n
+          }
+        },
+        () => {},
+      )
   }
   async function start() {
     frame()
@@ -419,6 +476,8 @@ const fb = (() => {
     get live() { return boot.live },
     get url() { return boot.url },
     get who() { return boot.who },
+    /** Where Mermaid is, for a page that draws a diagram. */
+    get mermaid() { return bridge ? `${boot.url}/assets/mermaid.js` : boot.mermaid },
     embedded: !!bridge,
     compact: () => !!bridge && document.body.dataset.mode === "inline",
     supports: (tool) => !bridge || !!tools?.has(tool),
@@ -432,6 +491,9 @@ const fb = (() => {
     money,
     num,
     when,
+    ago,
+    ahead,
+    count,
     dollars,
     can,
     title,

@@ -1,7 +1,7 @@
 # How the pages look, and how to make one
 
-Every page (the six tabs: Needs you, Runs, Tables, Workflows, Keys, Permissions; live also People, Connect an agent,
-sign-in and "Allow an app") is drawn from one style sheet and one script. A page says what it shows; it never says how it looks. Why it is built this way:
+Every page (the menu: Home, Workflows, Runs, Schedules, Data, Connections, Agents, Permissions; also Changes,
+People, sign-in and "Allow an app") is drawn from one style sheet and one script. A page says what it shows; it never says how it looks. Why it is built this way:
 [decisions.md](decisions.md), "Design".
 
 ## What it stands on
@@ -51,7 +51,13 @@ a class the build never saw does nothing, so a page of your own uses the parts, 
 | The yes | `<section class="decision">`: a question that waits for the person (said to their agent, never a Yes button), with Not now |
 | An icon | `fb.ui.icon("download")` |
 | The three permission modes | `<ul class="modes">` of `<li>`, the one in force with `aria-current` |
-| A workflow's summary and diagram | `<div class="workflow">` with `<p class="lead">` and `<figure class="diagram">` around the agent's cleaned SVG |
+| Where you are | `fb.ui.path([["/workflows", {}, "Workflows"]], "Find sales heads")`: a path back up, over the page's top |
+| Tabs | `fb.ui.tabs(["Diagram", "Code"], "Code", "tab")`: the address keeps the tab |
+| Folders and files | `<ul class="rows files">` of links: the name (with `fb.ui.icon("folder")` for a folder), then `<span class="line">` |
+| A workflow's diagram | `<figure class="canvas">` around a `.stage` with the Mermaid drawing and a `.zoom` group (−, +, Fit) |
+| What starts a workflow | `<dl class="starts">`: Starts and Also, each a `dt` and `dd` |
+| A plain line in a box | `<p class="hint">` (Home's "Talk to Flowbound from your own agent") |
+| Get started | `<ol class="checklist">`, a done item with `data-done` |
 | Small names in a row | `<div class="chips">` of `<span>` |
 | A file's code, to read | `<div class="code">`: a column of line numbers and a `<pre>`; `.tok-note`, `.tok-word`, `.tok-text` colour it |
 | What needs a person | `fb.ui.todo([{ what, fix, page: "/keys", when: "soon" }])`: what is the matter, the one thing to do, the way there; Needs you uses `class="todo needs"` with a kind beside each (Yes?, Key) |

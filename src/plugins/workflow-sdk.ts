@@ -1,12 +1,13 @@
 // Runs: workflows are plain TypeScript on the open Workflow SDK. Flowbound reads the list, saves, skips and links.
 import fs from "node:fs"
 import path from "node:path"
-import { type Attention, type Flowbound, plugin, type Who } from "../core/plugin.ts"
+import { type Attention, can, type Flowbound, plugin, type Route, type Who } from "../core/plugin.ts"
 import { Refused } from "../core/server.ts"
 import type { Ledger } from "./ledger.ts"
 import type { Records } from "./postgres.ts"
 import { asset, day, sha, sleep, usd } from "./util.ts"
 import type { Manifest, Wf } from "./workflow-sdk/build.ts"
+import { editorHere, openInEditor, placeOf, vercelNames, vercelPage, workflowUi } from "./workflow-sdk/open.ts"
 
 type Run = {
   id: number
@@ -78,8 +79,9 @@ const ROWS_PER_BATCH = 25
 const BATCHES_PER_DRIVER = 100
 const S = "fb_workflow_sdk"
 
-export const workflowSdk = (opts: { on?: Home } = {}) => {
+export const workflowSdk = (opts: { on?: Home; editor?: string; vercel?: string } = {}) => {
   let fb: Flowbound
+  let ui: Promise<(req: Request) => Promise<Response>> | undefined
   let manifest: Manifest = { workflows: {}, ids: { run: "", row: "", clock: "" } }
   let flow: { POST: (req: Request) => Promise<Response> } | undefined
   let webhook: Record<string, (req: Request) => Promise<Response>> | undefined
@@ -101,7 +103,7 @@ export const workflowSdk = (opts: { on?: Home } = {}) => {
 
   const wfOf = (id: string): Wf & { from: string; into: string } => {
     // Never run a file other than the one on disk: if it was edited a moment ago, Flowbound is about to restart with it.
-    const onDisk = !fb.live && fs.existsSync(path.join(fb.root, "workflows", `${id}.ts`)) ? sha(fs.readFileSync(path.join(fb.root, "workflows", `${id}.ts`), "utf8")) : undefined
+    const onDisk = !fb.live && manifest.workflows[id] && fs.existsSync(path.join(fb.root, "workflows", `${id}.ts`)) ? sha(fs.readFileSync(path.join(fb.root, "workflows", `${id}.ts`), "utf8")) : undefined
     if (onDisk && onDisk !== manifest.workflows[id]?.hash) throw new Refused(`workflows/${id}.ts was just changed and Flowbound is starting again with it. Run the command again in a moment.`, { code: "restarting" })
     const wf = manifest.workflows[id]
     if (!wf) throw new Refused(`There is no workflow called "${id}". Workflows: ${Object.keys(manifest.workflows).join(", ") || "none yet (add a file to workflows/)"}`)
@@ -588,6 +590,8 @@ export const workflowSdk = (opts: { on?: Home } = {}) => {
     return {
       id: w.id,
       title: w.title,
+      /** The folder it sits in under workflows/, "" for none. */
+      folder: w.folder ?? "",
       from: w.from,
       into: w.into,
       rows: c ? `${c.done} of ${c.all} done` : undefined,
@@ -605,9 +609,32 @@ export const workflowSdk = (opts: { on?: Home } = {}) => {
       mode: ready ? ledger().modeFor(w.id, cardsOf(ready)) : ledger().modeFor(w.id),
       summary: w.summary ?? null,
       hasDiagram: !!w.diagram,
+      /** "use step" functions with no box in the diagram (no click line): the diagram may be behind the code. */
+      notDrawn: w.diagram ? (w.steps ?? []).filter((fn) => !(w.clicks ?? []).some((c) => c.fn === fn)) : [],
       diagramProblem: w.diagramProblem,
       problem: w.problem,
     }
+  }
+
+  /** "Open in workflow UI": where it leads, or null where it does not work (a server of your own, for who may not manage). */
+  const uiWay = () => (placeOf(fb.live) === "server" ? null : `${fb.url}/open/workflow-ui`)
+  /** The Workflow SDK's own UI, inside this Flowbound. It has no door of its own: Flowbound's is in front of it. */
+  const served = async (req: Request, url: URL, who: Who): Promise<Response> => {
+    if (placeOf(fb.live) === "vercel") return new Response("On Vercel the workflow UI is Vercel's own page.", { status: 404 })
+    if (fb.live && !can(who, "admin")) return new Response("The workflow UI is for Admins and Owners of this Flowbound.", { status: 403 })
+    ui ??= workflowUi(fb.root, `${fb.base}/workflow-ui`, [new URL(fb.url).hostname])
+    let handler: Awaited<typeof ui>
+    try {
+      handler = await ui
+    } catch (e: any) {
+      ui = undefined
+      return new Response(String(e?.message ?? e), { status: 501 })
+    }
+    // Flowbound may be shared under a path a proxy cut off: the UI is told its whole address either way.
+    const to = new URL(url)
+    to.pathname = fb.base + url.pathname
+    const body = req.method === "GET" || req.method === "HEAD" ? undefined : await req.arrayBuffer()
+    return handler(new Request(to, { method: req.method, headers: req.headers, body }))
   }
 
   return plugin({
@@ -673,6 +700,22 @@ export const workflowSdk = (opts: { on?: Home } = {}) => {
       return { steps, workflows: () => manifest.workflows, clock, auto }
     },
     routes: {
+      // One address for "Open in workflow UI", right for where this runs: the Workflow SDK's own UI here, Vercel's page there.
+      "GET /open/workflow-ui": (async (req, at) => {
+        const n = Number(at.url.searchParams.get("run")) || undefined
+        const run = n ? ((await q("select wf_run from fb_workflow_sdk.rows where run = $1 and wf_run is not null order by at desc limit 1", [n]))[0]?.wf_run as string | undefined) : undefined
+        const to =
+          placeOf(fb.live) === "vercel"
+            ? vercelPage({
+                names: opts.vercel?.includes("/") ? { team: opts.vercel.split("/")[0]!, project: opts.vercel.split("/")[1]! } : vercelNames(req.headers.get("x-vercel-oidc-token") ?? process.env.VERCEL_OIDC_TOKEN),
+                run,
+                env: process.env.VERCEL_ENV,
+              })
+            : `${fb.base}/workflow-ui${run ? `/run/${encodeURIComponent(run)}` : ""}`
+        return new Response(null, { status: 302, headers: { location: to } })
+      }) satisfies Route,
+      "ANY /workflow-ui": ((req, at) => served(req, at.url, at.who)) satisfies Route,
+      "ANY /workflow-ui/:rest*": ((req, at) => served(req, at.url, at.who)) satisfies Route,
       // The runner's own address. On your computer the runner signs its deliveries; live, nothing from outside gets here.
       "ANY /.well-known/workflow/v1/flow": Object.assign((req: Request) => (flow && !fb.live ? flow.POST(req) : new Response("Nothing is here.", { status: 404 })), { open: "all" as const }),
       "ANY /.well-known/workflow/v1/webhook/:token": Object.assign((req: Request) => (webhook?.[req.method] ? webhook[req.method]!(req) : new Response("no", { status: 404 })), { open: "all" as const }),
@@ -694,7 +737,7 @@ export const workflowSdk = (opts: { on?: Home } = {}) => {
             ? r
                 .map(
                   (w) =>
-                    `${w.id}   ${w.from ?? "?"} -> ${w.into ?? "?"}   ${w.rows ?? ""}   ${w.runsBy}   mode: ${w.mode}${w.problem ? `\n  not ready: ${w.problem}` : ""}${w.summary ? "" : "\n  no summary yet: write export const summary and export const diagram for people"}${w.diagramProblem ? `\n  ${w.diagramProblem}` : ""}`,
+                    `${w.id}   ${w.from ?? "?"} -> ${w.into ?? "?"}   ${w.rows ?? ""}   ${w.runsBy}   mode: ${w.mode}${w.problem ? `\n  not ready: ${w.problem}` : ""}${w.summary ? "" : "\n  no summary yet: write export const summary for people"}${w.hasDiagram || w.problem ? "" : "\n  no diagram yet: write export const diagram, a Mermaid flowchart"}${w.notDrawn.length ? `\n  the diagram has no box for: ${w.notDrawn.join(", ")} (add a click line for each)` : ""}${w.diagramProblem ? `\n  ${w.diagramProblem}` : ""}`,
                 )
                 .join("\n")
             : "No workflows yet. Write one in workflows/<id>.ts",
@@ -710,10 +753,24 @@ export const workflowSdk = (opts: { on?: Home } = {}) => {
             (await q<Run>(`select * from ${S}.runs where workflow = $1 and kind <> 'tryout' order by id desc limit 1`, [w.id]))[0] ??
             (await q<Run>(`select * from ${S}.runs where workflow = $1 order by id desc limit 1`, [w.id]))[0]
           const v = last ? await view(last) : undefined
+          // What starts it: its schedule and webhook lines, with the next time and the webhook's address.
+          const starts = fb.has("schedules") ? ((await fb.call("schedules", {}, { kind: "system", name: "Flowbound", via: "page" })) as any[]).filter((s) => s.workflow === w.id) : []
           return {
             ...(await listed(w)),
             file: `workflows/${w.id}.ts`,
+            /** The Mermaid flowchart the agent wrote, without its click lines; the boxes tied to steps are in `clicks`. */
             diagram: w.diagram ?? null,
+            clicks: w.clicks ?? [],
+            steps: w.steps ?? [],
+            starts: starts.map((s) => ({
+              name: s.name,
+              kind: s.kind,
+              text: s.starts,
+              ...(s.nextDue ? { next: s.nextDue } : {}),
+              ...(s.webhook ? { address: s.webhook.address, secretSaved: s.webhook.secretSaved, lastDelivery: s.recent?.[0]?.at ?? null } : {}),
+            })),
+            // The ways further in: the file in an editor (only on your own computer) and the workflow UI (only where it works).
+            open: { editor: fb.live ? null : (editorHere(opts.editor)?.name ?? null), ui: uiWay() },
             ...(i.includeCode === false ? {} : { code: w.text ?? "" }),
             page: `${fb.url}/workflows?workflow=${w.id}`,
             lastRun: v
@@ -728,9 +785,34 @@ export const workflowSdk = (opts: { on?: Home } = {}) => {
           }
         },
         print: (r: any) =>
-          [r.title, r.summary ?? "No summary yet: ask your agent to write one.", r.diagram ? "(a diagram, shown on the page)" : "", r.lastRun ? `Last run: ${r.lastRun.text}` : "", `Page: ${r.page}`]
+          [
+            r.title,
+            r.summary ?? "No summary yet: ask your agent to write one.",
+            r.diagram ? "(a diagram, shown on the page)" : "",
+            r.notDrawn?.length ? `The diagram has no box for: ${r.notDrawn.join(", ")}` : "",
+            r.lastRun ? `Last run: ${r.lastRun.text}` : "",
+            `Page: ${r.page}`,
+          ]
             .filter(Boolean)
             .join("\n"),
+      },
+      "open-file": {
+        about: "Open a workflow's file in the person's editor, on the computer Flowbound runs on. Only on your own computer: live there is no file to open, and the code is read on the workflow's page.",
+        by: "people",
+        input: { id: { about: "the workflow's id", required: true }, line: { type: "number", about: "the line to land on" } },
+        run: async (i) => {
+          if (fb.live) throw new Refused("A file opens in an editor on your own computer. Here the code is read on the workflow's page.")
+          const wf = manifest.workflows[String(i.id)]
+          if (!wf) throw new Refused(`There is no workflow called "${i.id}".`)
+          const file = path.join(fb.root, "workflows", `${wf.id}.ts`)
+          const editor = editorHere(opts.editor)
+          if (!editor) throw new Refused(`No editor was found on this computer. The file is ${file}. Name your editor's command in FLOWBOUND_EDITOR.`, { code: "no-editor", file })
+          await openInEditor(editor, file, Number(i.line) || 1).catch((e) => {
+            throw new Refused(`${e.message}. The file is ${file}`, { code: "no-editor", file })
+          })
+          return { opened: file, line: Number(i.line) || 1, with: path.basename(editor.name) }
+        },
+        print: (r) => `Opened ${r.opened} in ${r.with}`,
       },
       run: {
         about:
@@ -888,6 +970,8 @@ export const workflowSdk = (opts: { on?: Home } = {}) => {
           page: "/runs",
           params: { run: r.id },
           yes: { run: r.id },
+          // Since when it waits: when it was asked, or when it paused at its cap.
+          at: new Date(r.finished_at ?? r.started_at).toISOString(),
         } as Attention)
       }
       for (const w of Object.values(manifest.workflows))
@@ -924,8 +1008,9 @@ export const workflowSdk = (opts: { on?: Home } = {}) => {
       return out
     },
     pages: {
-      "/runs": { title: "Runs", file: asset("workflow-sdk/runs.html"), menu: true, order: 2 },
-      "/workflows": { title: "Workflows", file: asset("workflow-sdk/workflows.html"), menu: true, order: 4 },
+      "/workflows": { title: "Workflows", file: asset("workflow-sdk/workflows.html"), menu: true, order: 2 },
+      "/runs": { title: "Runs", file: asset("workflow-sdk/runs.html"), menu: true, order: 3 },
+      "/schedules": { title: "Schedules", file: asset("workflow-sdk/schedules.html"), menu: true, order: 4 },
     },
     commands: {
       "workflow-check": {

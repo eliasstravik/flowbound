@@ -147,44 +147,54 @@ const full = make(
   `  permissions: {
     mode: "auto",
     caps: { perRun: 5, perMonth: 100, writesPerMonth: 500 },
-    workflows: { "find-buyers": { mode: "ask" } },
+    workflows: { "champion-tracking/find-buyers": { mode: "ask" } },
     providers: { fakedata: { perMonth: 50 }, crm: { writesPerRun: 25 } },
   },
   schedules: [
-    schedule({ id: "weekly-heads", workflow: "find-sales-heads", every: "monday 08:00", timezone: "Europe/Stockholm" }),
-    schedule({ id: "daily-accounts", workflow: "score-accounts", every: "day 07:30", timezone: "Europe/Stockholm" }),
-    hook({ id: "new-leads", workflow: "enrich-leads", key: "domain" }),
+    schedule({ id: "weekly-heads", workflow: "tam-mapping/find-sales-heads", every: "monday 08:00", timezone: "Europe/Stockholm" }),
+    schedule({ id: "daily-accounts", workflow: "tam-mapping/score-accounts", every: "day 07:30", timezone: "Europe/Stockholm" }),
+    hook({ id: "new-leads", workflow: "inbound/enrich-leads", key: "domain" }),
   ],`,
   // FULL_URL: the address it is looked at from when it is shared under a path on a private network.
   process.env.FULL_URL ? { FLOWBOUND_URL: process.env.FULL_URL } : {},
 )
-const w = (file: string, o: Parameters<typeof workflow>[0]) => fs.writeFileSync(path.join(full.root, "workflows", `${file}.ts`), workflow(o))
-w("find-sales-heads", { from: "target_list", into: "sales_heads", fn: "findSalesHeads" })
-// The agent's own summary and diagram for people, in the file beside the code (the prototype's "Find sales heads").
+// Workflows sit in folders, one folder a play (TAM mapping, champion tracking, inbound), as the prototype has them.
+const w = (file: string, o: Parameters<typeof workflow>[0], summary: string) => {
+  fs.mkdirSync(path.dirname(path.join(full.root, "workflows", `${file}.ts`)), { recursive: true })
+  fs.writeFileSync(path.join(full.root, "workflows", `${file}.ts`), `${workflow(o)}\nexport const summary = ${JSON.stringify(summary)}\n`)
+}
+w("tam-mapping/find-sales-heads", { from: "target_list", into: "sales_heads", fn: "findSalesHeads" }, "Finds the head of sales at each company, then a work email.")
+// The agent's own diagram for people, in the file beside the code (the prototype's "Find sales heads"): a Mermaid
+// flowchart, with a click line tying each step's box to its function.
 fs.appendFileSync(
-  path.join(full.root, "workflows", "find-sales-heads.ts"),
+  path.join(full.root, "workflows", "tam-mapping", "find-sales-heads.ts"),
   `
-export const summary = "For each company: find its head of sales, then a work email for them. If nobody is found, the email is skipped. Companies we already know cost nothing."
-export const diagram = \`<svg viewBox="0 0 320 196" aria-label="Diagram drawn by the agent">
-<g font-size="12" fill="currentColor" font-family="system-ui, sans-serif">
-<rect x="70" y="6" width="180" height="36" rx="8" fill="none" stroke="currentColor" opacity=".5"/><text x="160" y="29" text-anchor="middle">A company from your list</text>
-<path d="M160 42v18" stroke="currentColor" opacity=".5"/>
-<rect x="50" y="60" width="220" height="36" rx="8" fill="none" stroke="currentColor"/><text x="160" y="83" text-anchor="middle">Find the head of sales (FakeData)</text>
-<path d="M160 96v18" stroke="currentColor" opacity=".5"/><text x="168" y="110" opacity=".6">nobody? skip</text>
-<rect x="50" y="114" width="220" height="36" rx="8" fill="none" stroke="currentColor"/><text x="160" y="137" text-anchor="middle">Find a work email (FakeData)</text>
-<path d="M160 150v18" stroke="currentColor" opacity=".5"/>
-<text x="160" y="182" text-anchor="middle" opacity=".7">Name, title and email in your table</text>
-</g></svg>\`
+export const diagram = \`
+flowchart TD
+  a[Companies from your list] --> b[Find the head of sales]
+  b --> c{Found?}
+  c -- yes --> d[Find their work email]
+  c -- no --> f[Mark as not found]
+  d --> e([Save])
+  f --> e
+  click b findHead
+  click d findEmail
+\`
 `,
 )
-w("score-accounts", { from: "accounts", into: "account_scores", fn: "scoreAccounts" })
-w("check-partners", { from: "partners", into: "partner_contacts", fn: "checkPartners" })
-w("enrich-leads", { from: "posted_leads", into: "leads", fn: "enrichLeads" })
-w("research-companies", { from: "company_list", into: "company_research", fn: "researchCompanies", path: "/v2/slow" })
-w("find-buyers", { from: "prospects", into: "buyers", fn: "findBuyers" })
+w("tam-mapping/score-accounts", { from: "accounts", into: "account_scores", fn: "scoreAccounts" }, "Scores each company against the ICP with a model.")
+w("tam-mapping/nordics/research-companies", { from: "company_list", into: "company_research", fn: "researchCompanies", path: "/v2/slow" }, "Pulls every company that fits the ICP into one list.")
+w("champion-tracking/check-partners", { from: "partners", into: "partner_contacts", fn: "checkPartners" }, "Checks each partner's contact every week.")
+w("champion-tracking/find-buyers", { from: "prospects", into: "buyers", fn: "findBuyers" }, "Finds past users of the product among your customers' contacts.")
+w("inbound/enrich-leads", { from: "posted_leads", into: "leads", fn: "enrichLeads" }, "Takes each lead from the website form and saves it.")
+// A diagram that is behind the code: it has no box for the email step, so the page says so quietly.
+fs.appendFileSync(
+  path.join(full.root, "workflows", "inbound", "enrich-leads.ts"),
+  "\nexport const diagram = `flowchart TD\n  a[A lead from the form] --> b[Find the head of sales]\n  b --> c([Save])\n  click b findHead\n`\n",
+)
 // Add the heads found to the CRM: every call a write, counted against the CRM's own 25 writes a run.
 fs.writeFileSync(
-  path.join(full.root, "workflows", "add-to-crm.ts"),
+  path.join(full.root, "workflows", "inbound", "add-to-crm.ts"),
   `import { use } from "flowbound"\n\nexport const from = "crm_list"\nexport const into = "crm_added"\nexport const summary = "Add each person to the CRM list \\"Q1 heads\\"."\n\nexport async function addToCrm(person) {\n  "use workflow"\n  return { added: await add(person) }\n}\n\nasync function add(person) {\n  "use step"\n  const res = await use("crm").fetch("/v2/crm/add", { body: { list: "Q1 heads", name: person.name, email: person.email } })\n  return res.pick("id")\n}\n`,
 )
 fs.writeFileSync(path.join(full.root, "crm_list.csv"), `name,email\n${Array.from({ length: 40 }, (_, i) => `Person ${i + 1},p${i + 1}@co${i + 1}.example`).join("\n")}\n`)
@@ -193,6 +203,9 @@ fs.writeFileSync(
   path.join(full.root, "workflows", "read-websites.ts"),
   `import { use } from "flowbound"\n\nexport const from = "prospects"\nexport const into = "website_notes"\n\nexport async function readWebsites(company) {\n  "use workflow"\n  return { about: await read(company) }\n}\n\nasync function read(company) {\n  "use step"\n  const res = await use("firecrawl").fetch("/v2/scrape", { body: { url: "https://" + company.domain } })\n  return res.pick("data.markdown")\n}\n`,
 )
+// The free sample, as \`flowbound init --example\` writes it, run once: Home's Get started is all done, so a normal day.
+fs.copyFileSync(path.join("template", "example", "tidy-companies.ts"), path.join(full.root, "workflows", "tidy-companies.ts"))
+fs.copyFileSync(path.join("template", "example", "example-companies.csv"), path.join(full.root, "example_companies.csv"))
 for (const [i, [file, rows]] of Object.entries({ target_list: 30, accounts: 60, partners: 12, company_list: 10_000, prospects: 240 }).entries())
   fs.writeFileSync(path.join(full.root, `${file}.csv`), csv(rows, i * 20_000))
 await full.start()
@@ -202,12 +215,13 @@ const fb = async (args: string, o: { fails?: boolean } = {}) => {
   return out
 }
 await fb(`keys set fakedata ${KEY}`).catch(async () => full.page("set-key", { name: "fakedata", value: KEY }))
-for (const list of ["target_list", "accounts", "partners", "company_list", "prospects", "crm_list"]) await fb(`import ${list}.csv --as ${list}`)
+for (const list of ["target_list", "accounts", "partners", "company_list", "prospects", "crm_list", "example_companies"]) await fb(`import ${list}.csv --as ${list}`)
+await fb("run tidy-companies --try 8 --wait")
 await full.page("set-key", { name: "crm", value: KEY })
 
 // Done, with rows that failed and why.
-await fb("run find-sales-heads --try 10 --wait")
-await fb("run find-sales-heads --wait")
+await fb("run tam-mapping/find-sales-heads --try 10 --wait")
+await fb("run tam-mapping/find-sales-heads --wait")
 // Kept facts with an age: some bought 12 days ago (still fresh), some 140 days ago (past the window, bought again),
 // and some rows asked again and answered from what is already known.
 const sql = async (query: string) => {
@@ -218,22 +232,22 @@ const factsOf = (rows: string) => `select fact from fb_ledger.calls where scope-
 await sql(`update fb_ledger.facts set at = now() - interval '12 days' where id in (${factsOf("between 1 and 5")})`)
 await sql(`update fb_ledger.facts set at = now() - interval '140 days' where id in (${factsOf("between 6 and 8")})`)
 await sql("delete from sales_heads where id in (1, 2, 3, 6, 7, 8)")
-await fb("run find-sales-heads --wait")
+await fb("run tam-mapping/find-sales-heads --wait")
 // Writes to the CRM: the run pauses at the CRM's own 25 writes, with a yes waiting.
-await fb("run add-to-crm --try 5 --wait")
-await fb("run add-to-crm --wait")
+await fb("run inbound/add-to-crm --try 5 --wait")
+await fb("run inbound/add-to-crm --wait")
 // Paused at its cap, with a yes waiting under Needs you.
-await fb("run score-accounts --try 10 --wait")
-await fb("run score-accounts --max-usd 0.05 --wait")
+await fb("run tam-mapping/score-accounts --try 10 --wait")
+await fb("run tam-mapping/score-accounts --max-usd 0.05 --wait")
 // Asked first (its workflow's own rule is ask): the try-out is passed a yes, then the full run waits for one, with its estimate.
-const asked = JSON.parse(await full.fb("run find-buyers --try 10 --json"))
+const asked = JSON.parse(await full.fb("run champion-tracking/find-buyers --try 10 --json"))
 await fb(`yes ${asked.run}`)
 await full.until(async () => JSON.parse(await full.fb(`runs ${asked.run} --json`)).state !== "running")
-await fb("run find-buyers")
-await fb("run check-partners --try 10 --wait")
+await fb("run champion-tracking/find-buyers")
+await fb("run champion-tracking/check-partners --try 10 --wait")
 // In progress: a slow provider and a long list.
-await fb("run research-companies --try 10 --wait")
-await fb("run research-companies --max-usd 4")
+await fb("run tam-mapping/nordics/research-companies --try 10 --wait")
+await fb("run tam-mapping/nordics/research-companies --max-usd 4")
 say(`full   ${full.url()}`)
 say("ready")
 process.on("SIGTERM", async () => (await Promise.all([full.stop(), empty.stop(), liveServer.close()]), process.exit(0)))

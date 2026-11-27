@@ -3,29 +3,97 @@
 fb.page("/workflows", async (root, params) => {
   const { h, call, ui } = fb
   const view = root.querySelector("[data-view]")
-
-  if (!params.workflow) {
-    const all = await call("workflows")
-    const head = ui.head({ title: "Workflows", sub: "Each job your agent wrote, explained by your agent in words and a diagram." })
-    if (!all.length) return view.replaceChildren(head, ui.empty({ title: "No workflows yet", text: "Ask your agent for a job, like finding the head of sales at each company in a list. It writes the workflow and explains it here." }))
-    const state = (w) => (w.problem ? ui.status("paused", "Not ready", "warn") : !w.summary ? ui.status("idle", "No summary yet") : ui.status("done", "Ready"))
-    return view.replaceChildren(
-      head,
-      h("ul", { class: "rows sm:grid-cols-[minmax(12rem,3fr)_auto_minmax(10rem,3fr)_minmax(8rem,2fr)]", role: "list" },
-        h("li", { class: "rows-head", "aria-hidden": "true" }, ...["Workflow", "State", "Reads and fills", "Runs"].map((t) => h("span", {}, t))),
-        ...all.map((w) => h("li", {}, ui.link("/workflows", { workflow: w.id }, [
-          h("span", {}, w.title),
-          h("span", {}, state(w)),
-          h("span", { class: "meta" },
-            h("span", { class: "font-mono sm:truncate" }, `${w.from || "?"} → ${w.into || "?"}`),
-            h("span", { class: "sm:truncate" }, w.runsBy === "when asked" ? "When asked" : w.runsBy)),
-        ])))))
+  /** tam-mapping -> Tam mapping: a folder's name as people read it. */
+  const named = (slug) => slug.replace(/[-_]+/g, " ").replace(/^./, (c) => c.toUpperCase())
+  /** The path back up through the folders: Workflows / Tam mapping / Nordics. */
+  const ups = (folder) => {
+    const parts = folder ? folder.split("/") : []
+    return [["/workflows", {}, "Workflows"], ...parts.map((p, i) => ["/workflows", { folder: parts.slice(0, i + 1).join("/") }, named(p)])]
   }
 
-  const compact = fb.compact()
-  const w = await call("workflow", { id: params.workflow, includeCode: !compact })
+  // ---- a folder: its folders first, then its workflows, as a drive shows them ----
+  if (!params.workflow) {
+    const all = await call("workflows")
+    const here = (params.folder || "").replace(/^\/+|\/+$/g, "")
+    const inside = (w, f) => w.folder === f || w.folder.startsWith(`${f}/`)
+    // Every folder that holds a workflow, and each folder above it.
+    const folders = [...new Set(all.flatMap((w) => (w.folder ? w.folder.split("/").map((_, i, p) => p.slice(0, i + 1).join("/")) : [])))].sort()
+    const kids = folders.filter((f) => (f.includes("/") ? f.slice(0, f.lastIndexOf("/")) : "") === here)
+    const plural = (n, one) => `${n} ${one}${n === 1 ? "" : "s"}`
+    const counted = (f) => {
+      const sub = folders.filter((x) => x.startsWith(`${f}/`) && x.split("/").length === f.split("/").length + 1).length
+      return [sub ? plural(sub, "folder") : "", plural(all.filter((w) => inside(w, f)).length, "workflow")].filter(Boolean).join(" · ")
+    }
+    const title = here ? named(here.split("/").pop()) : "Workflows"
+    const path = here ? ups(here) : null
+    const head = [path ? ui.path(path.slice(0, -1), path.at(-1)[2]) : null, ui.head({ title })]
+    if (here && !folders.includes(here)) return view.replaceChildren(...head.filter(Boolean), ui.empty({ title: "No folder here", text: "It was moved or emptied.", actions: [ui.link("/workflows", {}, "All workflows", { class: "btn", "data-variant": "outline" })] }))
+    if (!all.length)
+      return view.replaceChildren(...head.filter(Boolean), ui.empty({ title: "No workflows yet", text: "Ask your agent for a job, like finding the head of sales at each company in a list. It writes the workflow, and it shows here." }))
 
-  // The code, to read: notes, text in quotes and the language's own words in three quiet colours. Set as text, never as HTML.
+    const folderRow = (f) => h("li", {}, ui.link("/workflows", { folder: f }, [h("span", {}, ui.icon("folder"), named(f.split("/").pop())), h("span", { class: "line in" }, counted(f))]))
+    const workflowRow = (w, where) => h("li", {}, ui.link("/workflows", { workflow: w.id }, [h("span", {}, w.title), h("span", { class: "line" }, where ?? w.summary ?? "No summary yet.")]))
+    // Search looks in every folder, and says which folder each hit is in.
+    let typing
+    const q = h("input", { class: "input", type: "search", name: "q", placeholder: "Search all workflows", "aria-label": "Search all workflows", autocomplete: "off", value: params.q || "" })
+    q.addEventListener("input", () => (clearTimeout(typing), (typing = setTimeout(() => fb.stay({ q: q.value.trim() || null }), 250))))
+    const words = (params.q || "").toLowerCase().split(/\s+/).filter(Boolean)
+    const hits = words.length ? all.filter((w) => words.every((x) => `${w.title} ${w.id} ${w.summary || ""}`.toLowerCase().includes(x))) : null
+    const list = hits
+      ? hits.length
+        ? h("ul", { class: "rows files", role: "list" }, hits.map((w) => workflowRow(w, w.folder ? w.folder.split("/").map(named).join(" / ") : "Workflows")))
+        : ui.empty({ title: `No workflow has "${params.q}"`, actions: [h("button", { class: "btn", "data-variant": "outline", type: "button", onclick: () => fb.stay({ q: null }) }, "Show every workflow")] })
+      : h("ul", { class: "rows files", role: "list" }, kids.map(folderRow), all.filter((w) => w.folder === here).map((w) => workflowRow(w)))
+    return view.replaceChildren(...[...head, h("form", { class: "toolbar", role: "search", onsubmit: (e) => e.preventDefault() }, q), list].filter(Boolean))
+  }
+
+  // ---- one workflow: where it is, what it does, what starts it; then Diagram, Code, Runs and Data ----
+  const compact = fb.compact()
+  const w = await call("workflow", { id: params.workflow, includeCode: true })
+  const tabs = ["Diagram", "Code", "Runs", "Data"]
+  const tab = tabs.find((t) => t.toLowerCase() === params.tab) ?? (w.diagram ? "Diagram" : "Code")
+  const path = ups(w.folder)
+
+  const actions = []
+  if (w.open?.editor && fb.supports("open-file") && fb.can("member")) {
+    const b = h("button", { class: "btn", "data-variant": "outline", "data-size": "sm", type: "button" }, "Open in editor", ui.icon("arrow-up-right"))
+    b.onclick = () => fb.act(b, async () => fb.say(`Opened ${w.file} in ${(await call("open-file", { id: w.id })).with}.`))
+    actions.push(b)
+  }
+  if (w.open?.ui) actions.push(h("a", { class: "btn", "data-variant": "outline", "data-size": "sm", href: w.open.ui, target: "_blank", rel: "noreferrer" }, "Open in workflow UI", ui.icon("arrow-up-right")))
+
+  // What starts it: its schedule and the next time, or its webhook's address. Always also when asked.
+  const copy = (text) => {
+    const b = h("button", { class: "btn", "data-variant": "outline", "data-size": "sm", type: "button" }, ui.icon("copy"), "Copy")
+    b.onclick = () => fb.copy(text)
+    return b
+  }
+  const starts = h("dl", { class: "starts", "aria-label": "What starts it" },
+    w.starts.length
+      ? [
+          ...w.starts.map((s) =>
+            s.kind === "webhook"
+              ? [
+                  h("div", {}, h("dt", {}, "Starts"), h("dd", { class: "flex flex-wrap items-center gap-2" }, "Webhook", h("code", {}, s.address), copy(s.address))),
+                  h("div", {}, h("dd", { class: "sub" }, s.secretSaved ? "Signed with the secret on the Connections page" : "No signing secret yet: add it on the Connections page", s.lastDelivery ? ` · last delivery ${fb.ago(s.lastDelivery)}` : "")),
+                ]
+              : h("div", {}, h("dt", {}, "Starts"), h("dd", {}, s.text, s.next ? ` · next ${fb.ahead(s.next)}` : ""))),
+          h("div", {}, h("dt", {}, "Also"), h("dd", {}, "When you or your agent asks")),
+        ]
+      : h("div", {}, h("dt", {}, "Starts"), h("dd", {}, "When you or your agent asks")))
+
+  const body = h("div", { class: "flex min-w-0 flex-col gap-4" })
+  view.replaceChildren(...[
+    ui.path(path, w.title),
+    ui.head({ title: w.title, sub: w.summary || "No summary yet: ask your agent to write one.", status: w.problem ? ui.status("paused", "Not ready", "warn") : null, actions: compact ? [] : actions }),
+    w.problem ? ui.note(`This workflow is not ready: ${w.problem}.`, "warn") : null,
+    w.waitingYes && w.starts.some((s) => s.kind === "schedule") ? ui.note("A yes waits for this workflow on Home, so its schedule skips its next run until it is answered.", "warn") : null,
+    starts,
+    ui.tabs(tabs, tab, "tab"),
+    body,
+  ].filter(Boolean))
+
+  // ---- the code, to read: notes, text in quotes and the language's own words in three quiet colours ----
   const WORDS = /^(?:import|export|from|const|let|var|async|await|function|return|if|else|for|of|in|while|do|try|catch|finally|throw|new|null|undefined|true|false|typeof|switch|case|break|continue|default|class|extends)$/
   const paint = (code) => {
     const out = []
@@ -41,40 +109,177 @@ fb.page("/workflows", async (root, params) => {
     out.push(code.slice(at))
     return out
   }
-  const lines = (w.code || "").replace(/\n$/, "").split("\n")
-  const codeBox = h("div", { class: "code", tabindex: "0", role: "region", "aria-label": `The code of ${w.file}` }, h("div", { "aria-hidden": "true" }, lines.map((_, i) => h("span", {}, i + 1))), h("pre", {}, h("code", {}, paint(lines.join("\n")))))
-  const copy = h("button", { class: "btn", "data-variant": "outline", "data-size": "sm", type: "button", onclick: () => fb.copy(w.code) }, ui.icon("copy"), "Copy")
-  // The diagram the agent drew. Flowbound cleaned it so it can only draw (no scripts, no links), and only shows it.
-  const diagram = () => {
-    if (!w.diagram) return null
-    const box = h("figure", { class: "diagram", "aria-label": `Diagram of ${w.title}, drawn by your agent` })
-    const t = document.createElement("template")
-    t.innerHTML = w.diagram
-    box.append(...t.content.childNodes)
-    return box
+  const all = (w.code || "").replace(/\n$/, "").split("\n")
+  const codeBox = (from = 0, to = all.length, label = `The code of ${w.file}`) =>
+    h("div", { class: "code", tabindex: "0", role: "region", "aria-label": label }, h("div", { "aria-hidden": "true" }, all.slice(from, to).map((_, i) => h("span", {}, from + i + 1))), h("pre", {}, h("code", {}, paint(all.slice(from, to).join("\n")))))
+  /** The lines of one function: the notes just above it, down to its closing brace. */
+  const linesOf = (fn) => {
+    let start = all.findIndex((l) => new RegExp(`function\\s+${fn}\\s*\\(`).test(l))
+    if (start < 0) return null
+    let depth = 0
+    let end = start
+    for (let i = start, open = false; i < all.length; i++) {
+      for (const c of all[i].replace(/(["'`])(?:\\.|(?!\1).)*\1/g, "").replace(/\/\/.*$/, "")) depth += c === "{" ? 1 : c === "}" ? -1 : 0
+      if (all[i].includes("{")) open = true
+      end = i + 1
+      if (open && depth <= 0) break
+    }
+    while (start > 0 && /^\s*(\/\/|\*|\/\*)/.test(all[start - 1])) start--
+    return [start, end]
   }
-  view.replaceChildren(...[
-    ui.head({ title: w.title, back: ["/workflows", "All workflows"], status: w.problem ? ui.status("paused", "Not ready", "warn") : null }),
-    w.problem ? ui.note(`This workflow is not ready: ${w.problem}.`, "warn") : null,
-    h("div", { class: "workflow" },
-      w.summary
-        ? [
-            h("p", { class: "lead" }, w.summary),
-            diagram(),
-            w.diagramProblem ? ui.note(`The diagram cannot be shown: ${w.diagramProblem}.`, "warn") : null,
-            !compact ? h("p", { class: "sub" }, w.diagram ? "Summary and diagram written by your agent, for people, in the file beside the code. Flowbound only shows them." : "Summary written by your agent, for people, in the file beside the code. No diagram yet: ask your agent to draw one.") : null,
-          ]
-        : h("p", { class: "lead text-muted-foreground" }, "No summary yet: ask your agent to write one."),
-      w.lastRun ? h("p", { class: "sub" }, ui.link("/runs", { run: w.lastRun.run }, `Last run: ${w.lastRun.text}`, { class: "link" })) : null,
-      w.waitingYes && /schedule/.test(w.runsBy) ? ui.note("A yes waits for this workflow under Needs you, so its schedule skips its next run until it is answered.", "warn") : null,
-      !compact ? ui.facts([
-        w.from ? ["Reads", ui.link("/tables", { table: w.from }, w.from, { class: "link font-mono" })] : null,
-        w.into ? ["Fills", ui.link("/tables", { table: w.into }, w.into, { class: "link font-mono" })] : null,
-        w.rows ? ["Rows", w.rows] : null,
-        ["Runs", w.runsBy === "when asked" ? "When asked" : w.runsBy],
-        ["Permission", { ask: "Ask every time", auto: "Auto inside caps", skip: "Skip asking" }[w.mode] || w.mode],
-      ]) : null),
-    !compact ? h("section", { class: "flex flex-col gap-3", "aria-label": "Code" }, h("div", { class: "flex items-center justify-between gap-2" }, h("h2", { class: "font-mono" }, w.file), copy), codeBox) : null,
-  ].flat().filter(Boolean))
+
+  if (tab === "Code") {
+    if (!w.diagram) body.append(h("p", { class: "text-muted-foreground" }, w.diagramProblem ? `The diagram can't be shown: ${w.diagramProblem.split("\n")[0]}` : "No diagram yet: ask your agent to draw one. It goes in the file beside the code."))
+    body.append(h("div", { class: "flex items-center justify-between gap-2" }, h("h2", { class: "font-mono" }, w.file), copy(w.code || "")), codeBox())
+    return
+  }
+
+  if (tab === "Runs") {
+    const runs = await call("runs", { workflow: w.id })
+    if (!runs.length) return body.append(h("p", { class: "text-muted-foreground" }, "No runs yet. Ask your agent to try it on a few rows."))
+    const state = (r) => (r.asks ? ui.status("waiting", "Waiting for a yes", "warn") : r.state === "running" ? ui.status("running", `Running · ${fb.num(r.rows.done)} of ${fb.num(r.rows.of)}`) : ui.status(r.state))
+    body.append(h("ul", { class: "rows sm:grid-cols-[minmax(8rem,2fr)_auto_auto_minmax(6rem,1fr)]", role: "list" },
+      h("li", { class: "rows-head", "aria-hidden": "true" }, ...["Run", "State", "Spent", "Started"].map((t) => h("span", {}, t))),
+      runs.map((r) => h("li", {}, ui.link("/runs", { run: r.run }, [
+        h("span", {}, r.name.replace(`${r.title}, `, "")),
+        h("span", { "data-live": `state${r.run}` }, state(r)),
+        h("span", { class: "meta" }, h("span", {}, r.spent.text), h("span", {}, r.started ? fb.when(r.started) : "Not begun")),
+      ])))))
+    if (runs.some((r) => r.state === "running")) fb.poll(3000)
+    return
+  }
+
+  if (tab === "Data") {
+    if (!w.into) return body.append(h("p", { class: "text-muted-foreground" }, "It names no results table yet."))
+    body.append(h("p", { class: "text-muted-foreground" }, "Reads ", w.from ? ui.link("/tables", { table: w.from }, w.from, { class: "link font-mono" }) : "?", " · fills ", ui.link("/tables", { table: w.into }, w.into, { class: "link font-mono" })))
+    const size = 50
+    const page = Math.max(1, Math.floor(Number(params.page)) || 1)
+    const t = await call("table", { name: w.into, limit: size, offset: (page - 1) * size, search: params.q || undefined }).catch(() => null)
+    if (!t) return body.append(h("p", { class: "text-muted-foreground" }, "No rows yet. Its results land here once it runs."))
+    const found = t.found ?? t.total
+    let typing
+    const q = h("input", { class: "input", type: "search", name: "q", placeholder: "Search this table", "aria-label": "Search this table", autocomplete: "off", value: params.q || "" })
+    q.addEventListener("input", () => (clearTimeout(typing), (typing = setTimeout(() => fb.stay({ q: q.value.trim() || null, page: null }), 350))))
+    const download = h("button", { class: "btn", "data-variant": "outline", type: "button" }, ui.icon("download"), "Download CSV")
+    download.onclick = () =>
+      fb.act(download, async () => {
+        const out = await call("export", { table: t.name })
+        const a = h("a", { href: URL.createObjectURL(new Blob([out.save.text], { type: "text/csv" })), download: out.save.name })
+        a.click()
+        URL.revokeObjectURL(a.href)
+      })
+    const cell = (r, c, i) => {
+      const v = r.cells[i] == null ? "" : typeof r.cells[i] === "object" ? JSON.stringify(r.cells[i]) : String(r.cells[i])
+      const src = r.sources && r.sources[i]
+      return c.of === "result" ? h("td", { class: v ? null : "none" }, v || "not found", src ? h("span", { class: "src" }, src) : null) : h("td", { class: "cut", title: v.length > 34 ? v : null }, v)
+    }
+    const from = found ? (page - 1) * size + 1 : 0
+    const turn = (label, to, off) => h("button", { class: "btn", "data-variant": "outline", "data-size": "sm", type: "button", disabled: off, onclick: () => fb.stay({ page: to > 1 ? to : null }) }, label)
+    body.append(
+      h("form", { class: "toolbar", role: "search", onsubmit: (e) => e.preventDefault() }, q, fb.supports("export") && !compact ? download : null),
+      t.rows.length ? ui.table(t.columns.map((c) => c.name), t.rows.map((r) => h("tr", {}, t.columns.map((c, i) => cell(r, c, i)))), { label: t.name }) : h("p", { class: "text-muted-foreground" }, params.q ? `Nothing in ${t.name} has "${params.q}".` : "No rows yet. Its results land here once it runs."),
+      found ? h("div", { class: "pager" }, h("p", { class: "num" }, `${fb.num(from)} to ${fb.num(from + t.rows.length - 1)} of ${fb.num(found)}`), found > size ? h("div", { class: "actions" }, turn("Previous", page - 1, page <= 1), turn("Next", page + 1, from + t.rows.length - 1 >= found)) : null) : null)
+    return
+  }
+
+  // ---- Diagram: the agent's Mermaid flowchart, drawn in Flowbound's colours; tap a step's box for its code ----
+  if (!w.diagram) {
+    body.append(h("p", { class: "text-muted-foreground" }, w.diagramProblem ? `The diagram can't be shown: ${w.diagramProblem.split("\n")[0]}` : "No diagram yet: ask your agent to draw one."))
+    return
+  }
+  const stage = h("div", { class: "stage" }, h("div", { class: "loading", role: "status", "aria-label": "Drawing the diagram" }, h("span", { class: "skeleton h-40 w-64" })))
+  let zoom = 1
+  let natural = 0
+  const fit = () => {
+    const svg = stage.querySelector("svg")
+    if (!svg || !natural) return
+    zoom = Math.min(1, (stage.clientWidth - 32) / natural)
+    svg.style.width = `${natural * zoom}px`
+  }
+  const scale = (by) => {
+    const svg = stage.querySelector("svg")
+    if (!svg || !natural) return
+    zoom = Math.min(3, Math.max(0.3, zoom * by))
+    svg.style.width = `${natural * zoom}px`
+  }
+  const zoomBar = h("div", { class: "zoom", role: "group", "aria-label": "Zoom" },
+    h("button", { type: "button", "aria-label": "Zoom out", onclick: () => scale(1 / 1.25) }, "−"),
+    h("button", { type: "button", "aria-label": "Zoom in", onclick: () => scale(1.25) }, "+"),
+    h("button", { type: "button", onclick: fit }, "Fit"))
+  const canvas = h("figure", { class: "canvas", "aria-label": `Diagram of ${w.title}, written by your agent` }, stage, zoomBar)
+  const stepButtons = h("div", { class: "actions" })
+  const shown = h("div", { class: "flex min-w-0 flex-col gap-2" })
+  const notDrawn = w.notDrawn && w.notDrawn.length ? h("p", { class: "sub" }, `The diagram doesn't show ${w.notDrawn.length === 1 ? "the step" : "the steps"} ${w.notDrawn.join(", ")}: ask your agent to add ${w.notDrawn.length === 1 ? "it" : "them"}.`) : null
+  body.append(...[canvas, stepButtons, shown, notDrawn].filter(Boolean))
+
+  // Which step is open: its box is marked, its button pressed, and its code is shown under the diagram.
+  const labels = new Map()
+  const open = (fn) => {
+    const next = params.step === fn ? null : fn
+    params.step = next
+    if (!fb.embedded) history.replaceState(null, "", fb.href("/workflows", Object.fromEntries(Object.entries(params).filter(([, v]) => v))))
+    mark()
+  }
+  const mark = () => {
+    const on = params.step
+    for (const b of stepButtons.querySelectorAll("button")) b.setAttribute("aria-pressed", String(b.dataset.step === on))
+    for (const n of stage.querySelectorAll(".node[data-step]")) n.toggleAttribute("aria-current", n.dataset.step === on)
+    const lines = on ? linesOf(on) : null
+    shown.replaceChildren(...(on ? [h("p", { class: "text-muted-foreground" }, `The code behind “${labels.get(on) || on}”`), lines ? codeBox(lines[0], lines[1], `The code of ${on}`) : h("p", {}, `There is no function ${on} in ${w.file}.`)] : []))
+  }
+
+  try {
+    if (!window.mermaid)
+      await new Promise((done, fail) => {
+        const s = h("script", { src: fb.mermaid })
+        s.onload = done
+        s.onerror = () => fail(new Error("The diagram drawer did not load."))
+        document.head.append(s)
+      })
+    const dark = document.documentElement.classList.contains("dark")
+    const c = dark ? { bg: "#0a0a0a", fg: "#ededed", box: "#141414", line: "#8a8a8a", edge: "#3d3d3d" } : { bg: "#ffffff", fg: "#171717", box: "#ffffff", line: "#8f8f8f", edge: "#c9c9c9" }
+    const font = 'Geist, ui-sans-serif, system-ui, sans-serif'
+    window.mermaid.initialize({
+      startOnLoad: false,
+      securityLevel: "strict",
+      // Labels as plain SVG text: drawn in Geist, and measured right (HTML labels pick up the page's own styles).
+      htmlLabels: false,
+      theme: "base",
+      fontFamily: font,
+      flowchart: { htmlLabels: false, curve: "basis", padding: 14, nodeSpacing: 36, rankSpacing: 44, useMaxWidth: false },
+      themeVariables: { fontFamily: font, fontSize: "14px", background: c.bg, primaryColor: c.box, primaryTextColor: c.fg, primaryBorderColor: c.edge, secondaryColor: c.box, tertiaryColor: c.box, mainBkg: c.box, nodeBorder: c.edge, lineColor: c.line, textColor: c.fg, edgeLabelBackground: c.bg, clusterBkg: c.bg, clusterBorder: c.edge, titleColor: c.fg },
+    })
+    const { svg } = await window.mermaid.render(`wf-${Math.random().toString(36).slice(2)}`, w.diagram)
+    const t = document.createElement("template")
+    t.innerHTML = svg
+    const drawn = t.content.querySelector("svg")
+    for (const a of ["style", "width", "height"]) drawn.removeAttribute(a)
+    drawn.setAttribute("role", "img")
+    drawn.setAttribute("aria-label", `Diagram of ${w.title}`)
+    stage.replaceChildren(drawn)
+    // Measured again here, in the page's own font, so no box is cut off at the edge.
+    const b = drawn.getBBox()
+    drawn.setAttribute("viewBox", `${b.x - 12} ${b.y - 12} ${b.width + 24} ${b.height + 24}`)
+    natural = b.width + 24
+    fit()
+    // Tie each box with a click line to its step: tap it (or its button under the diagram) for the step's code.
+    for (const { node, fn } of w.clicks || []) {
+      const el = drawn.querySelector(`.node[id^="${CSS.escape(`${drawn.id}-flowchart-${node}-`)}"], .node[id^="flowchart-${CSS.escape(node)}-"]`) || [...drawn.querySelectorAll(".node")].find((n) => n.id.includes(`-${node}-`))
+      const label = (el?.textContent || "").trim() || fn
+      labels.set(fn, label)
+      if (el) {
+        el.dataset.step = fn
+        el.setAttribute("tabindex", "0")
+        el.setAttribute("role", "button")
+        el.setAttribute("aria-label", `${label}: show its code`)
+        el.addEventListener("click", () => open(fn))
+        el.addEventListener("keydown", (e) => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), open(fn)))
+      }
+      stepButtons.append(h("button", { class: "btn", "data-variant": "outline", "data-size": "sm", type: "button", "data-step": fn, "aria-pressed": "false", onclick: () => open(fn) }, label))
+    }
+    mark()
+  } catch (e) {
+    stage.replaceChildren(h("p", { class: "text-muted-foreground p-4" }, `The diagram can't be drawn: ${String(e.message || e).split("\n")[0]}. Its code is under Code.`))
+  }
 })
 </script>

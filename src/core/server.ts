@@ -101,6 +101,8 @@ export async function boot(project: Config | Plugin[], opts: { root: string; liv
     if (url.pathname === "/api" && req.method === "GET") return Response.json(about(fb))
     if (tool && req.method === "POST") {
       const input = await req.json().catch(() => ({}))
+      // An agent reached this Flowbound: Home's Get started ticks "Connect an agent".
+      if ((who.kind === "token" || (who.kind === "local" && (who.via === "mcp" || who.via === "cli"))) && fb.has("overview")) fb.use<{ agent?: () => void }>("overview").agent?.()
       return Response.json({ ok: true, result: (await fb.call(tool, input, who)) ?? null })
     }
     if (route) return route.run(req, { params: route.params, url, who } satisfies At)

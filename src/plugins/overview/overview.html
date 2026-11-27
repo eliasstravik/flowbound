@@ -1,37 +1,88 @@
 <div data-view></div>
 <script>
-fb.page("/needs", async (root) => {
+// Home: talk to Flowbound from your own agent; what needs attention; recent runs; this month's spend. On a first day,
+// Get started instead: four things that tick themselves when they happen, gone once all are done.
+const home = async (root) => {
   const { h, call, ui } = fb
   const view = root.querySelector("[data-view]")
   const none = (fallback) => () => fallback
-  const [check, runs] = await Promise.all([call("doctor"), call("runs").catch(none([]))])
-  const going = runs.filter((r) => r.state === "running")
+  const [check, runs, start, perms] = await Promise.all([
+    call("doctor"),
+    call("runs").catch(none([])),
+    fb.supports("get-started") ? call("get-started").catch(none(null)) : null,
+    fb.supports("permissions") ? call("permissions").catch(none(null)) : null,
+  ])
   const needs = check.needs
+  const firstDay = start && !start.all
 
-  /** One thing that needs you: a yes that waits (answered through your agent, or Not now here), or anything else with its way there. */
-  const item = (n) => {
-    const kind = n.yes ? "Yes?" : n.page === "/keys" ? "Key" : n.when === "soon" ? "Soon" : "Fix"
-    const notNow = n.yes && fb.can("member") && fb.supports("no") ? h("button", { class: "btn", "data-variant": "outline", "data-size": "sm", type: "button" }, "Not now") : null
-    if (notNow) notNow.onclick = () => fb.act(notNow, async () => (await call("no", { run: n.yes.run }), fb.say("Stopped. Nothing more is spent."), fb.redraw()))
-    return h("li", {},
-      h("span", { class: "kind" }, kind),
-      h("div", {}, h("p", {}, n.what), h("p", {}, n.yes ? `Tell your agent yes, and it passes it on.${/ Its schedule skips[^.]*\./.exec(n.fix)?.[0] ?? ""}` : n.fix)),
-      h("div", { class: "actions" }, notNow, n.page ? ui.link(n.page, n.params || {}, "Open", { class: "btn", "data-variant": "outline", "data-size": "sm" }) : null))
+  const hint = h("p", { class: "hint" }, "Talk to Flowbound from your own agent: Claude, ChatGPT, Claude Code, Codex. ", ui.link("/connect", {}, "Connect one", { class: "link" }))
+
+  /** A yes that waits: its question, said to the agent, never a button here. Open run is the only way on. */
+  const yes = (n) =>
+    h("section", { class: "decision", "data-tone": "warn", "aria-label": "Waits for a yes" },
+      h("p", { class: "sub" }, `Waits for a yes${n.at ? ` · ${fb.ago(n.at)}` : ""}`),
+      h("p", { class: "font-medium" }, n.what),
+      h("p", { class: "text-muted-foreground" }, "Tell your agent yes, and it passes it on."),
+      h("div", { class: "actions" }, ui.link(n.page, n.params || {}, "Open run", { class: "btn", "data-variant": "outline", "data-size": "sm" })))
+  /** Anything else that needs a person: what is the matter, and the way to it. */
+  const other = (n) => {
+    const [state, tone] = n.when === "soon" ? ["Soon", "warn"] : ["Blocked", "bad"]
+    const parts = [h("span", {}, n.what), h("span", { class: "meta" }, h("span", {}, ui.status(state.toLowerCase(), state, tone)))]
+    return h("li", {}, n.page ? ui.link(n.page, n.params || {}, parts) : h("a", {}, parts))
   }
-  const first = !runs.length && !needs.length && fb.supports("keys")
-    ? h("section", { class: "flex flex-col gap-3", "aria-labelledby": "start-title" },
-        h("h2", { id: "start-title" }, "Start here"),
-        h("ol", { class: "steps w-full max-w-xl", role: "list" },
-          h("li", {}, h("span", {}, "Add a provider key"), ui.link("/keys", {}, "Keys", { class: "btn", "data-variant": "outline", "data-size": "sm" })),
-          h("li", {}, h("span", {}, "Add a list"), ui.link("/tables", {}, "Tables", { class: "btn", "data-variant": "outline", "data-size": "sm" })),
-          h("li", {}, h("span", {}, "Ask your agent for a job, like finding the head of sales at each company"))))
-    : null
+  const attention = needs.length
+    ? [
+        ...needs.filter((n) => n.yes).map(yes),
+        needs.some((n) => !n.yes) ? h("ul", { class: "rows sm:grid-cols-[minmax(0,1fr)_auto]", role: "list" }, needs.filter((n) => !n.yes).map(other)) : null,
+      ]
+    : [h("p", { class: "text-muted-foreground" }, "Nothing needs you right now.")]
+
+  const runState = (r) => {
+    if (r.asks) return ui.status("waiting", "Waiting for a yes", "warn")
+    if (r.state === "running") return ui.status("running", `Running · ${fb.num(r.rows.done)} of ${fb.num(r.rows.of)}`)
+    return ui.status(r.state)
+  }
+  const recent = runs.length
+    ? h("ul", { class: "rows sm:grid-cols-[minmax(0,1fr)_auto_auto]", role: "list" },
+        runs.slice(0, 5).map((r) => h("li", {}, ui.link("/runs", { run: r.run }, [
+          h("span", {}, r.title),
+          h("span", { class: "meta" }, h("span", {}, runState(r)), h("span", { class: "text-muted-foreground" }, r.started ? fb.ago(r.started) : "")),
+        ]))))
+    : h("p", { class: "text-muted-foreground" }, "No runs yet.")
+
+  const spend = () => {
+    if (!perms) return null
+    const used = perms.thisMonth.usd
+    const cap = perms.caps.perMonth
+    return [
+      h("h2", {}, "Spend this month"),
+      h("ul", { class: "rows sm:grid-cols-[minmax(0,1fr)_minmax(6rem,12rem)_auto]", role: "list" },
+        h("li", {}, h("a", { class: "pointer-events-none" },
+          h("span", {}, "All workflows"),
+          h("span", { class: "meta" },
+            cap ? h("span", { class: "flex items-center" }, ui.progress(used, cap, used >= cap ? "warn" : null)) : h("span", {}),
+            h("span", {}, h("b", {}, fb.money(used)), cap ? h("span", { class: "text-muted-foreground" }, ` of ${fb.money(cap)}`) : null))))),
+    ]
+  }
+
+  const checklist = () =>
+    h("ol", { class: "checklist", role: "list" },
+      start.items.map((i) => h("li", { "data-done": i.done ? "" : null },
+        h("span", { class: "sr-only" }, i.done ? "Done: " : "To do: "),
+        i.page ? ui.link(i.page, {}, i.title, { class: "link" }) : h("span", {}, i.title),
+        h("p", { class: "sub" }, i.text))))
+
   view.replaceChildren(...[
-    ui.head({ title: needs.length ? `Needs you (${needs.length})` : "Needs you" }),
-    first,
-    h("section", { class: "flex flex-col gap-3", "aria-label": "Needs you", "data-live": "needs" },
-      needs.length ? h("ul", { class: "todo needs", role: "list" }, needs.map(item)) : h("p", { class: "text-muted-foreground" }, going.length ? `Nothing needs you right now. ${going.length === 1 ? "1 run is" : `${going.length} runs are`} going: see Runs.` : "Nothing needs you right now.")),
-  ].filter(Boolean))
-  if (going.length || needs.some((n) => n.yes)) fb.poll(4000)
-})
+    ui.head({ title: "Home" }),
+    hint,
+    firstDay ? [h("h2", {}, "Get started"), checklist()] : null,
+    !firstDay || needs.length ? h("section", { class: "flex flex-col gap-3", "aria-labelledby": "needs-title", "data-live": "needs" }, h("h2", { id: "needs-title" }, "Needs attention"), attention) : null,
+    h("section", { class: "flex flex-col gap-3", "aria-labelledby": "recent-title", "data-live": "recent" }, h("h2", { id: "recent-title" }, "Recent runs"), recent),
+    !firstDay ? h("section", { class: "flex flex-col gap-3", "data-live": "spend" }, spend()) : null,
+  ].flat().filter(Boolean))
+  fb.count(needs.length)
+  if (runs.some((r) => r.state === "running") || needs.some((n) => n.yes)) fb.poll(4000)
+}
+fb.page("/home", home)
+fb.page("/needs", home)
 </script>

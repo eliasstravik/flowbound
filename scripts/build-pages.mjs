@@ -62,6 +62,9 @@ execFileSync(process.execPath, [path.join(path.dirname(require.resolve("@tailwin
 fs.rmSync(entry)
 
 await esbuild.build({ entryPoints: [path.join(design, "app.js")], bundle: true, minify: true, format: "iife", target: "es2022", loader: { ".svg": "text" }, outfile: path.join(built, "page.js"), logLevel: "error" })
+// Mermaid draws the workflow diagrams. One file, loaded only by a workflow's page, kept by the browser like the rest.
+await esbuild.build({ entryPoints: [path.join(design, "mermaid.js")], bundle: true, minify: true, format: "iife", target: "es2022", outfile: path.join(built, "mermaid.js"), logLevel: "error", legalComments: "none" })
+fs.copyFileSync(path.join(path.dirname(require.resolve("mermaid/package.json")), "LICENSE"), path.join(built, "MERMAID-LICENSE.txt"))
 await esbuild.build({ entryPoints: [path.join(design, "bridge.js")], bundle: true, minify: true, format: "iife", target: "es2022", outfile: path.join(built, "app.js"), logLevel: "error" })
 
 // Geist, the letters most lists need: latin, and latin-extended for names like Łódź (fetched only when a page has one).

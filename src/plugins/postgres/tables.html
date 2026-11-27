@@ -52,7 +52,7 @@ fb.page("/tables", async (root, params) => {
     const add = fb.can("member") && fb.supports("import")
       ? fb.embedded ? [ui.link("/tables", {}, "Upload a CSV on the web", { class: "btn", "data-variant": "outline", "data-web": true })] : [pick, file]
       : []
-    const head = ui.head({ title: "Tables", sub: "Your lists and results. Each answer says where it came from, how old it is and what it cost.", actions: tables.length ? add : [] })
+    const head = ui.head({ title: "Data", sub: "Your lists and results. Each answer says where it came from, how old it is and what it cost.", actions: tables.length ? add : [] })
     if (!tables.length) return view.replaceChildren(head, choice, ui.empty({ title: "No tables yet", text: "Upload a CSV (the first line is the column names), or ask your agent to import one.", actions: add }))
     return view.replaceChildren(
       head,

@@ -7,7 +7,7 @@ import { Refused } from "../core/server.ts"
 import type { KeyCard, Keys } from "./keys.ts"
 import type { Records } from "./postgres.ts"
 import { asset, sha, stable, title } from "./util.ts"
-import { nextAfter, toCron, when } from "./workflow-sdk/every.ts"
+import { nextAfter, starts, toCron, when } from "./workflow-sdk/every.ts"
 import type { Auto } from "./workflow-sdk.ts"
 
 export type ScheduleLine = {
@@ -251,6 +251,8 @@ export const schedules = () => {
       title: title(d.name),
       workflow: d.workflow,
       when: d.when,
+      /** When it starts, as people read it on the pages. */
+      starts: d.schedule ? starts(d.schedule.every, d.schedule.timezone) : `Webhook ${d.name}`,
       ...(d.kind === "webhook"
         ? { webhook: { address: `${fb.url}/hooks/${d.name}`, signatureHeader: d.hook!.signature?.header ?? HEADER, secretSaved: !!keys?.hasKey, ...(d.hook!.key ? { sameRowBy: d.hook!.key } : {}) } }
         : {}),

@@ -203,7 +203,7 @@ export const keys = () => {
       }
       return out
     },
-    pages: { "/keys": { title: "Keys", file: asset("keys/keys.html"), menu: true, order: 5 } },
+    pages: { "/keys": { title: "Connections", file: asset("keys/keys.html"), menu: true, order: 7 } },
     docs: asset("keys/keys.md"),
   })
 }

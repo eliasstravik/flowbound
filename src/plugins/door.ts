@@ -590,7 +590,7 @@ export const door = (opts: DoorOptions = {}) => {
         : []
     },
     // Live only, and not tabs of their own: agents' tokens sit with the keys, people and their rights with the permissions.
-    pages: { "/connect": { title: "Connect an agent", file: asset("door/connect.html"), live: true }, "/people": { title: "People", file: asset("door/people.html"), live: true } },
+    pages: { "/connect": { title: "Agents", file: asset("door/connect.html"), menu: true, order: 8 }, "/people": { title: "People", file: asset("door/people.html"), live: true } },
     docs: asset("door/door.md"),
   })
 }

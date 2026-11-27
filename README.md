@@ -146,17 +146,23 @@ Six tabs: **Needs you** · Runs · Tables · Workflows · Keys · Permissions.
 publish after its checks pass. Undo saves a revert. GitHub pull requests keep the diff and any required
 company review. On a laptop, it works with local Git. See the Changes page or run `npx flowbound docs changes`.
 
-The agent writes a summary and draws a diagram for people, in the workflow file beside the code. Flowbound only shows
-them; it never draws them from the code.
+The agent writes a one-line summary and a diagram for people, in the workflow file beside the code, and keeps the
+diagram in step with every code change. Workflows of one play can sit in a folder (`workflows/tam-mapping/`).
 
 ```ts
-// workflows/find-sales-heads.ts
-export const summary = "For each company: find its head of sales, then a work email. If the first provider finds nobody, try a second."
-export const diagram = `<svg viewBox="0 0 320 250">...</svg>`
+// workflows/tam-mapping/find-sales-heads.ts
+export const summary = "Finds the head of sales at each company, then a work email."
+export const diagram = `
+flowchart TD
+  a[Companies from your list] --> b[Find the head of sales]
+  b --> c{Found?}
+  c -- yes --> d[Find their work email]
+  click b findHead
+  click d findEmail
+`
 ```
 
-The diagram is cleaned before it is shown, so it can only draw (no scripts, no links), and it is drawn in the page's
-own text colour, light or dark. Last run: 200 rows · 175 found · $0.29.
+Flowbound draws the Mermaid flowchart on the workflow's page in its own colours; tap a box for that step's code. Last run: 200 rows · 175 found · $0.29.
 
 ## On your own computer
 

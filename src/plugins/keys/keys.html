@@ -16,7 +16,7 @@ fb.page("/keys", async (root) => {
 
   if (fb.embedded) {
     return view.replaceChildren(
-      ui.head({ title: "Keys", actions: [ui.link("/keys", {}, "Manage keys on the web", { class: "btn", "data-variant": "outline", "data-web": true })] }),
+      ui.head({ title: "Connections", actions: [ui.link("/keys", {}, "Manage keys on the web", { class: "btn", "data-variant": "outline", "data-web": true })] }),
       need.length ? ui.facts(need.map((c) => [c.label, ui.badge(c.hasKey ? "Saved" : "No key yet", c.hasKey ? "ok" : "warn")]))
         : ui.empty({ title: "No key is needed" }),
     )
@@ -91,7 +91,7 @@ fb.page("/keys", async (root) => {
       ? `${missing.length} of ${need.length} still need${missing.length === 1 ? "s" : ""} a key.`
       : null
   view.replaceChildren(
-    ui.head({ title: "Keys", sub }),
+    ui.head({ title: "Connections", sub }),
     need.length ? form : ui.empty({ title: "No key is needed", text: "No provider card in flowbound.config.ts needs a key." }),
     ...proxied.map((c) => h("p", { class: "text-muted-foreground" }, `${c.label}: its key is kept by a proxy at ${c.host}, not here.`)),
     h("p", { class: "text-muted-foreground max-w-xl" }, fb.live

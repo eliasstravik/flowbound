@@ -20,12 +20,18 @@ const config = (permissions: string) =>
     fs.writeFileSync(path.join(p.root, "flowbound.config.ts"), `import { fakedata, crm, other } from "./plugins/fakedata.ts"\nexport default { providers: [fakedata(), crm(), other()], permissions: ${permissions} }\n`),
   )
 
-// A workflow that writes each head it finds to a CRM: a write, counted by number.
+// A workflow that writes each head it finds to a CRM: a write, counted by number. It sits in a folder: its id is crm/sync-heads.
 const SYNC = `import { use } from "flowbound"
 export const from = "target_list"
 export const into = "synced"
 export const summary = "For each company: find its head of sales, then add them to the CRM."
-export const diagram = \`<svg viewBox="0 0 200 60"><rect x="10" y="10" width="180" height="40" rx="8" fill="none" stroke="currentColor"/><text x="100" y="35" text-anchor="middle" fill="currentColor">Find, then add to CRM</text><script>alert(1)</script></svg>\`
+export const diagram = \`
+%%{init: {"securityLevel": "loose"}}%%
+flowchart TD
+  a[A company] --> b[Add the head to the CRM]
+  click b add
+  click a href "javascript:alert(1)"
+\`
 export async function syncHeads(company) {
   "use workflow"
   return { added: await add(company) }
@@ -50,7 +56,10 @@ export const crm = () => provider({ ...card, name: "crm", label: "FakeCRM", pric
 `,
   )
   fs.writeFileSync(path.join(p.root, "flowbound.config.ts"), `import { fakedata, crm, other } from "./plugins/fakedata.ts"\nexport default { providers: [fakedata(), crm(), other()], permissions: { mode: "ask" } }\n`)
-  fs.writeFileSync(path.join(p.root, "workflows", "sync-heads.ts"), SYNC)
+  fs.mkdirSync(path.join(p.root, "workflows", "crm", "lib"), { recursive: true })
+  fs.writeFileSync(path.join(p.root, "workflows", "crm", "sync-heads.ts"), SYNC)
+  // A helper beside it, with no "use workflow": not a workflow.
+  fs.writeFileSync(path.join(p.root, "workflows", "crm", "lib", "names.ts"), "export const clean = (s: string) => s.trim()\n")
   await p.fb("import targets.csv")
   for (const name of ["fakedata", "crm", "other"]) await p.page("set-key", { name, value: "sk-test-123" })
 })
@@ -97,7 +106,7 @@ test("a workflow or provider can have its own mode or caps; the strictest one wi
   const asked = await json("run find-sales-heads --try 3")
   assert.equal(asked.state, "waiting", "the workflow's own ask beats auto")
   await p.page("no", { run: asked.run })
-  const sync = await json("run sync-heads --try 2")
+  const sync = await json("run crm/sync-heads --try 2")
   assert.equal(sync.mode, "auto", "a provider's skip does not loosen the project's auto")
   await config('{ mode: "auto", caps: { perRun: 5 }, providers: { other: { mode: "ask" } } }')
   assert.equal((await json("workflows")).find((w: any) => w.id === "find-sales-heads").mode, "auto", "a rule for a provider the workflow does not use is not its rule")
@@ -106,10 +115,10 @@ test("a workflow or provider can have its own mode or caps; the strictest one wi
 test("writes to other tools count by number: a hit write cap pauses the run with a yes under Needs you, and a write is never answered from memory", async () => {
   await config('{ mode: "auto", caps: { perRun: 5, writesPerRun: 4 } }')
   const before = provider.state.calls
-  const first = await json("run sync-heads --try 2")
+  const first = await json("run crm/sync-heads --try 2")
   assert.equal(first.state, "done")
   assert.equal(first.spent.writes, 2)
-  const run = await json("run sync-heads --wait")
+  const run = await json("run crm/sync-heads --wait")
   assert.equal(run.state, "paused")
   assert.match(run.why, /^Reached the 4-write cap per run after \d+ of \d+ rows, so it paused\./)
   assert.equal(run.spent.writes, 4)
@@ -165,17 +174,28 @@ test("kept facts: an answer is filed under its provider and its cleaned inputs, 
   assert.match((await json("table sales_heads --limit 2")).rows[1].sources[1], /^already known · free$/)
 })
 
-test("the Workflows page shows the summary and diagram the agent wrote, cleaned so it can only draw; with none it says so and shows the code", async () => {
-  const sync = await json("workflow sync-heads")
+test("a workflow in a folder: its id is its path, and its page has the summary and the Mermaid diagram the agent wrote, without lines that could run; with none it says so", async () => {
+  const listed = await json("workflows")
+  assert.deepEqual(
+    listed.map((w: any) => [w.id, w.folder, w.title]),
+    [
+      ["crm/sync-heads", "crm", "Sync heads"],
+      ["find-sales-heads", "", "Find sales heads"],
+    ],
+    "the helper in crm/lib is not a workflow",
+  )
+  const sync = await json("workflow crm/sync-heads")
+  assert.equal(sync.file, "workflows/crm/sync-heads.ts")
   assert.equal(sync.summary, "For each company: find its head of sales, then add them to the CRM.")
-  assert.match(sync.diagram, /^<svg viewBox="0 0 200 60" role="img"><rect /)
-  assert.doesNotMatch(sync.diagram, /script|alert/)
+  assert.equal(sync.diagram, "flowchart TD\n  a[A company] --> b[Add the head to the CRM]")
+  assert.deepEqual(sync.clicks, [{ node: "b", fn: "add" }])
+  assert.deepEqual([sync.steps, sync.notDrawn], [["add"], []])
   assert.match(sync.code, /export async function syncHeads/)
   assert.match(sync.lastRun.text, /^\d+ rows · \d+ written$/, "writes are counted as writes")
   const none = await json("workflow find-sales-heads")
   assert.equal(none.summary, null)
   assert.match(await p.fb("workflow find-sales-heads"), /No summary yet: ask your agent to write one\./)
-  assert.match(await p.fb("workflows"), /find-sales-heads .*\n {2}no summary yet: write export const summary and export const diagram for people/)
+  assert.match(await p.fb("workflows"), /find-sales-heads .*\n {2}no summary yet: write export const summary for people\n {2}no diagram yet: write export const diagram, a Mermaid flowchart/)
 })
 
 test("run habits are defaults the workflow file may change: rows at a time, tries for a busy provider, when to pause", async () => {
