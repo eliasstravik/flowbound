@@ -32,6 +32,10 @@ jobs:
           cache: npm
       - run: npm ci
       - run: bash staging/build.sh --check
+      - run: bash scripts/build-hosted.sh
+      - run: bash scripts/build-hosted.sh
+        env:
+          FLOWBOUND_DEMO: "1"
   tests:
     runs-on: ubuntu-latest
     timeout-minutes: 15

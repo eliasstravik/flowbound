@@ -4,6 +4,18 @@
 inside the runner: records, costs and the yes are in your database and keys are with Flowbound, so moving from one
 home to another loses nothing.
 
+## Start from the Deploy button
+
+1. Open the [Deploy to Vercel button](../README.md#use-flowbound-from-a-phone). Sign in to Vercel, choose your GitHub account, and name the new project and repository.
+2. Add Neon in the setup screen and choose its free plan for a first try. Keep the default variable names. Neon supplies `DATABASE_URL`.
+3. In your password manager, generate two separate values. Set a random value of at least 32 characters as `FLOWBOUND_SECRET` to protect stored keys. Set a separate strong `FLOWBOUND_PASSWORD` that you can type when Flowbound asks you to sign in. Put both in Vercel’s form.
+4. Tap **Deploy**. Open the production address Vercel shows you and sign in. Add provider keys on the **Keys** page only when you need them. The bundled sample workflow needs none.
+5. In Claude on the web or desktop, open **Customize → Connectors → Add custom connector**. Name it Flowbound and use your production address followed by `/mcp`. Sign in on Flowbound’s page and tap **Allow**. Turn Flowbound on in the chat’s connector picker. Once configured, use the same connector from the phone app.
+
+For Git-based updates, push to the GitHub repository Vercel created. For a project already running on your computer, use `npx flowbound deploy` from that project, or import its GitHub repository into Vercel with `npx flowbound deploy --build-only` as its build command. Connect Neon and configure sign-in for that project in Vercel.
+
+The public demo uses its own Vercel project and database. It contains four made-up companies and a sample provider that makes no network calls. It allows 20 run requests and 400 tool requests per day, shared by all visitors, and resets its results at 02:00 UTC. It accepts no uploads or provider keys.
+
 ## Any server of your own (the Postgres world)
 
 Proven with the test in `test/live/` of the flowbound repo. You need a server that stays up (the Postgres world

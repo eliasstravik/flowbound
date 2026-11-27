@@ -21,6 +21,14 @@ With only an MCP connection and no shell, read this same guide with
 `return await flowbound.docs({ topic: "start" })` in `execute`. `topic: "topics"` lists the parts;
 `"workflow-sdk"`, `"ledger"`, and `"recipes"` read those parts. Leaving topic out returns the whole current guide.
 
+## If the person only has a phone
+
+Point them to the Deploy to Vercel button in the Flowbound GitHub README. It copies Flowbound to their GitHub and
+sets up a Vercel project with Neon. They enter two separate values from their password manager in Vercel for
+`FLOWBOUND_SECRET` and `FLOWBOUND_PASSWORD`. After deployment, use the production address followed by `/mcp` as
+the custom connector address. The person signs in on Flowbound’s page, allows the connector, then turns it on
+in the chat. Never ask for their password or provider keys. [Phone setup](https://github.com/eliasstravik/flowbound/blob/main/docs/homes.md#start-from-the-deploy-button)
+
 ## Creating or changing a workflow, including from a chat
 
 Workflows are TypeScript files in this project's Git repo. Read `workflow-sdk` for the file format and `recipes`
