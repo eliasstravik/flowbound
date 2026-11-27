@@ -13,8 +13,18 @@ Over MCP, `search` finds tools and their inputs, and `execute` runs a few lines 
 call them (`return await flowbound.runs({ state: "running" })`); `npx flowbound execute "<code>"` does the same here.
 Return a run, table or workflow directly from `execute` when handing it to the person. This opens its view in
 supported chats and returns a web link for text-only chats. To open the app home, call `execute` without code.
-When the result says it is in the chat app, summarize it in one or two lines and leave the link to the
-app's **Open web page** button. In text-only chats, share the returned page link when the person can reach it.
+The run view updates live and shows the outcome or when it needs input. Open it once, tell the person it updates,
+and pass along any question the run is waiting on. Leave the link to the app's **Open web page** button.
+In text-only chats, share the returned page link when the person can reach it. If the person needs the outcome
+in text, wait in the same execute call:
+
+```js
+const run = await flowbound.run({ workflow: "my-workflow", wait: false })
+return await flowbound.wait({ run: run.run, seconds: 30 })
+```
+
+The wait returns the latest run when it leaves `running` (including a pause or a request for approval), or when
+the time runs out. The wait is capped at 30 seconds and may be shorter if execute has less time left.
 To pick a specific view without changing anything, return `{ flowboundView: { run: 123 } }` (or use `table`,
 `workflow` or `page`). Set `render: false` on background calls.
 The first local tool call sets up the open project folder and starts the database, runner and pages. The runner

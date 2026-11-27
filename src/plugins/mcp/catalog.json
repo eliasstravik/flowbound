@@ -5,7 +5,7 @@
     "2025-03-26",
     "2024-11-05"
   ],
-  "instructions": "Start with execute: return await flowbound.docs({ topic: \"start\" }). When running locally in a coding agent, pass the absolute path of the open project as the project argument. Workflows live in Git. From chat, save edits with workflow-save, check with workflow-change, and publish only when the person asks. Return a run, table or workflow directly from execute to open its view. To pick a view, return { flowboundView: { run: 123 } } (or use table, workflow or page). Set render: false for background reads. When execute says the result is in the chat app, summarize in one or two lines and leave the page link to its Open web page button. In a text-only chat, share the page link when execute returns one.",
+  "instructions": "Start with execute: return await flowbound.docs({ topic: \"start\" }). When running locally in a coding agent, pass the absolute path of the open project as the project argument. Workflows live in Git. From chat, save edits with workflow-save, check with workflow-change, and publish only when the person asks. Return a run, table or workflow directly from execute to open its view. A run view updates live. Open it once and say it will show the outcome. Pass along any approval question. If you need a text outcome, use flowbound.wait({ run, seconds: 30 }) within the same execute call. To pick a view, return { flowboundView: { run: 123 } } (or use table, workflow or page). Set render: false for background reads. Leave the link to the Open web page button when the app shows. In a text-only chat, share the page link when execute returns one.",
   "tools": [
     {
       "name": "search",
@@ -36,7 +36,7 @@
         "destructiveHint": false,
         "openWorldHint": true
       },
-      "description": "Run JavaScript that calls Flowbound tools and returns what you need. Each tool is an async function: `return await flowbound.runs({ state: \"running\" })`, `await flowbound[\"schedule-run\"]({ name })`. Call several with Promise.all, filter big answers before returning them, console.log to see steps. It reaches only the tools, as you, with your rights: no files, no network, no keys. Return a run, table or workflow directly to display it. Omit code to open Flowbound. Find tools and their inputs with search first.",
+      "description": "Run JavaScript that calls Flowbound tools and returns what you need. Each tool is an async function: `return await flowbound.runs({ state: \"running\" })`, `await flowbound[\"schedule-run\"]({ name })`. Call several with Promise.all, filter big answers before returning them, console.log to see steps. It reaches only the tools, as you, with your rights: no files, no network, no keys. Return a run directly once to show its live progress and outcome in chat. For a text outcome, call `await flowbound.wait({ run, seconds: 30 })` within execute. It returns the latest run when it leaves running or the wait ends, at most 30 seconds. Return a table or workflow directly to display it. Omit code to open Flowbound. Find tools and their inputs with search first.",
       "inputSchema": {
         "type": "object",
         "properties": {

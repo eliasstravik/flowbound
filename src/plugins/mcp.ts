@@ -25,7 +25,7 @@ type Behind = {
 }
 type Rpc = { jsonrpc: "2.0"; id?: number | string; method: string; params?: any }
 
-const viewUri = "ui://flowbound/app-v3.html"
+const viewUri = "ui://flowbound/app-v4.html"
 const resource = { uri: viewUri, name: "Flowbound", mimeType: "text/html;profile=mcp-app" }
 const ui = { resourceUri: viewUri, visibility: ["model", "app"] }
 const uiExtension = "io.modelcontextprotocol/ui"
@@ -107,8 +107,9 @@ export async function answer(msg: Rpc, behind: Behind, showApp = false): Promise
     }
     if (msg.method === "resources/list") return ok({ resources: showApp ? [resource] : [] })
     if (msg.method === "resources/read") {
-      if (msg.params?.uri !== viewUri || (!showApp && !behind.app)) return { jsonrpc: "2.0", id: msg.id, error: { code: -32002, message: "Flowbound has no such resource." } }
-      return ok({ contents: [{ uri: viewUri, mimeType: resource.mimeType, text: renderApp(), _meta: { ui: { csp: {} } } }] })
+      const uri = msg.params?.uri
+      if ((uri !== viewUri && uri !== "ui://flowbound/app-v3.html") || (!showApp && !behind.app)) return { jsonrpc: "2.0", id: msg.id, error: { code: -32002, message: "Flowbound has no such resource." } }
+      return ok({ contents: [{ uri, mimeType: resource.mimeType, text: renderApp(), _meta: { ui: { csp: {} } } }] })
     }
     if (msg.method === "resources/templates/list") return ok({ resourceTemplates: [] })
     if (msg.method !== "tools/call") return { jsonrpc: "2.0", id: msg.id, error: { code: -32601, message: `Flowbound's MCP server has no ${msg.method}.` } }
@@ -126,7 +127,7 @@ export async function answer(msg: Rpc, behind: Behind, showApp = false): Promise
       })
       return ok(
         text(
-          `${hits.length ? "" : `Nothing matched "${args.query}". Every tool:\n`}${lines.join("\n")}\n\nCall them with execute: const r = await flowbound.<tool>({ ... }); return r. Tools with a dash: flowbound["schedule-run"]({ ... }). The person's page: ${info.url}/needs`,
+          `${hits.length ? "" : `Nothing matched "${args.query}". Every tool:\n`}${lines.join("\n")}\n\nCall them with execute: const r = await flowbound.<tool>({ ... }); return r. Tools with a dash: flowbound["schedule-run"]({ ... }). To show a run, return it directly once from execute. Its chat view updates live. If you need the outcome in text, wait inside the same execute call with flowbound.wait({ run, seconds: 30 }). The person's page: ${info.url}/needs`,
         ),
       )
     }
@@ -145,20 +146,29 @@ export async function answer(msg: Rpc, behind: Behind, showApp = false): Promise
       const embedded = showApp ? presentation : undefined
       let result = out.result
       const record = object(result)
-      if (embedded && record && record.page === embedded.link) {
+      const run = embedded?.view.params.run
+      const state = record?.state
+      const liveRun = run !== undefined && (state === undefined || state === "running" || state === "waiting" || (state === "paused" && !!record?.asks))
+      if (liveRun && record?.run === Number(run)) {
+        // The card reads its own status. Give the model stable context and keep any question that needs a person's answer.
+        const { title, asks } = record
+        result = { run: Number(run), ...(typeof title === "string" ? { title } : {}), ...(asks ? { asks } : {}), view: "live" }
+      } else if (embedded && record && record.page === embedded.link) {
         const { page: _page, ...rest } = record
         result = rest
       }
       const shown = typeof result === "string" ? result : JSON.stringify(result, null, 2)
-      const link = embedded
-        ? "\n\nThe person is seeing this result in the Flowbound app in chat. Summarize it in one or two lines. Leave the page link to the app’s Open web page button."
-        : presentation
-          ? `\n\nOpen Flowbound: ${presentation.link}`
-          : ""
+      const link = liveRun
+        ? "\n\nThe Flowbound run view in chat is live and will show the outcome or when it needs the person's input. Say this briefly. Ask any approval question returned here. Skip progress counts, follow-up polling, and another view for this run. The Open web page button has the link."
+        : embedded
+          ? "\n\nThe person is seeing this result in the Flowbound app in chat. Summarize it in one or two lines. Leave the page link to the app’s Open web page button."
+          : presentation
+            ? `\n\nOpen Flowbound: ${presentation.link}`
+            : ""
       return ok(
         text(`${out.logs.length ? `${out.logs.join("\n")}\n---\n` : ""}${shown}${link}`, {
           structuredContent: { result, logs: out.logs, ...(presentation && !embedded ? { link: presentation.link } : {}) },
-          ...(embedded && app ? { _meta: { flowbound: { view: embedded.view, role: app.role, tools: app.tools, report: behind.logAppStatus } } } : {}),
+          ...(embedded && app ? { _meta: { flowbound: { view: embedded.view, role: app.role, tools: app.tools, report: behind.logAppStatus, ...(run ? { instance: `${Date.now()}-${randomUUID()}` } : {}) } } } : {}),
         }),
       )
     }
@@ -367,7 +377,7 @@ export const mcp = (options: { timeoutMs?: number; logAppStatus?: boolean } = {}
       },
       execute: {
         about:
-          'Run JavaScript that calls Flowbound tools and returns what you need: `return (await flowbound.runs({})).filter((r) => r.state === "running")`. Each tool is `flowbound.<name>(input)`. It reaches only the tools, as you, with your rights. At most 10 minutes.',
+          'Run JavaScript that calls Flowbound tools and returns what you need: `return (await flowbound.runs({})).filter((r) => r.state === "running")`. Each tool is `flowbound.<name>(input)`. Use `flowbound.wait({ run, seconds: 30 })` to wait for a running workflow within this call. It reaches only the tools, as you, with your rights. At most 10 minutes.',
         role: "viewer",
         input: { code: { about: "the body of an async function; return the answer", required: true } },
         run: async (i, who) => execute(String(i.code), (tool, input) => fb.call(tool, input, who), options),
@@ -378,7 +388,7 @@ export const mcp = (options: { timeoutMs?: number; logAppStatus?: boolean } = {}
       mcp: { about: "the MCP server for agent apps, over stdio", run: () => stdio() },
     },
     docs: `## MCP
-Search finds work tools and execute calls them as \`flowbound.<name>(input)\`. Return a run, table or workflow directly from execute. When the result says it is in the chat app, summarize in one or two lines and leave the link to its Open web page button. Give the person the returned page link in text-only chats. For an explicit view, return \`{ flowboundView: { page: "needs" } }\`. Set \`render: false\` on the MCP call for background work.
+Search finds work tools and execute calls them as \`flowbound.<name>(input)\`. Return a run, table or workflow directly from execute. A run view updates live. Say the view will show the outcome and pass along any question for the person. One view per run is enough. For a text result, \`return await flowbound.wait({ run, seconds: 30 })\` returns the latest run when it leaves "running" or the wait ends (up to 30 seconds, less if execute has less time). Give the person the returned page link in text-only chats. Leave the link to the Open web page button when the chat app shows. For an explicit view, return \`{ flowboundView: { page: "needs" } }\`. Set \`render: false\` on the MCP call for background work.
 The server speaks stdio over \`flowbound mcp\` and HTTPS at \`/mcp\`. Add the HTTPS address as a custom connector and sign in once. The embedded app reuses the connection. An agent that cannot sign in uses a token a signed-in person made. Both act with the person's permissions. Pass on their yes only after they give it. Key and people management stays on the signed-in website.`,
   })
 }
