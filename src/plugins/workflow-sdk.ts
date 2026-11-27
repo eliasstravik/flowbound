@@ -356,7 +356,7 @@ export const workflowSdk = (opts: { on?: Home } = {}) => {
     if (i.try !== undefined) {
       const total = Math.min(Math.max(1, Math.floor(i.try) || TRY_MAX), TRY_MAX, all - done)
       const r = (await begin({ wf, kind: "tryout", total, chatUsd: i.maxUsd, chatCalls: i.maxCalls, who }))!
-      return r.state === "waiting" ? view(r) : finished(r.id, 10 * 60_000)
+      return r.state === "waiting" || i.wait === false ? view(r) : finished(r.id, 10 * 60_000)
     }
     await triedOut(wf, i.anyway)
     // "Do the first 100": the next rows not done yet, down the list, and no more. The caps still hold as well.
@@ -742,7 +742,7 @@ export const workflowSdk = (opts: { on?: Home } = {}) => {
           maxCalls: { type: "number", about: "a cap in calls, for providers with no price on their card" },
           anyway: { type: "boolean", about: 'the person said "run anyway" after a try-out that filled no field' },
           rows: { type: "number", about: "only this many rows: the next ones not done yet (leave out for all that are left)" },
-          wait: { type: "boolean", about: "wait until the run has finished" },
+          wait: { type: "boolean", about: "wait until the run has finished (default true for try-outs and false for full runs)" },
         },
         run,
         print,

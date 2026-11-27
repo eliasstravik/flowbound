@@ -229,7 +229,7 @@ test("the company plugin signs in through its loopback callback and acts as the 
   t.after(() => client.close())
   assert.deepEqual(
     (await client.listTools()).tools.map((tool) => tool.name),
-    ["search", "execute"],
+    ["search", "execute", "show"],
   )
   const result = await client.callTool({ name: "execute", arguments: { code: "return await flowbound.change({})" } })
   assert.equal(result.isError, undefined)

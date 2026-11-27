@@ -138,7 +138,7 @@ export function demo() {
         if (!ready.rows.length) throw new Refused("The demo reset is waiting for the last run to finish. Try again in a minute.")
         await allow("run", 20)
         await db().query("do $fresh$ begin if to_regclass('public.sample_contacts') is not null then delete from public.sample_contacts; end if; end $fresh$")
-        return run.run({ workflow: "sample-contacts", try: companies.length, maxUsd: 0 }, who)
+        return run.run({ workflow: "sample-contacts", try: companies.length, maxUsd: 0, wait: false }, who)
       },
     }
   }
