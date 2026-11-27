@@ -1,6 +1,6 @@
 {
   "name": "flowbound",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Run GTM workflows in the open project or connect to your company's Flowbound.",
   "mcpServers": {
     "flowbound": { "command": "npx", "args": ["-y", "flowbound", "mcp"] }

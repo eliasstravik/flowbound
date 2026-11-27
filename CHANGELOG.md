@@ -2,7 +2,13 @@
 
 What changed in each version, in the words of what you will notice. Newest first.
 
-## 0.1.0 (not published yet)
+## 0.1.1
+
+- Open Flowbound inside supported chats. Your agent uses two tools: `search` finds what Flowbound can do and `execute` does the work. See run progress, spending questions, result tables and workflow diagrams in chat, with web links in text-only chats.
+- Try a free sample workflow with made-up companies, or use the Deploy to Vercel button to set up your own Flowbound and connect from your phone.
+- Set up Flowbound for a team with Google or Microsoft work sign-in. Owners can give colleagues permission to save and publish workflows, including when they first sign in.
+
+## 0.1.0
 
 The first version.
 
