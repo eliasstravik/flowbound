@@ -43,6 +43,12 @@ Agents reach it through two MCP tools, however many providers you add: `search` 
 `execute` runs a few lines of JavaScript that call tools (`await flowbound.runs({})`), several at once, keeping only
 what is needed. Every tool is also a command: `npx flowbound <tool>`.
 
+## Use Flowbound from a phone
+
+[![Deploy to Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Feliasstravik%2Fflowbound&project-name=flowbound&repository-name=flowbound&env=FLOWBOUND_SECRET%2CFLOWBOUND_PASSWORD&envDescription=Create+two+separate+values+in+your+password+manager.+Keep+the+team+password+to+sign+in.&envLink=https%3A%2F%2Fgithub.com%2Feliasstravik%2Fflowbound%2Fblob%2Fmain%2Fdocs%2Fhomes.md%23start-from-the-deploy-button&products=%5B%7B%22type%22%3A%22integration%22%2C%22integrationSlug%22%3A%22neon%22%2C%22productSlug%22%3A%22neon%22%2C%22protocol%22%3A%22storage%22%7D%5D)
+
+Deploy your own Flowbound with Neon, then add its `/mcp` address to your chat app. See the [phone setup](docs/homes.md#start-from-the-deploy-button).
+
 ## Made first for
 
 **GTM engineers** at agencies or inside companies can build workflows with an agent and share them with their team.

@@ -197,7 +197,7 @@ export async function stdio(remote?: URL) {
   void connected?.then((client) => client.close()).catch(() => {})
 }
 
-export const mcp = () => {
+export const mcp = (options: { timeoutMs?: number } = {}) => {
   let fb: Flowbound
   return plugin({
     name: "mcp",
@@ -233,7 +233,7 @@ export const mcp = () => {
           'Run JavaScript that calls Flowbound tools and returns what you need: `return (await flowbound.runs({})).filter((r) => r.state === "running")`. Each tool is `flowbound.<name>(input)`. It reaches only the tools, as you, with your rights. At most 10 minutes.',
         role: "viewer",
         input: { code: { about: "the body of an async function; return the answer", required: true } },
-        run: async (i, who) => execute(String(i.code), (tool, input) => fb.call(tool, input, who)),
+        run: async (i, who) => execute(String(i.code), (tool, input) => fb.call(tool, input, who), options),
         print: (r: { result: unknown; logs: string[] }) => [...r.logs, typeof r.result === "string" ? r.result : JSON.stringify(r.result, null, 2)].join("\n"),
       },
     },
