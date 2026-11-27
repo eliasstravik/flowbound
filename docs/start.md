@@ -87,8 +87,11 @@ on Home: http://localhost:4111/home.
 
 The person says something like "find the head of sales at each of these 200 companies and get a work email".
 
+0. **What you know.** `npx flowbound context` lists the files in `context/` (the company, its ICPs, personas,
+   pricing, notes: whatever is there); read the ones that matter for the job (`--path <file>`). When the person tells
+   you something worth keeping, write it down there as a Markdown file. See `npx flowbound docs context`.
 1. **The list.** `npx flowbound import targets.csv` makes a list table (`target_list`) from a CSV whose first line
-   is column names. `npx flowbound tables` shows what is there. A list the person brings again (a fresh export):
+   is column names; `--folder <folder>` files it with the play's workflows under workflows/<folder>/. `npx flowbound tables` shows what is there. A list the person brings again (a fresh export):
    `--add --key email` brings rows already there up to date and adds only the new ones.
 2. **The providers.** `npx flowbound keys` shows which provider cards have a key. Each card is listed further down
    with its manual. If a card you need has no key, stop and tell the person: "Add the Firecrawl and BlitzAPI keys on

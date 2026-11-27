@@ -142,6 +142,30 @@
   .files a > :first-child svg { @apply text-muted-foreground; }
   .files .line { @apply text-muted-foreground w-full truncate; }
   .files .line.in { @apply pl-6; }
+  /* Data: the table list beside the grid. On a phone the open table's name on top; tap it for the list. */
+  .dsplit { @apply grid min-w-0 grid-cols-1 gap-5 md:grid-cols-[13rem_minmax(0,1fr)]; }
+  .dsplit > div { @apply flex min-w-0 flex-col gap-4; }
+  .tpick { @apply w-fit font-mono md:hidden; }
+  .tlist { @apply flex flex-col gap-px max-md:rounded-lg max-md:border max-md:p-1 max-md:[&:not([data-open])]:hidden md:sticky md:top-6 md:self-start; }
+  .tlist > h2 { @apply text-muted-foreground mx-2 mt-2 mb-0.5 text-xs font-normal first:mt-0; }
+  .tlist a { @apply hover:bg-accent flex min-h-9 items-center gap-2 rounded-md px-2 no-underline max-md:min-h-11; }
+  .tlist a > :first-child { @apply min-w-0 flex-1 truncate font-mono text-[0.92em]; }
+  .tlist a > :last-child { @apply text-muted-foreground text-xs tabular-nums; }
+  .tlist a[aria-current] { @apply bg-accent; }
+  /* A file of context, read: Markdown drawn as a page of text. */
+  .prose { @apply flex max-w-2xl min-w-0 flex-col gap-3 text-sm/6 wrap-anywhere; }
+  .prose h1 { @apply text-lg; }
+  .prose :is(h2, h3, h4, h5, h6) { @apply mt-2; }
+  .prose :is(ul, ol) { @apply flex flex-col gap-1 pl-5; }
+  .prose ul { @apply list-disc; }
+  .prose ol { @apply list-decimal; }
+  .prose blockquote { @apply text-muted-foreground border-l-2 pl-3; }
+  .prose a { @apply decoration-foreground/30 hover:decoration-foreground underline underline-offset-4; }
+  .prose :not(pre) > code { @apply bg-muted rounded px-1 py-0.5; }
+  .prose hr { @apply my-2; }
+  .prose table { @apply w-full text-left; }
+  .prose :is(th, td) { @apply border-b py-1.5 pr-4 align-top; }
+  .prose th { @apply font-medium; }
   /* What starts a workflow: its schedule and next time, or its webhook's address. */
   .starts { @apply flex flex-col gap-1 rounded-lg border px-3 py-2.5; }
   .starts > div { @apply grid grid-cols-[3.5rem_minmax(0,1fr)] items-baseline gap-x-2; }

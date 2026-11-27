@@ -5,7 +5,9 @@ address (`DATABASE_URL`) when live. You make whatever tables a job needs.
 
 - `npx flowbound import <file.csv>`: make a **list** table from a CSV (first line: column names). `targets.csv`
   becomes `target_list`; `--as <name>` picks the name; `--add` adds rows to a list that is already there. Every
-  row gets an `id`; the columns are text.
+  row gets an `id`; the columns are text. `--folder tam-mapping` files it with the play it is for: the Data page
+  shows tables in the same folders as the workflows (a results table in its workflow's folder; a list in the folder
+  it was imported into, else the one folder of the workflows that read it). The database itself stays plain.
   `--add --key email` is for a list the person brings again (a fresh export): a row whose key is already there is
   brought up to date (an empty cell never wipes what the list has) and only new rows are added. Keys are compared
   without capitals and outer spaces. A row that already has a result keeps it.
@@ -14,8 +16,11 @@ address (`DATABASE_URL`) when live. You make whatever tables a job needs.
 - `npx flowbound tables`: every table, its rows and where it came from.
 - `npx flowbound table <name>`: read rows, 100 at a time (`--limit`, at most 500, and `--offset`). A **results**
   table (a workflow's `into`) is shown beside its list's own columns, on the same row, with the id of the kept fact
-  behind each answer and a line saying where it came from, how old it is and what it cost. The person uploads a
-  list as CSV on the Tables tab too. For a big table, count and filter with `sql` rather than reading every row.
+  behind each answer and a line saying where it came from, how old it is and what it cost. For a big table, count
+  and filter with `sql` rather than reading every row.
+- `npx flowbound data`: what the Data page lists: your tables by folder, and Flowbound's own (runs, rows, steps,
+  facts, calls, prices), read-only; read one with `table fb_ledger.facts`. `npx flowbound data-open` starts Drizzle
+  Studio on your own computer (live: the project's Neon console) for a look one step deeper.
 - `npx flowbound export <table> --csv`: write `<table>.csv` (results come with the list's columns). Over MCP a big
   table is not sent into the chat: you get the page where the person downloads it. The file is made for a
   spreadsheet: a cell that would run there as a formula (it starts with `=`, `+`, `-` or `@`) gets a `'` in front.

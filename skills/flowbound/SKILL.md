@@ -21,6 +21,10 @@ with `workflow-save`. Show the change link and check its preview with `workflow-
 `workflow-publish` only when the person asks. Report required GitHub review and check production before saying
 it is live. Use `workflow-undo` to save a revert for the same checks. Engineers can keep working directly in Git.
 
+What you should know about the company (its ICPs, personas, pricing, voice, notes) is in the project's `context/`
+folder, as any files and folders: read it (`context` tool, or the files) before you write a workflow or answer about
+the company, and write down there, as Markdown, what the person tells you that is worth keeping.
+
 When something seems off, or before you say all is well: `npx flowbound doctor` lists what needs the person
 (also on the page on Home), each with the one thing to do.
 

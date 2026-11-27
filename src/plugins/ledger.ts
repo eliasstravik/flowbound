@@ -551,6 +551,7 @@ export const ledger = (opts: { permissions?: Permissions; freshDays?: number; on
     name: "ledger",
     provides: "ledger",
     needs: ["records"],
+    own: { "fb_ledger.facts": "every answer bought", "fb_ledger.calls": "every provider call", "fb_ledger.prices": "what each provider charges" },
     migrations: [
       `create table fb_ledger.facts (id bigserial primary key, key text not null, provider text not null, request jsonb not null, status int not null,
          answer jsonb, cost_usd double precision not null default 0, by text, at timestamptz not null default now());

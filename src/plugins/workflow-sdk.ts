@@ -848,6 +848,7 @@ export const workflowSdk = (opts: { on?: Home; editor?: string; vercel?: string 
     provides: "runs",
     needs: ["records", "ledger"],
     on: opts.on,
+    own: { [`${S}.runs`]: "every run", [`${S}.rows`]: "each row a run took", [`${S}.steps`]: "each step a row went through" },
     migrations: [
       `create table ${S}.runs (id bigserial primary key, workflow text not null, title text not null, kind text not null, state text not null, code text, reason text,
          file_hash text not null, list text not null, into_table text not null, total int not null default 0, lanes int not null default 5, budgets text[] not null default '{}',

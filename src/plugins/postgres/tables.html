@@ -1,133 +1,47 @@
 <div data-view></div>
-<dialog class="dialog" data-source aria-label="Where this came from"></dialog>
 <script>
 fb.page("/tables", async (root, params) => {
   const { h, call, num, ui } = fb
   const view = root.querySelector("[data-view]")
-  const dialog = root.querySelector("[data-source]")
-  const text = (v) => (v === null || v === undefined ? "" : typeof v === "object" ? JSON.stringify(v) : String(v))
-
-  if (!params.table) {
-    const tables = await call("tables")
-    // Add a list: a CSV whose first line is the column names. A list that is already there is added to, or a new one named.
-    const file = h("input", { type: "file", name: "csv", accept: ".csv,text/csv", hidden: true, "aria-label": "CSV file" })
-    const pick = h("button", { class: "btn", "data-variant": tables.length ? "outline" : null, type: "button", onclick: () => file.click() }, ui.icon("upload"), "Upload a CSV")
-    const choice = h("div", { hidden: true })
-    let uploading = false
-    async function upload(csv, csvName, more) {
-      // One import at a time, whichever button asked: a double tap never adds the rows twice.
-      if (uploading) return
-      uploading = true
-      pick.setAttribute("aria-busy", "true")
-      for (const b of choice.querySelectorAll("button")) b.setAttribute("aria-busy", "true")
-      fb.trouble()
-      try {
-        const made = await call("import", { csv, csvName, ...more })
-        await fb.redraw()
-        fb.say(`${made.name}: ${num(made.added)} rows added.`)
-      } catch (e) {
-        uploading = false
-        pick.removeAttribute("aria-busy")
-        for (const b of choice.querySelectorAll("button")) b.removeAttribute("aria-busy")
-        const taken = /^(\w+) is already there/.exec(e.message)
-        if (!taken) return fb.trouble(e)
-        const name = h("input", { class: "input", type: "text", name: "as", placeholder: "name for a new list", autocomplete: "off" })
-        const make = (e2) => (e2.preventDefault(), name.value.trim() ? upload(csv, csvName, { as: name.value.trim() }) : name.focus())
-        choice.replaceChildren(
-          h("section", { class: "decision", "aria-label": "This list is already there" },
-            h("h2", {}, `${taken[1]} is already there. Add these rows to it, or make a new list?`),
-            h("div", { class: "actions" }, h("button", { class: "btn", "data-variant": "outline", type: "button", onclick: () => upload(csv, csvName, { add: true }) }, `Add to ${taken[1]}`)),
-            h("form", { class: "flex flex-wrap items-end gap-2", onsubmit: make }, ui.field("Name for a new list", name), h("button", { class: "btn", "data-variant": "outline", type: "submit" }, "Make a new list"))))
-        choice.hidden = false
-        choice.scrollIntoView({ block: "nearest" })
-      }
-    }
-    file.onchange = async () => {
-      const f = file.files[0]
-      if (!f) return
-      const csv = await f.text()
-      file.value = ""
-      upload(csv, f.name, {})
-    }
-    const add = fb.can("member") && fb.supports("import")
-      ? fb.embedded ? [ui.link("/tables", {}, "Upload a CSV on the web", { class: "btn", "data-variant": "outline", "data-web": true })] : [pick, file]
-      : []
-    const head = ui.head({ title: "Data", sub: "Your lists and results. Each answer says where it came from, how old it is and what it cost.", actions: tables.length ? add : [] })
-    if (!tables.length) return view.replaceChildren(head, choice, ui.empty({ title: "No tables yet", text: "Upload a CSV (the first line is the column names), or ask your agent to import one.", actions: add }))
-    return view.replaceChildren(
-      head,
-      choice,
-      h("ul", { class: "rows sm:grid-cols-[minmax(12rem,2fr)_auto_minmax(12rem,3fr)]", role: "list" },
-        h("li", { class: "rows-head", "aria-hidden": "true" }, h("span", {}, "Table"), h("span", { class: "text-right" }, "Rows"), h("span", {}, "From")),
-        ...tables.map((t) => h("li", {}, ui.link("/tables", { table: t.name }, [h("span", { class: "font-mono" }, t.name), h("span", { class: "meta" }, h("span", { class: "sm:text-right" }, num(t.rows), h("span", { class: "sm:sr-only" }, " rows")), h("span", { class: "sm:truncate" }, t.origin))])))))
-  }
-
-  // One page of the table at a time: the address keeps the page, the search and the order, so a reload or a link lands on the same rows.
+  /** tam-mapping -> Tam mapping: a folder's name as the Workflows page says it. */
+  const named = (slug) => slug.replace(/[-_]+/g, " ").replace(/^./, (c) => c.toUpperCase())
   const compact = fb.compact()
-  const size = compact ? 5 : fb.embedded ? 20 : 100
+
+  // The table list, grouped as the workflows are: each folder (a play), then tables in no folder, then Flowbound's own.
+  const d = await call("data")
+  if (!d.tables.length && !params.table) return view.replaceChildren(ui.head({ title: "Data" }), h("p", { class: "text-muted-foreground" }, "No tables yet. A workflow's results land here."))
+  const folders = [...new Set(d.tables.map((t) => t.folder).filter(Boolean))].sort()
+  const groups = [
+    ...folders.map((f) => [f.split("/").map(named).join(" / "), d.tables.filter((t) => t.folder === f)]),
+    [folders.length ? "Not in a folder" : "Yours", d.tables.filter((t) => !t.folder)],
+    ["Flowbound's own", d.own.map((t) => ({ name: t.name, short: t.short, rows: t.rows }))],
+  ].filter(([, ts]) => ts.length)
+  const listed = groups.flatMap(([, ts]) => ts)
+  const name = params.table || listed[0].name
+  const here = listed.find((t) => t.name === name)
+  const label = here?.short || name
+
+  // One page of the open table: the address keeps the page, the search and the order.
+  const size = compact ? 5 : 50
   const page = Math.max(1, Math.floor(Number(params.page)) || 1)
-  const t = await call("table", { name: params.table, limit: size, offset: (page - 1) * size, search: params.q || undefined, sort: params.sort || undefined, desc: params.desc ? true : undefined })
-  const all = t.found ?? t.total
-  // Tap a field to see the paid fact behind it: where it came from, when, and what it cost.
-  async function source(r, i) {
-    const value = text(r.cells[i]) || "not found"
-    const body = h("section", {}, h("div", { class: "loading", role: "status", "aria-label": "Loading" }, h("span", { class: "skeleton w-full" }), h("span", { class: "skeleton w-4/5" }), h("span", { class: "skeleton w-2/3" })))
-    dialog.replaceChildren(h("div", {}, h("header", {}, h("h2", { class: "pr-6 leading-snug wrap-anywhere" }, value), h("p", {}, `${t.columns[i].name}, row ${num(r.id)}`)), body, h("footer", {}, h("button", { class: "btn", "data-variant": "outline", type: "button", onclick: () => dialog.close() }, "Close"))))
-    dialog.showModal()
-    try {
-      if (r.facts[i]) {
-        const f = await call("fact", { id: r.facts[i] })
-        body.replaceChildren(ui.facts(f.write
-          ? [["To", f.from], ["Wrote", h("span", { class: "font-mono wrap-anywhere" }, [f.endpoint, f.question].filter(Boolean).join(" "))], ["When", `${f.boughtOn} (${f.age})`], ["Kind", "A write to another tool: done every time, never answered from memory"], ["By", f.by]]
-          : [["From", f.from], ["Asked", h("span", { class: "font-mono wrap-anywhere" }, [f.endpoint, f.question].filter(Boolean).join(" "))], ["Bought", `${f.boughtOn} (${f.age})`], ["Cost", f.cost], ["Fresh", f.fresh ? "Yes: asked again, it is free" : "No: it is bought again next time"], ["By", f.by]]))
-      } else {
-        const f = await call("fact", { into: t.name, row: r.id })
-        body.replaceChildren(
-          h("p", { class: "mb-3" }, `Worked out by ${f.workedOutBy || "the workflow"}, not picked from one answer. The calls made for this row:`),
-          f.calls.length ? ui.facts(f.calls.map((c) => [`${c.from} ${c.request && c.request.path ? c.request.path : ""}`, c.cost])) : h("p", { class: "text-muted-foreground" }, "No calls were made for this row."))
-      }
-    } catch (e) {
-      body.replaceChildren(ui.note(String(e.message || e), "bad"))
-    }
+  const t = await call("table", { name, limit: size, offset: (page - 1) * size, search: params.q || undefined, sort: params.sort || undefined, desc: params.desc ? true : undefined })
+  const rows = ui.grid(t, { page, size, open: d.open, label })
+
+  if (compact) return view.replaceChildren(ui.head({ title: label, mono: true, sub: `${num(t.total)} rows, ${t.origin}` }), ...rows)
+
+  const list = h("nav", { class: "tlist", "aria-label": "Tables", id: "tables-list" },
+    groups.map(([group, ts]) => [
+      h("h2", {}, group),
+      ts.map((x) => ui.link("/tables", { table: x.name }, [h("span", {}, x.short || x.name), h("span", {}, num(x.rows))], { "aria-current": x.name === name ? "page" : null })),
+    ]))
+  // On a phone: the open table's name on top; tap it for the list.
+  const pick = h("button", { class: "btn tpick", "data-variant": "outline", type: "button", "aria-expanded": "false", "aria-controls": "tables-list" }, label, ui.icon("chevron-down"))
+  pick.onclick = () => {
+    const open = !list.hasAttribute("data-open")
+    list.toggleAttribute("data-open", open)
+    pick.setAttribute("aria-expanded", String(open))
   }
-  const line = (r) =>
-    h("tr", {}, ...t.columns.map((c, i) => {
-      const v = text(r.cells[i])
-      if (c.of !== "result") return h("td", { class: "cut", title: v.length > 34 ? v : null }, v)
-      // Where it came from, how old it is and what it cost: on every answered cell, as one small line.
-      const src = r.sources && r.sources[i]
-      return h("td", { class: v ? null : "none" }, fb.supports("fact") ? h("button", { type: "button", title: v.length > 34 ? v : null, onclick: () => source(r, i) }, v || "not found") : v || "not found", src ? h("span", { class: "src" }, src) : null)
-    }))
-  /** A column's name is also how to sort by it: once from the lowest, again from the highest, a third time as it was. */
-  const heading = (c) => {
-    const on = params.sort === c.name
-    const next = !on ? { sort: c.name, desc: null } : params.desc ? { sort: null, desc: null } : { sort: c.name, desc: 1 }
-    return h("th", { scope: "col", "aria-sort": on ? (params.desc ? "descending" : "ascending") : null },
-      h("button", { class: "hover:text-foreground -ml-1 inline-flex cursor-pointer items-center gap-1 rounded-sm px-1", type: "button", title: `Sort by ${c.name}`, onclick: () => fb.stay({ ...next, page: null }) }, c.name, on ? ui.icon(params.desc ? "arrow-down" : "arrow-up") : null))
-  }
-  const download = h("button", { class: "btn", "data-variant": "outline", type: "button" }, ui.icon("download"), "Download CSV")
-  download.onclick = () =>
-    fb.act(download, async () => {
-      const out = await call("export", { table: t.name })
-      const a = h("a", { href: URL.createObjectURL(new Blob([out.save.text], { type: "text/csv" })), download: out.save.name })
-      a.click()
-      URL.revokeObjectURL(a.href)
-    })
-  let typing
-  const q = h("input", { class: "input", type: "search", name: "q", placeholder: "Search this table", "aria-label": "Search this table", autocomplete: "off", value: params.q || "" })
-  const find = () => (clearTimeout(typing), (q.value.trim() || "") !== (params.q || "") && fb.stay({ q: q.value.trim(), page: null }))
-  q.addEventListener("input", () => (clearTimeout(typing), (typing = setTimeout(find, 350))))
-  const from = all ? (page - 1) * size + 1 : 0
-  const turn = (label, icon, to, off) => h("button", { class: "btn", "data-variant": "outline", "data-size": "sm", type: "button", disabled: off, onclick: () => fb.stay({ page: to > 1 ? to : null }) }, icon === "chevron-left" ? ui.icon(icon) : null, label, icon === "chevron-right" ? ui.icon(icon) : null)
-  view.replaceChildren(...[
-    ui.head({ title: t.name, mono: true, back: ["/tables", "All tables"], sub: `${num(t.total)} rows, ${t.origin}`, actions: compact || !fb.supports("export") ? [] : [fb.embedded ? ui.link("/tables", { table: t.name }, "Download on the web", { class: "btn", "data-variant": "outline", "data-web": true }) : download] }),
-    !compact ? h("form", { class: "toolbar", role: "search", onsubmit: (e) => (e.preventDefault(), find()) }, q, t.kind === "results" && fb.supports("fact") ? h("p", { class: "text-muted-foreground" }, "Tap an answer for the whole kept fact behind it.") : null) : null,
-    t.rows.length
-      ? h("div", { class: "table-container fill", tabindex: "0", role: "region", "aria-label": t.name }, h("table", { class: "table" }, h("thead", {}, h("tr", {}, ...t.columns.map(heading))), h("tbody", {}, ...t.rows.map(line))))
-      : ui.empty(params.q ? { title: `Nothing in ${t.name} has "${params.q}"`, actions: [h("button", { class: "btn", "data-variant": "outline", type: "button", onclick: () => fb.stay({ q: null, page: null }) }, "Show every row")] } : { title: "No rows yet" }),
-    h("div", { class: "pager" },
-      h("p", { class: "num", role: "status" }, all ? `${num(from)} to ${num(from + t.rows.length - 1)} of ${num(all)}${t.found === undefined ? "" : " found"}` : ""),
-      all > size ? h("div", { class: "actions" }, turn("Previous", "chevron-left", page - 1, page <= 1), turn("Next", "chevron-right", page + 1, from + t.rows.length - 1 >= all)) : null),
-  ].filter(Boolean))
+  view.replaceChildren(ui.head({ title: "Data" }), pick, h("div", { class: "dsplit" }, list, h("div", {}, ...rows)))
+  fb.title(`${label} · Data`)
 })
 </script>

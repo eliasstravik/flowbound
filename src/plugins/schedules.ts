@@ -282,6 +282,7 @@ export const schedules = () => {
     name: "schedules",
     provides: "schedules",
     needs: ["records", "ledger", "runs"],
+    own: { [`${S}.fired`]: "each start by a schedule or webhook" },
     migrations: [
       `create table ${S}.fired (id bigserial primary key, name text not null, at timestamptz not null default now(), outcome text not null, note text not null, run bigint);
        create index fired_name on ${S}.fired (name, id);
