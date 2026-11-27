@@ -11,6 +11,9 @@ if it is not running (`.flowbound/dev.log` is its log); `npx flowbound dev` runs
 again; the parts are the plugin names `npx flowbound plugins` lists (`workflow-sdk`, `postgres`, `keys`, `ledger`, ...).
 Over MCP you have two tools: `search` finds tools and their inputs, `execute` runs a few lines of JavaScript that
 call them (`return await flowbound.runs({ state: "running" })`); `npx flowbound execute "<code>"` does the same here.
+The first local tool call sets up the open project folder and starts the database, runner and pages. The runner
+started by the agent shuts down when the last agent session using it ends. Use `npx flowbound dev` before
+connecting the agent if runs or schedules need to keep going on this computer after the session ends.
 With only an MCP connection and no shell, read this same guide with
 `return await flowbound.docs({ topic: "start" })` in `execute`. `topic: "topics"` lists the parts;
 `"workflow-sdk"`, `"ledger"`, and `"recipes"` read those parts. Leaving topic out returns the whole current guide.

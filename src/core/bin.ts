@@ -6,7 +6,7 @@ import path from "node:path"
 import { fileURLToPath } from "node:url"
 import { docs } from "./docs.ts"
 import { check, findRoot, readList, table } from "./load.ts"
-import { ensure, running, stateFile, stuck, watcher, watcherFile } from "./local.ts"
+import { claim, ensure, hasClients, running, stateFile, stuck, watcherFile } from "./local.ts"
 import type { Command, CommandLine, Plugin } from "./plugin.ts"
 import { boot, listen } from "./server.ts"
 
@@ -51,15 +51,17 @@ async function dev(root: string, args: string[]) {
   if (process.env.FLOWBOUND_CHILD) return serve(root, port)
   if (await running(root)) return console.log(`Already running: pages at ${JSON.parse(fs.readFileSync(state(root), "utf8")).url}`)
   if (stuck(root)) return console.log(`Already running, but stopped on a problem:\n${stuck(root)}`)
-  if (watcher(root)) return console.log("Already running: another `flowbound dev` is starting it.")
+  const release = claim(watcherFile(root))
+  if (!release) return console.log("Already running: another `flowbound dev` is starting it.")
+  process.once("exit", release)
   const free = await listen(port, async () => async () => new Response())
   await free.close()
   let child: ReturnType<typeof spawn> | undefined
   let closing = false
   let restarting = false
-  fs.mkdirSync(path.join(root, ".flowbound"), { recursive: true })
-  fs.writeFileSync(watcherFile(root), String(process.pid))
+  fs.rmSync(state(root), { force: true })
   const start = () => {
+    if (closing) return
     child = spawn(process.execPath, [...heap(), self, "dev"], { cwd: root, stdio: "inherit", env: { ...process.env, FLOWBOUND_CHILD: "1", FLOWBOUND_PORT: String(free.port) } })
     child.on("exit", (code, signal) => {
       if (closing || restarting) return
@@ -105,13 +107,21 @@ async function dev(root: string, args: string[]) {
     before = now
     if (changed) restart(changed)
   }, 500)
-  for (const sig of ["SIGTERM", "SIGINT"] as const)
-    process.on(sig, () => {
-      closing = true
-      fs.rmSync(watcherFile(root), { force: true })
-      child?.once("exit", () => process.exit(0))
-      child?.kill("SIGTERM") || process.exit(0)
-    })
+  const close = () => {
+    if (closing) return
+    closing = true
+    clearTimeout(timer)
+    child?.once("exit", () => process.exit(0))
+    child?.kill("SIGTERM") || process.exit(0)
+  }
+  process.on("SIGTERM", close).on("SIGINT", close)
+  if (args.includes("--mcp-session")) {
+    let idleSince: number | undefined
+    setInterval(() => {
+      if (hasClients(root)) idleSince = undefined
+      else if (Date.now() - (idleSince ??= Date.now()) >= 3000) close()
+    }, 500)
+  }
   start()
 }
 

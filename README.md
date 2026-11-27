@@ -16,6 +16,8 @@ npm run build
 npm pack
 ```
 
+After installing the plugin, open a project folder and ask your agent to use Flowbound. Its first tool call sets up the folder and starts the database, runner and pages. The runner stops after the last agent session closes. Add provider keys on Flowbound’s Keys page.
+
 ## Works with your agent
 
 **Every agent app that can take it,** through the open standards first: the cross-app plugin standard and the skills

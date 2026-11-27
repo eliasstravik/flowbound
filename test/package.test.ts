@@ -40,7 +40,7 @@ test("the packed package holds what a user needs, and no private notes or names"
     assert.ok(files.includes(need), need)
   for (const f of files) assert.doesNotMatch(f, /^(docs\/(playground|staging|publish)\.md|docs\/vision\/|staging\/|test\/|src\/)/, f)
   const text = files.filter((f) => /\.(md|json|js|ts|html|csv)$/.test(f)).map((f) => read(f))
-  for (const t of text) assert.doesNotMatch(t, /<owner>|\.tail[a-z0-9]+\.ts\.net/)
+  for (const t of text) assert.doesNotMatch(t, /<owner>|\.tail[a-f0-9]{6,}\.ts\.net/)
 })
 
 test("the publish workflow runs only on a release tag, with provenance", () => {

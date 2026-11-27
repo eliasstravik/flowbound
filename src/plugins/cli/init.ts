@@ -1,8 +1,10 @@
 // `npx flowbound init`: write the project's files, add the package, set up every agent app on this machine, start it.
-import { execFileSync, spawnSync } from "node:child_process"
+import { execFileSync, spawn, spawnSync } from "node:child_process"
 import fs from "node:fs"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
+import { CONFIG } from "../../core/load.ts"
+import { claim } from "../../core/local.ts"
 import type { CommandLine } from "../../core/plugin.ts"
 
 const pkgRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "..")
@@ -68,10 +70,10 @@ function writeIfMissing(file: string, text: string, made: string[], what: string
 }
 
 /** Add the package to the project. Before it is on npm, the copy that is running packs itself. */
-function install(root: string) {
+async function install(root: string, quiet: boolean) {
   if (fs.existsSync(path.join(root, "node_modules", "flowbound", "package.json"))) return
   let spec = process.env.FLOWBOUND_INSTALL ?? `flowbound@${pkg.version}`
-  if (!process.env.FLOWBOUND_INSTALL && spawnSync("npm", ["view", spec, "version"], { stdio: "ignore" }).status !== 0) {
+  if (!process.env.FLOWBOUND_INSTALL && pkg.private) {
     fs.mkdirSync(path.join(root, ".flowbound"), { recursive: true })
     const out = execFileSync("npm", ["pack", pkgRoot, "--pack-destination", path.join(root, ".flowbound"), "--silent"], { encoding: "utf8" })
       .trim()
@@ -79,31 +81,47 @@ function install(root: string) {
       .pop()!
     spec = path.join(root, ".flowbound", out)
   }
-  console.log("Adding the flowbound package ...")
-  const done = spawnSync("npm", ["install", "--save-exact", "--no-audit", "--no-fund", "--loglevel=error", spec], { cwd: root, stdio: "inherit" })
-  if (done.status !== 0) throw new Error("npm could not add the flowbound package. Fix that, then run init again.")
+  if (!quiet) console.log("Adding the flowbound package ...")
+  await new Promise<void>((resolve, reject) => {
+    const child = spawn("npm", ["install", "--save-exact", "--no-audit", "--no-fund", "--loglevel=error", spec], { cwd: root, stdio: ["ignore", quiet ? 2 : 1, 2] })
+    child.once("error", reject)
+    child.once("exit", (code) => (code === 0 ? resolve() : reject(new Error("npm could not add the Flowbound package. Check npm's error and try again."))))
+  })
 }
 
-export async function init(args: string[], cl: CommandLine) {
-  const root = process.cwd()
-  const made: string[] = []
-  const tpl = (name: string) => fs.readFileSync(path.join(pkgRoot, "template", name), "utf8")
-  // `--example`: a small made-up list and a workflow that needs no key and costs nothing, tried once, so the pages
-  // have a list, a run and results on them before any provider is set up.
-  const example = args.includes("--example")
-  if (example) {
-    writeIfMissing(path.join(root, "workflows", "tidy-companies.ts"), tpl("example/tidy-companies.ts"), made, "workflows/tidy-companies.ts          an example that needs no key and costs nothing")
-    writeIfMissing(path.join(root, "examples", "example-companies.csv"), tpl("example/example-companies.csv"), made, "examples/example-companies.csv       its list: eight made-up companies")
+const template = (name: string) => fs.readFileSync(path.join(pkgRoot, "template", name), "utf8")
+
+/** First use writes just the project, without changing the agent's settings while it runs. */
+export async function scaffold(root: string, quiet = true): Promise<string[]> {
+  const config = path.join(root, CONFIG)
+  const lock = path.join(root, ".flowbound", "setup.pid")
+  let release: (() => void) | undefined
+  for (let i = 0; i < 480; i++) {
+    if (quiet && fs.existsSync(config)) return []
+    release = claim(lock)
+    if (release) break
+    await new Promise((resolve) => setTimeout(resolve, 250))
   }
+  if (!release) throw new Error("Another Flowbound setup is still running. Try again in a moment.")
+  try {
+    if (quiet && fs.existsSync(config)) return []
+    return await writeProject(root, config, quiet)
+  } finally {
+    release()
+  }
+}
+
+async function writeProject(root: string, config: string, quiet: boolean) {
+  const made: string[] = []
+  const name = path
+    .basename(root)
+    .toLowerCase()
+    .replace(/[^a-z0-9-]+/g, "-")
   writeIfMissing(
     path.join(root, "package.json"),
     `${JSON.stringify(
       {
-        name:
-          path
-            .basename(root)
-            .toLowerCase()
-            .replace(/[^a-z0-9-]+/g, "-") || "flowbound-project",
+        name: name && name !== "flowbound" ? name : "flowbound-project",
         private: true,
         type: "module",
         devDependencies: { typescript: "^6.0.0" },
@@ -114,15 +132,28 @@ export async function init(args: string[], cl: CommandLine) {
     made,
     "package.json",
   )
-  writeIfMissing(path.join(root, "flowbound.config.ts"), tpl("flowbound.config.ts"), made, "flowbound.config.ts   your providers and permissions")
-  writeIfMissing(path.join(root, "workflows", "README.md"), tpl("workflows.md"), made, "workflows/            one file per workflow")
-  writeIfMissing(path.join(root, "plugins", "README.md"), tpl("plugins.md"), made, "plugins/              your own plugins and provider cards")
-  writeIfMissing(path.join(root, "tsconfig.json"), tpl("tsconfig.json"), made, "tsconfig.json")
+  writeIfMissing(path.join(root, "workflows", "README.md"), template("workflows.md"), made, "workflows/            one file per workflow")
+  writeIfMissing(path.join(root, "plugins", "README.md"), template("plugins.md"), made, "plugins/              your own plugins and provider cards")
+  writeIfMissing(path.join(root, "tsconfig.json"), template("tsconfig.json"), made, "tsconfig.json")
   const ignore = path.join(root, ".gitignore")
   const ignored = fs.existsSync(ignore) ? fs.readFileSync(ignore, "utf8") : ""
   const lines = ["node_modules", ".flowbound", ".vercel", ".swc"].filter((l) => !ignored.split("\n").includes(l))
   if (lines.length) fs.writeFileSync(ignore, `${ignored}${ignored && !ignored.endsWith("\n") ? "\n" : ""}${lines.join("\n")}\n`)
-  install(root)
+  await install(root, quiet)
+  // Publishing the config last makes the project visible to other agent processes only after dependencies are ready.
+  writeIfMissing(config, template(CONFIG), made, "flowbound.config.ts   your providers and permissions")
+  return made
+}
+
+export async function init(args: string[], cl: CommandLine) {
+  const root = process.cwd()
+  const made = await scaffold(root, false)
+  // `--example`: a small made-up list and a workflow that needs no key and costs nothing.
+  const example = args.includes("--example")
+  if (example) {
+    writeIfMissing(path.join(root, "workflows", "tidy-companies.ts"), template("example/tidy-companies.ts"), made, "workflows/tidy-companies.ts          an example that needs no key and costs nothing")
+    writeIfMissing(path.join(root, "examples", "example-companies.csv"), template("example/example-companies.csv"), made, "examples/example-companies.csv       its list: eight made-up companies")
+  }
 
   // The skill is a stub that sends the agent to `flowbound docs`, so the words always match the installed version.
   const skill = fs.readFileSync(path.join(pkgRoot, "skills", "flowbound", "SKILL.md"), "utf8")
