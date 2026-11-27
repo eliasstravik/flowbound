@@ -317,7 +317,7 @@ test("MCP execute selects a view for displayable results and keeps other results
     },
     app: { url, live: true, role: "viewer", tools: ["runs"], paths: ["/runs", "/tables", "/workflows"] },
   }
-  const rpc = (method: string, params?: unknown) => answer({ jsonrpc: "2.0", id: 1, method, params }, behind) as Promise<any>
+  const rpc = (method: string, params?: unknown, showApp = true) => answer({ jsonrpc: "2.0", id: 1, method, params }, behind, showApp) as Promise<any>
   const { tools } = (await rpc("tools/list")).result
   assert.deepEqual(
     tools.map((t: any) => t.name),
@@ -334,19 +334,24 @@ test("MCP execute selects a view for displayable results and keeps other results
   assert.match(resource.text, /<body[^>]+ hidden>/)
   assert.doesNotMatch(resource.text, /example\.test/)
   const call = async (args: object) => (await rpc("tools/call", { name: "execute", arguments: args })).result
-  assert.equal((await call({})).structuredContent.view.path, "/runs")
+  assert.equal((await call({}))._meta.flowbound.view.path, "/runs")
   assert.equal(calls, 0)
   const shown = await call({ code: "run" })
-  assert.deepEqual(shown.structuredContent.result, run)
-  assert.equal(shown.structuredContent.link, `${url}/runs?run=2`)
-  assert.ok(shown.content[0].text.includes(`${url}/runs?run=2`))
+  assert.deepEqual(shown.structuredContent, { result: { run: 2, state: "waiting" }, logs: [] })
+  assert.ok(shown.content[0].text.includes("one or two lines"))
+  assert.ok(!shown.content[0].text.includes(url))
+  assert.deepEqual(shown._meta.flowbound.view.params, { run: "2" })
   assert.equal(shown._meta.flowbound.role, "viewer")
-  assert.equal((await call({ code: "workflow" })).structuredContent.link, `${url}/workflows?workflow=sample`)
-  assert.equal((await call({ code: "table" })).structuredContent.link, `${url}/tables?table=sample`)
-  assert.equal((await call({ code: "pick" })).structuredContent.link, `${url}/tables?table=example+%26+test`)
+  assert.deepEqual((await call({ code: "workflow" }))._meta.flowbound.view.params, { workflow: "sample" })
+  assert.deepEqual((await call({ code: "table" }))._meta.flowbound.view.params, { table: "sample" })
+  assert.deepEqual((await call({ code: "pick" }))._meta.flowbound.view.params, { table: "example & test" })
   assert.deepEqual((await call({ code: "guide" })).structuredContent, { result: "# Guide", logs: [] })
-  assert.equal((await call({ code: "invalid" })).structuredContent.view, undefined)
+  assert.equal((await call({ code: "invalid" }))._meta, undefined)
   assert.deepEqual((await call({ code: "run", render: false })).structuredContent, { result: run, logs: [] })
+  const linked = (await rpc("tools/call", { name: "execute", arguments: { code: "run" } }, false)).result
+  assert.deepEqual(linked.structuredContent, { result: run, logs: [], link: run.page })
+  assert.ok(linked.content[0].text.includes(run.page))
+  assert.equal(linked._meta, undefined)
 })
 
 test("execute runs code in a sandbox of its own: it reaches only the tools, as the caller, with time and memory capped", async () => {

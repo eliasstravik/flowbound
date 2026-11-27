@@ -118,7 +118,7 @@ export function demo() {
     permissions: { mode: "auto", caps: { perRun: 0, perMonth: 0, writesPerMonth: 0 } },
     parts: { door: access },
     providers: [samples()],
-  }).map((part) => part.name === "mcp" ? mcp({ timeoutMs: 2000 }) : part)
+  }).map((part) => part.name === "mcp" ? mcp({ timeoutMs: 2000, logAppStatus: true }) : part)
   for (const part of list) {
     if (part.pages) part.pages = Object.fromEntries(Object.entries(part.pages).filter(([page]) => pages.has(page)))
     if (!part.tools) continue
