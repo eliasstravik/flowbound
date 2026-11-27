@@ -100,7 +100,7 @@ permissions: {
   mode: "auto",
   caps: { perRun: 5, perMonth: 100, writesPerMonth: 500 },
   workflows: { "big-enrich": { mode: "ask" } },
-  providers: { hubspot: { writesPerRun: 200 } },
+  providers: { crm: { writesPerRun: 200 } },
 }
 ```
 
@@ -216,9 +216,26 @@ workflows/find-sales-heads.ts
 
 ## Getting data to your other tools
 
-**Writing out is a provider call, under the same permissions.** A HubSpot or sequencer card can write as well as read
-(`hubspot()` ships as the example). A write counts like a spend: ask, auto inside limits, or skip, as you set. A write
-is never answered from memory.
+**Writing out is a provider call, under the same permissions.** Add the tool you write to like any provider: a name
+you choose and a key. Say which of its calls write:
+
+```ts
+// plugins/crm.ts
+import { provider } from "flowbound"
+
+export const crm = () =>
+  provider({
+    name: "crm",
+    label: "Our CRM",
+    host: "api.crm.example",
+    key: { header: "authorization", prefix: "Bearer " },
+    price: { perCall: 0 },
+    writes: ({ method }) => method !== "GET",
+  })
+```
+
+A write counts like a spend, by number: ask, auto inside limits, or skip, as you set (`writesPerRun`,
+`writesPerMonth`). A write is never answered from memory.
 
 ## What it costs
 
