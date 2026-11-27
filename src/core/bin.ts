@@ -4,6 +4,7 @@ import { spawn } from "node:child_process"
 import fs from "node:fs"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
+import { company, connect } from "./connection.ts"
 import { docs } from "./docs.ts"
 import { check, findRoot, readList, table } from "./load.ts"
 import { claim, ensure, hasClients, running, stateFile, stuck, watcherFile } from "./local.ts"
@@ -127,6 +128,11 @@ async function dev(root: string, args: string[]) {
 
 async function main() {
   const [word = "help", ...args] = process.argv.slice(2)
+  if (word === "connect") return connect(args)
+  if (word === "mcp") {
+    const address = company()
+    if (address) return (await import("../plugins/mcp.ts")).stdio(address)
+  }
   const root = findRoot()
   const list: Plugin[] = root ? await readList(root) : (await import("../index.ts")).starter()
   const commands: Record<string, Command> = Object.assign({}, ...list.map((p) => (typeof p.commands === "function" ? p.commands(list) : (p.commands ?? {}))))
@@ -155,6 +161,7 @@ async function main() {
   if (command) return command.run(args, fb)
   const words = [
     ["dev", "start Flowbound on this computer (database, runs, pages)"],
+    ["connect", "choose Run here or connect the agent plugin to your company"],
     ["plugins", "list the plugins and check the list"],
     ["docs", "everything an agent needs to know, for this version"],
     ...Object.entries(commands).map(([name, c]) => [c.usage ?? name, c.about]),

@@ -14,6 +14,9 @@ call them (`return await flowbound.runs({ state: "running" })`); `npx flowbound 
 The first local tool call sets up the open project folder and starts the database, runner and pages. The runner
 started by the agent shuts down when the last agent session using it ends. Use `npx flowbound dev` before
 connecting the agent if runs or schedules need to keep going on this computer after the session ends.
+If the person has selected their company using `npx flowbound connect <address>`, use the MCP tools for
+company work. The plugin opens the browser for work sign-in when needed. Shell commands still work on the
+project in this folder and its own data. Use Save and Publish to send workflow changes to the company.
 With only an MCP connection and no shell, read this same guide with
 `return await flowbound.docs({ topic: "start" })` in `execute`. `topic: "topics"` lists the parts;
 `"workflow-sdk"`, `"ledger"`, and `"recipes"` read those parts. Leaving topic out returns the whole current guide.

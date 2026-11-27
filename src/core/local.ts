@@ -100,6 +100,9 @@ export async function ensure(root: string, managed = false): Promise<string> {
   const fail = (why: string) => new Error(`Flowbound could not start:\n${why}\nFix that and it starts again by itself.`)
   if (stuck(root)) throw fail(stuck(root)!)
   fs.mkdirSync(path.join(root, ".flowbound"), { recursive: true })
+  const installed = path.join(root, "node_modules", "flowbound", "dist", "core", "start.js")
+  // The first-use project has its own complete copy. npm's temporary npx cache can be replaced by another client.
+  const runner = managed && fs.existsSync(installed) ? installed : bin
   // A `flowbound dev` that is alive brings its own server back up: wait for it rather than start a second one.
   let child: ReturnType<typeof spawn> | undefined
   let failed = false
@@ -108,7 +111,7 @@ export async function ensure(root: string, managed = false): Promise<string> {
     if (!watcher(root) && !child) {
       const log = fs.openSync(path.join(root, ".flowbound", "dev.log"), "a")
       try {
-        child = spawn(process.execPath, [bin, "dev", ...(managed ? ["--mcp-session"] : [])], {
+        child = spawn(process.execPath, [runner, "dev", ...(managed ? ["--mcp-session"] : [])], {
           cwd: root,
           detached: true,
           stdio: ["ignore", log, log],

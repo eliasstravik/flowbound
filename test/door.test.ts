@@ -9,9 +9,10 @@ import { after, before, test } from "node:test"
 import { PGlite } from "@electric-sql/pglite"
 import { wanted } from "../scripts/door-tables.ts"
 import { plugin, use } from "../src/core/plugin.ts"
-import { boot } from "../src/core/server.ts"
+import { boot, listen } from "../src/core/server.ts"
 import { type DoorOptions, door, privateAddress } from "../src/plugins/door.ts"
 import { ledger } from "../src/plugins/ledger.ts"
+import { signIn } from "../src/plugins/mcp/company.ts"
 import { mcp } from "../src/plugins/mcp.ts"
 import { pages } from "../src/plugins/pages.ts"
 import { CLIENT, standIn, TENANT } from "./stand-in-idp.ts"
@@ -177,6 +178,45 @@ async function live(opts: DoorOptions, url = U) {
   }
 }
 const google: DoorOptions = { login: "google", domain: "acme.example", managers: ["maya@acme.example"] }
+
+test("the company plugin signs in through its loopback callback and acts as the member", async (t) => {
+  let fb!: Awaited<ReturnType<typeof live>>
+  const server = await listen(0, async (port) => {
+    fb = await live({ ...google, issuer: idp.google }, `http://127.0.0.1:${port}`)
+    return fb.app.fetch
+  })
+  t.after(async () => {
+    await server.close()
+    await fb.stop()
+  })
+  const owner = fb.browser()
+  await owner.signIn("maya@acme.example")
+  assert.equal((await owner.tool("set-rights", { email: "sam@acme.example", rights: "member" })).ok, true)
+  const browser = fb.browser()
+  const client = await signIn(new URL(`http://127.0.0.1:${server.port}/mcp`), AbortSignal.timeout(15_000), async (address) => {
+    const signInPage = await browser.go(address.href)
+    const to = JSON.parse(/el\("to2"\)\.value = (".*")/.exec(signInPage.text)![1]!)
+    const consent = await browser.signIn("sam@acme.example", to)
+    assert.match(consent.text, /Allow an app/)
+    const query = JSON.parse(/getElementById\("query"\)\.value = (".*")/.exec(consent.text)![1]!)
+    const allow = await browser.call("/door/allow", { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ query, answer: "allow" }) })
+    const back = new URL(allow.headers.get("location")!)
+    const wrong = new URL(back)
+    wrong.searchParams.set("state", "wrong")
+    assert.equal((await fetch(wrong)).status, 400)
+    assert.equal((await fetch(back)).status, 200)
+  })
+  t.after(() => client.close())
+  assert.deepEqual(
+    (await client.listTools()).tools.map((tool) => tool.name),
+    ["search", "execute"],
+  )
+  const result = await client.callTool({ name: "execute", arguments: { code: "return await flowbound.change({})" } })
+  assert.equal(result.isError, undefined)
+  const data = result.structuredContent as { result: { who: { email: string; role: string } } }
+  assert.equal(data.result.who.email, "sam@acme.example")
+  assert.equal(data.result.who.role, "member")
+})
 
 test("off is for your own computer: it will not start live, or on a public address", async () => {
   pasted(false)

@@ -1,0 +1,58 @@
+{
+  "versions": [
+    "2025-11-25",
+    "2025-06-18",
+    "2025-03-26",
+    "2024-11-05"
+  ],
+  "instructions": "Start with execute: return await flowbound.docs({ topic: \"start\" }). When running locally in a coding agent, pass the absolute path of the open project as the project argument. Workflows live in Git. From chat, save edits with workflow-save, check with workflow-change, and publish only when the person asks. Share Flowbound page links.",
+  "tools": [
+    {
+      "name": "search",
+      "title": "Find Flowbound tools",
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "description": "Find Flowbound tools and read their inputs and prices. Leave query empty to list every tool. Search docs for the current guide, available without a shell. Flowbound runs GTM workflows (list building, research, enrichment) and keeps every paid fact, on the person's own data provider keys, under their permissions.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "words to look for, like: run, table, import, lookup, firecrawl"
+          },
+          "project": {
+            "type": "string",
+            "description": "Absolute path to the open project folder. Include it when using local Flowbound from a coding agent."
+          }
+        }
+      }
+    },
+    {
+      "name": "execute",
+      "title": "Run code against Flowbound",
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "openWorldHint": true
+      },
+      "description": "Run JavaScript that calls Flowbound tools and returns what you need. Each tool is an async function: `return await flowbound.runs({ state: \"running\" })`, `await flowbound[\"schedule-run\"]({ name })`. Call several with Promise.all, filter big answers before returning them, console.log to see steps. It reaches only the tools, as you, with your rights: no files, no network, no keys. Find tools and their inputs with search first.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "the body of an async function; return the answer"
+          },
+          "project": {
+            "type": "string",
+            "description": "Absolute path to the open project folder. Include it when using local Flowbound from a coding agent."
+          }
+        },
+        "required": [
+          "code"
+        ]
+      }
+    }
+  ]
+}
