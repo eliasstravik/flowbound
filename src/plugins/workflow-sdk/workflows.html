@@ -157,7 +157,8 @@ fb.page("/workflows", async (root, params) => {
   if (tab === "Data") {
     // What it reads and what it fills, then the same grid as the Data page.
     if (!w.into) return body.append(h("p", { class: "text-muted-foreground" }, "It names no results table yet."))
-    body.append(h("p", { class: "text-muted-foreground" }, "Reads ", w.from ? ui.link("/tables", { table: w.from }, w.from, { class: "link font-mono" }) : "?", " · fills ", ui.link("/tables", { table: w.into }, w.into, { class: "link font-mono" })))
+    const fills = ui.link("/tables", { table: w.into }, w.into, { class: "link font-mono" })
+    body.append(h("p", { class: "text-muted-foreground" }, w.from ? ["Reads ", ui.link("/tables", { table: w.from }, w.from, { class: "link font-mono" }), " · fills ", fills] : ["Fills ", fills]))
     const size = compact ? 5 : 50
     const page = Math.max(1, Math.floor(Number(params.page)) || 1)
     const [t, d] = await Promise.all([

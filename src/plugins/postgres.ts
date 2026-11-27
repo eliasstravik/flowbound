@@ -376,7 +376,12 @@ export const postgres = (opts: PostgresOptions = {}) => {
       const at = consoleOf()
       return at ? { kind: "console" as const, ...at } : null
     }
-    return { kind: "studio" as const, label: "Open in Drizzle Studio", where: "Drizzle's own Studio, started on this computer against the database Flowbound uses: every table, and it can change them" }
+    return {
+      kind: "studio" as const,
+      shared: !!opts.studio?.host,
+      label: "Open in Drizzle Studio",
+      where: "Drizzle's own Studio, started on this computer against the database Flowbound uses: every table, and it can change them",
+    }
   }
 
   /**
@@ -395,8 +400,10 @@ export const postgres = (opts: PostgresOptions = {}) => {
       return readers.length === 1 ? readers[0]! : ""
     }
     const ownRows = []
-    // Runs, facts and calls first; where your tables came from last.
-    for (const [name, about] of Object.entries(own()).sort(([a], [b]) => Number(a.startsWith("fb_postgres.")) - Number(b.startsWith("fb_postgres.")))) {
+    // Runs, facts and calls first, as the page names them; then the rest; where your tables came from last.
+    const first = ["fb_workflow_sdk.runs", "fb_ledger.facts", "fb_ledger.calls"]
+    const rank = (n: string) => (first.includes(n) ? first.indexOf(n) : n.startsWith("fb_postgres.") ? 99 : 9)
+    for (const [name, about] of Object.entries(own()).sort(([a], [b]) => rank(a) - rank(b))) {
       const [schema, table] = name.split(".")
       const there = (await query("select 1 from information_schema.tables where table_schema = $1 and table_name = $2", [schema, table])).rows.length
       if (there) ownRows.push({ name, short: table!, about, rows: (await query(`select count(*)::int as n from ${ident(schema!)}.${ident(table!)}`)).rows[0].n })
@@ -668,7 +675,7 @@ export const postgres = (opts: PostgresOptions = {}) => {
       },
       sql: {
         about:
-          "Run SQL on your own database: make any table the job needs, or read across tables. Your tables are in schema public. Flowbound's own tables (schemas named fb_*) are not for agents: a token's SQL cannot read them.",
+          "Run SQL on your own database: make any table the job needs, or read across tables. Your tables are in schema public. Flowbound's own tables (schemas named fb_*) are not for SQL: a token's SQL cannot read them. Its runs, facts, calls and the like are read with the table tool by their full name (fb_ledger.facts), as the Data page shows them; sign-ins, keys and yeses never.",
         input: { query: { about: "one SQL statement", required: true } },
         run: async (i, who) => {
           // A results field is JSON, so comparing it with a number or a text fails in Postgres's own words. Say what to write.

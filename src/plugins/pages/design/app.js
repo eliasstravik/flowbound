@@ -403,8 +403,11 @@ const fb = (() => {
     path: (ups, here) =>
       h("nav", { class: "path", "aria-label": "Where you are" }, ups.map(([p, q, label]) => [link(p, q, label, { class: "link" }), h("span", { "aria-hidden": "true" }, "/")]), h("span", { "aria-current": "page" }, here)),
     /** Tabs that keep their place in the address: ui.tabs(["Diagram", "Code"], "Code", "tab") */
-    tabs: (names, on, key) =>
-      h("nav", { class: "tabs", "aria-label": "Tabs" }, names.map((n) => link(current, { ...params, [key]: n.toLowerCase() }, n, { "aria-current": n === on ? "page" : null, onclick: (e) => (e.preventDefault(), stay({ [key]: n.toLowerCase() })) }))),
+    // Another tab starts at its own first page, with no search or order carried over from the last one.
+    tabs: (names, on, key) => {
+      const fresh = { page: null, q: null, sort: null, desc: null, step: null }
+      return h("nav", { class: "tabs", "aria-label": "Tabs" }, names.map((n) => link(current, Object.fromEntries(Object.entries({ ...params, ...fresh, [key]: n.toLowerCase() }).filter(([, v]) => v != null)), n, { "aria-current": n === on ? "page" : null, onclick: (e) => (e.preventDefault(), stay({ ...fresh, [key]: n.toLowerCase() })) })))
+    },
     /** Words with their web addresses made into links (a reason that names a manual page). */
     linked: (text) => String(text).split(/(https?:\/\/[^\s)"]+)/).map((part, i) => (i % 2 ? h("a", { class: "link", href: part, target: "_blank", rel: "noreferrer" }, part) : part)),
   }
@@ -441,6 +444,8 @@ const fb = (() => {
   /** Open the database one step deeper: Drizzle Studio here (started on the first tap), the project's Neon console live. */
   function deeper(way) {
     if (!way || !supports("data-open")) return null
+    // Studio's page talks to this computer directly: from another device (a phone, a shared address) it cannot reach it.
+    if (way.kind === "studio" && !way.shared && !/^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname)) return null
     if (way.href) return h("a", { class: "btn", "data-variant": "outline", href: way.href, target: "_blank", rel: "noreferrer", title: way.where }, way.label, icon("arrow-up-right"))
     const b = h("button", { class: "btn", "data-variant": "outline", type: "button", title: way.where }, way.label, icon("arrow-up-right"))
     b.onclick = () => {
@@ -509,7 +514,7 @@ const fb = (() => {
         : params.q
           ? ui.empty({ title: `Nothing in ${o.label || t.name} has "${params.q}"`, actions: [h("button", { class: "btn", "data-variant": "outline", type: "button", onclick: () => stay({ q: null, page: null }) }, "Show every row")] })
           : h("p", { class: "text-muted-foreground" }, o.none || "No rows yet."),
-      all ? h("div", { class: "pager" }, h("p", { class: "num", role: "status" }, `${num(from)} to ${num(from + t.rows.length - 1)} of ${num(all)}`), all > size ? h("div", { class: "actions" }, turn("Previous", page - 1, page <= 1), turn("Next", page + 1, from + t.rows.length - 1 >= all)) : null) : null,
+      all ? h("div", { class: "pager" }, h("p", { class: "num", role: "status" }, `${num(from)} to ${num(from + t.rows.length - 1)} of ${num(all)}`), h("div", { class: "actions" }, turn("Previous", page - 1, page <= 1), turn("Next", page + 1, from + t.rows.length - 1 >= all))) : null,
     ]
   }
 

@@ -119,7 +119,8 @@ export async function startStudio(o: { root: string; engine: Engine; port?: numb
 }
 
 /** Is `npm` here at all? Without it Studio cannot be fetched, and the button says so instead of failing late. */
-export const canFetch = () => spawnSync("npm", ["--version"], { stdio: "ignore", shell: process.platform === "win32" }).status === 0
+let npmHere: boolean | undefined
+export const canFetch = () => (npmHere ??= spawnSync("npm", ["--version"], { stdio: "ignore", shell: process.platform === "win32" }).status === 0)
 
 /**
  * Where a live database is looked at more closely: Neon's console, for the project the host names (the Vercel

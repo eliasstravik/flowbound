@@ -33,7 +33,7 @@ fb.page("/context", async (root, params) => {
   // ---- a folder: its folders first, then its files, as a drive shows them ----
   const all = await call("context")
   const here = (params.folder || "").replace(/^\/+|\/+$/g, "")
-  const head = ui.head({ title: here ? named(here.split("/").pop()) : "Context", sub: here ? null : "Anything your agent should know, as files and folders. Your agent writes them; workflows and chats use them." })
+  const head = ui.head({ title: here ? named(here.split("/").pop()) : "Context", sub: here || !all.length ? null : "Anything your agent should know, as files and folders. Your agent writes them; workflows and chats use them." })
   const path = here ? ups(here) : null
   if (!all.length) return view.replaceChildren(head, h("p", { class: "text-muted-foreground" }, "Nothing here yet. Ask your agent to write down what it should know."))
   const folders = [...new Set(all.flatMap((f) => (f.folder ? f.folder.split("/").map((_, i, p) => p.slice(0, i + 1).join("/")) : [])))].sort((a, b) => a.localeCompare(b))

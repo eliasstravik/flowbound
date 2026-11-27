@@ -45,10 +45,7 @@ after(async () => {
 test("every table sits in a folder: results in their workflow's, a list where it was imported or with the workflows that read it", async () => {
   const d = await page("data")
   const by = Object.fromEntries(d.tables.map((t: any) => [t.name, t]))
-  assert.deepEqual(
-    [by.sales_heads.folder, by.target_list.folder, by.partner_list.folder, by.loose.folder],
-    ["tam-mapping", "tam-mapping", "champion-tracking", ""],
-  )
+  assert.deepEqual([by.sales_heads.folder, by.target_list.folder, by.partner_list.folder, by.loose.folder], ["tam-mapping", "tam-mapping", "champion-tracking", ""])
   assert.equal(by.sales_heads.kind, "results")
   // The database stays plain: the tables are in public, with no schema per folder.
   const schemas = await page("sql", { query: "select distinct table_schema as s from information_schema.tables where table_name in ('sales_heads', 'partner_list')" })
@@ -98,7 +95,10 @@ test("context: any files and folders, listed with their first line, searched ins
       ["notes.txt", "", "plain text"],
     ],
   )
-  assert.deepEqual((await page("context", { search: "language" })).map((f: any) => f.path), ["market-research/nordics.md"])
+  assert.deepEqual(
+    (await page("context", { search: "language" })).map((f: any) => f.path),
+    ["market-research/nordics.md"],
+  )
   const one = await page("context", { path: "market-research/nordics.md" })
   assert.deepEqual([one.file, one.kind], ["context/market-research/nordics.md", "markdown"])
   assert.match(one.text, /Four countries/)

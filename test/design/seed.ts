@@ -214,8 +214,14 @@ for (const [i, [file, rows]] of Object.entries({ target_list: 30, accounts: 60, 
   fs.writeFileSync(path.join(full.root, `${file}.csv`), csv(rows, i * 20_000))
 // Context: what the agent should know, as files and folders (all made up).
 const write = (file: string, text: string) => (fs.mkdirSync(path.dirname(path.join(full.root, "context", file)), { recursive: true }), fs.writeFileSync(path.join(full.root, "context", file), text))
-write("company.md", "# Acme\n\nWhat Acme sells and to whom: payroll software for small Nordic companies. Customers keep it for years; most come through accountants.\n\n## What we sell\n\n- Payroll for **5 to 200** employees\n- Sweden, Norway, Denmark\n\n> We never sell to agencies.\n")
-write("nordic-saas-icp.md", "---\ndescription: Who we sell to in the Nordics\n---\n# Nordic SaaS\n\nSoftware companies in the Nordics with 20 to 200 employees and a sales team.\n\n| Field | Value |\n| --- | --- |\n| Industry | software |\n| Size | 20 to 200 |\n| Region | SE, NO, DK, FI |\n")
+write(
+  "company.md",
+  "# Acme\n\nWhat Acme sells and to whom: payroll software for small Nordic companies. Customers keep it for years; most come through accountants.\n\n## What we sell\n\n- Payroll for **5 to 200** employees\n- Sweden, Norway, Denmark\n\n> We never sell to agencies.\n",
+)
+write(
+  "nordic-saas-icp.md",
+  "---\ndescription: Who we sell to in the Nordics\n---\n# Nordic SaaS\n\nSoftware companies in the Nordics with 20 to 200 employees and a sales team.\n\n| Field | Value |\n| --- | --- |\n| Industry | software |\n| Size | 20 to 200 |\n| Region | SE, NO, DK, FI |\n",
+)
 write("pricing.md", "# Pricing\n\nOur plans and what we never discount. Three plans; we never discount the first year.\n")
 write("case-studies.md", "# Case studies\n\nThree customers who said yes. Northwind cut payroll time by half.\n")
 write("voice.md", "# How we write\n\nShort, plain, no buzzwords. One ask per email.\n")
