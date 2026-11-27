@@ -27,6 +27,8 @@ export type DoorOptions = {
   emails?: string[]
   /** The first manager, by email. Managers give the others their rights. */
   owners?: string[]
+  /** Optional first role for new people verified against the company's Google domain or Microsoft directory. */
+  defaultRole?: "member"
   /** Emails configured under the former name are kept as owners. */
   managers?: string[]
   /** For a provider that sends groups: which group gives which rights. "*" is everyone who can sign in. */
@@ -85,6 +87,7 @@ export const door = (opts: DoorOptions = {}) => {
       tenant: (opts.tenant ?? env.FLOWBOUND_LOGIN_TENANT ?? "").trim().toLowerCase(),
       emails: list(opts.emails, env.FLOWBOUND_LOGIN_EMAILS),
       managers: list(opts.owners ?? opts.managers, env.FLOWBOUND_OWNERS ?? env.FLOWBOUND_MANAGERS),
+      defaultRole: opts.defaultRole ?? env.FLOWBOUND_LOGIN_DEFAULT_ROLE,
       groups: Object.fromEntries(Object.entries(groups).map(([g, r]) => [g.toLowerCase(), projectRole(r)])) as Record<string, Role>,
       password: opts.password ?? env.FLOWBOUND_PASSWORD,
       issuer: opts.issuer ?? env.FLOWBOUND_LOGIN_ISSUER,
@@ -100,6 +103,9 @@ export const door = (opts: DoorOptions = {}) => {
     if (s.kind === "google" && !s.domains.length && !s.emails.length)
       throw no('Google needs the company\'s domain (domain: "acme.com") or a short list of emails (emails: [...]). Without one, anyone with a Google account could sign in.')
     if (s.kind === "microsoft" && !/^[0-9a-f-]{36}$/.test(s.tenant)) throw no('Microsoft needs the company\'s directory id (tenant: "..."), so only its own people can sign in.')
+    if (s.defaultRole && (s.defaultRole !== "member" || !(s.kind === "microsoft" || (s.kind === "google" && s.domains.length)))) {
+      throw no("the default Member role needs a Google Workspace domain or a Microsoft directory.")
+    }
     if (Object.values(s.groups).some((r) => !ROLES.includes(r))) throw no(`a group's rights must be one of ${ROLES.join(", ")}.`)
     if (!s.managers.length && !s.emails.length && !Object.values(s.groups).some((role) => can({ role }, "admin")))
       throw no('name the first manager by email (managers: ["you@acme.com"]). Managers give the others their rights.')
@@ -157,7 +163,7 @@ export const door = (opts: DoorOptions = {}) => {
     if (why) return why
     const was = await person(u.email)
     if (was?.blocked) return `A manager removed ${u.email} from this Flowbound.`
-    const role = fixed(u.email, claims) ?? was?.role ?? "none"
+    const role = fixed(u.email, claims) ?? was?.role ?? (s.defaultRole === "member" ? "member" : "none")
     await q(
       `insert into fb_door.people (email, name, role, checked, checked_at, seen_at) values ($1, $2, $3, $4, now(), now())
        on conflict (email) do update set name = $2, role = $3, checked = $4, checked_at = now(), seen_at = now()`,

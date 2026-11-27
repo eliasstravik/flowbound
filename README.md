@@ -235,7 +235,7 @@ bringing GTM consulting and agency work to its makers.
 The agent's instructions ship with the installed version: `npx flowbound docs`. Whole workflow files for shapes that
 come up again and again: `npx flowbound docs recipes`. `npx flowbound init --example` adds eight made-up companies and
 a workflow of plain code, tried once for $0.00. What changed in each version: [CHANGELOG.md](CHANGELOG.md).
-Signing in when live: [docs/sign-in.md](docs/sign-in.md). Other homes than Vercel: [docs/homes.md](docs/homes.md).
+[Company setup](docs/company.md). Signing in when live: [docs/sign-in.md](docs/sign-in.md). Other homes than Vercel: [docs/homes.md](docs/homes.md).
 Where your data lives, and how to back it up: [docs/if-it-breaks.md](docs/if-it-breaks.md). Found a security problem?
 Tell us privately: [SECURITY.md](SECURITY.md). Why things are the way they are: [docs/decisions.md](docs/decisions.md).
 To contribute, read [CONTRIBUTING.md](CONTRIBUTING.md).
