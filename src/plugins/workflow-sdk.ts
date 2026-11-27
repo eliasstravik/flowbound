@@ -114,6 +114,16 @@ export const workflowSdk = (opts: { on?: Home; editor?: string; vercel?: string 
   const halt = (run: Run, state: Run["state"], code: string, reason: string) =>
     q(`update ${S}.runs set state = $2, code = $3, reason = $4, finished_at = now() where id = $1 and state = 'running'`, [run.id, state, code, reason])
 
+  /** A provider card's name as people read it ("BlitzAPI"). */
+  const labelOf = (name: string) => (fb.plugins.find((p) => p.name === name)?.card as { label?: string } | undefined)?.label ?? name
+  /** The providers a workflow reaches, as people name them: "BlitzAPI", "BlitzAPI and FakeData". */
+  const paidFrom = (workflow: string) => {
+    const names = (manifest.workflows[workflow]?.uses ?? []).filter((u) => fb.plugins.some((p) => p.name === u && p.card)).map(labelOf)
+    return names.length > 1 ? `${names.slice(0, -1).join(", ")} and ${names.at(-1)}` : (names[0] ?? "")
+  }
+  /** How a run began, in one word: what started it, or that someone asked. */
+  const howOf = (run: Run) => (run.kind === "schedule" || run.kind === "webhook" ? run.kind : run.kind === "tryout" ? "try-out" : "asked")
+
   /** How a run looks to people and agents: the rows, the money, who said yes. */
   async function view(run: Run) {
     const counts = (
@@ -156,9 +166,15 @@ export const workflowSdk = (opts: { on?: Home; editor?: string; vercel?: string 
       workflow: run.workflow,
       name: `${run.title}, ${run.kind === "tryout" ? "try-out" : run.kind === "run" ? day(run.started_at).replace(/ \d{4}$/, "") : run.kind}`,
       title: run.title,
+      /** The folder its workflow sits in under workflows/ ("tam-mapping"), "" for none. */
+      folder: manifest.workflows[run.workflow]?.folder ?? (run.workflow.includes("/") ? run.workflow.slice(0, run.workflow.lastIndexOf("/")) : ""),
       kind: run.kind,
       state: run.state,
       startedBy: run.started_by ?? undefined,
+      /** What began it: its schedule, its webhook, or someone who asked (a try-out is always asked). */
+      how: howOf(run),
+      /** When it was asked for or began: a run that waits for a yes has not begun, but it was asked at this moment. */
+      at: new Date(run.started_at).toISOString(),
       // When it began and how long it took (so far, while it is going). A run that waits for a yes has not begun.
       ...(run.state === "waiting" ? {} : { started: new Date(run.started_at).toISOString(), ended: run.finished_at ? new Date(run.finished_at).toISOString() : undefined, took: took(run.started_at, run.finished_at) }),
       why: run.reason?.replaceAll("{n}", String(counts.done)).replaceAll("{left}", String(run.total - counts.tried)) ?? undefined,
@@ -182,6 +198,8 @@ export const workflowSdk = (opts: { on?: Home; editor?: string; vercel?: string 
       yesBy,
       into: run.into_table,
       fields,
+      /** "Open in workflow UI" for this run, where it works. */
+      open: uiWay() ? `${uiWay()}?run=${run.id}` : null,
       page: `${fb.url}/runs?run=${run.id}`,
     }
     if (run.kind !== "tryout") return out
@@ -210,7 +228,17 @@ export const workflowSdk = (opts: { on?: Home; editor?: string; vercel?: string 
 
   const scheduled = (workflow: string) => lines().some((l) => l.kind === "schedule" && l.workflow === workflow)
   /** The yes a run waits for, as the question the person answers. */
-  type Asks = { kind: "start" | "more"; question: string; why: string; cap?: string; suggestUsd: number | null }
+  type Asks = {
+    kind: "start" | "more"
+    question: string
+    /** The same question without the workflow's name, for the run's own page where the name is the title. */
+    short: string
+    why: string
+    cap?: string
+    suggestUsd: number | null
+    /** What the newest try-out of the same file did, so the person can judge the yes. */
+    tried?: { rows: number; found: number; usd: number; into: string }
+  }
   async function asks(run: Run, tried: number): Promise<Asks> {
     const cap = await ledger().spent(`run:${run.id}`)
     if (run.state === "waiting") {
@@ -219,11 +247,16 @@ export const workflowSdk = (opts: { on?: Home; editor?: string; vercel?: string 
         run.kind === "tryout"
           ? undefined
           : (await q<Run>(`select * from ${S}.runs where workflow = $1 and kind = 'tryout' and file_hash = $2 and state = 'done' order by id desc limit 1`, [run.workflow, run.file_hash]))[0]
-      const t: any = last ? ((await view(last)) as any).tryout : undefined
+      const v: any = last ? await view(last) : undefined
+      const t: any = v?.tryout
       const about: number | undefined = t && t.tried ? Math.max(t.estimateUsd / Math.max(1, t.all), 0) * run.total : undefined
+      const from = paidFrom(run.workflow)
+      const rest = `on ${run.total} ${run.total === 1 ? "row" : "rows"}${run.kind === "tryout" ? " first" : ""}${about ? `, about ${usd(about)}${from ? ` from ${from}` : ""}` : ""}${cap?.maxUsd != null ? `, stop at ${usd(cap.maxUsd)}` : ""}?`
       return {
         kind: "start" as const,
-        question: `${run.kind === "tryout" ? "Try" : "Run"} "${run.title}" on ${run.total} ${run.total === 1 ? "row" : "rows"}${run.kind === "tryout" ? " first" : ""}${about ? `, about ${usd(about)}` : ""}${cap?.maxUsd != null ? `, stop at ${usd(cap.maxUsd)}` : ""}?`,
+        question: `${run.kind === "tryout" ? "Try" : "Run"} "${run.title}" ${rest}`,
+        short: `${run.kind === "tryout" ? "Try" : "Run"} ${rest}`,
+        tried: v && t.tried ? { rows: t.tried as number, found: v.rows.found as number, usd: v.spent.usd as number, into: run.into_table } : undefined,
         why: `${run.kind === "schedule" || run.kind === "webhook" ? `Its ${run.kind} started it, and the mode is ask every time.` : "The mode is ask every time."}${scheduled(run.workflow) ? " Its schedule skips its next run until this is answered." : ""}`,
         suggestUsd: cap?.maxUsd ?? null,
       }
@@ -235,6 +268,7 @@ export const workflowSdk = (opts: { on?: Home; editor?: string; vercel?: string 
     return {
       kind: "more" as const,
       question: `Go on with "${run.title}" past ${ledger().capName(hit, b)}, for the ${left} ${left === 1 ? "row" : "rows"} left${hit === `run:${run.id}` && more ? `, up to ${usd(more)}` : ""}?`,
+      short: `Go on past ${ledger().capName(hit, b)}, for the ${left} ${left === 1 ? "row" : "rows"} left${hit === `run:${run.id}` && more ? `, up to ${usd(more)}` : ""}?`,
       why: `It paused at ${ledger().capName(hit, b)}.${scheduled(run.workflow) ? " Its schedule skips its next run until this is answered." : ""}`,
       cap: hit,
       suggestUsd: hit === `run:${run.id}` ? more : (cap?.maxUsd ?? null),
@@ -407,6 +441,55 @@ export const workflowSdk = (opts: { on?: Home; editor?: string; vercel?: string 
       const r = (await q<Run>(`select * from ${S}.runs where started_by = $1 order by id desc limit 1`, [by]))[0]
       return r ? view(r) : undefined
     },
+  }
+
+  /** A failure as people read it: without the runner's own words and Flowbound's markers ("[failed]", "[stop:cap@...]"). */
+  const plainWhy = (why: string) => (/\[stop:[\w-]+(?:@[^\]]*)?\]\s*(.*)$/s.exec(why)?.[1] ?? why).replace(/^(?:\w*Error: )?\[failed\]\s*/, "").replace(/^\w*Error: /, "").slice(0, 500)
+
+  /**
+   * Every "use step" function of the workflow files is timed: when it began and ended for which row of which run, and
+   * why it failed. The runner keeps its steps in one list for the whole process (the Workflow SDK's own); each one of
+   * the workflows/ folder is wrapped there once, and Flowbound's own driver steps are left as they are.
+   */
+  function timeSteps() {
+    const all = (globalThis as any)[Symbol.for("@workflow/core//registeredSteps")] as Map<string, any> | undefined
+    if (!all) return
+    const TIMED = Symbol.for("flowbound.timed")
+    for (const [id, fn] of all) {
+      if (typeof fn !== "function" || fn[TIMED] || !id.startsWith("step//") || !/(^|\/)workflows\//.test(id) || id.includes(".flowbound/")) continue
+      const name = id.slice(id.lastIndexOf("//") + 2)
+      const timed = Object.assign(async function (this: unknown, ...args: unknown[]) {
+        return time(name, () => fn.apply(this, args))
+      }, fn)
+      timed.stepId = fn.stepId
+      timed[TIMED] = true
+      all.set(id, timed)
+    }
+  }
+  async function time<T>(fn: string, go: () => Promise<T>): Promise<T> {
+    let key: string | undefined
+    try {
+      const wf = await import("workflow")
+      key = wf.getStepMetadata().stepId
+      // The row this batch is on, as the ledger was told: the same place its calls are written down under.
+      const got = await q(
+        `insert into ${S}.steps (key, run, row, fn) select $1, (scope->>'run')::bigint, (scope->>'row')::bigint, $2 from fb_ledger.scopes where key = $3 and scope->>'row' is not null
+         on conflict (key) do update set ended_at = null, error = null returning key`,
+        [key, fn, wf.getWorkflowMetadata().workflowRunId],
+      )
+      if (!got.length) key = undefined
+    } catch {
+      key = undefined
+    }
+    if (!key) return go()
+    try {
+      const out = await go()
+      await q(`update ${S}.steps set ended_at = now() where key = $1`, [key]).catch(() => {})
+      return out
+    } catch (e: any) {
+      await q(`update ${S}.steps set ended_at = now(), error = $2 where key = $1`, [key, plainWhy(String(e?.message ?? e))]).catch(() => {})
+      throw e
+    }
   }
 
   /** Give rows back that a batch took and will not do: the run stopped or paused before their turn. They stay not done. */
@@ -616,6 +699,107 @@ export const workflowSdk = (opts: { on?: Home; editor?: string; vercel?: string 
     }
   }
 
+  /** The column of a list that names its rows for people: a name, a company, a domain; else its first column. */
+  const NAMES = ["name", "company", "company_name", "full_name", "domain", "website", "email", "title", "url", "linkedin_url"]
+  async function nameColumn(list: string): Promise<string | undefined> {
+    const cols = (await q("select column_name as c from information_schema.columns where table_schema = 'public' and table_name = $1 order by ordinal_position", [list])).map((r) => r.c as string)
+    return NAMES.find((n) => cols.includes(n)) ?? cols.find((c) => c !== "id" && !c.endsWith("__fact"))
+  }
+  /** What one row cost, as the rows list says it: "$0.004", "free" (all of it already known), "$0" (nothing bought). */
+  const costText = (calls: { usd: number; fromMemory: boolean }[]) => {
+    const paid = calls.reduce((n, c) => n + c.usd, 0)
+    return paid ? usd(paid) : calls.length && calls.every((c) => c.fromMemory) ? "free" : "$0"
+  }
+  const ROWS_PAGE = 50
+  /** A run's rows, 50 at a time in list order: each with its name, how it went and what it cost. */
+  async function rowsOf(r: Run, page: number) {
+    const col = await nameColumn(r.list).catch(() => undefined)
+    const total = (await q(`select count(*)::int as n from ${S}.rows where run = $1`, [r.id]))[0].n as number
+    const got = await q<{ row: string; state: string; reason: string | null; label: unknown }>(
+      `select x.row, x.state, x.reason, ${col ? `l."${col}"` : "null"} as label from ${S}.rows x left join "${r.list}" l on l.id = x.row where x.run = $1 order by x.row limit $2 offset $3`,
+      [r.id, ROWS_PAGE, (page - 1) * ROWS_PAGE],
+    )
+    const calls = await ledger().rowCalls(
+      r.id,
+      got.map((x) => Number(x.row)),
+    )
+    return {
+      page,
+      of: Math.max(1, Math.ceil(total / ROWS_PAGE)),
+      total,
+      list: got.map((x) => {
+        const row = Number(x.row)
+        return {
+          row,
+          name: x.label === null || x.label === undefined || x.label === "" ? `Row ${row}` : String(x.label),
+          state: x.state as "running" | "done" | "failed",
+          reason: x.reason ?? undefined,
+          cost: costText(calls.filter((c) => c.row === row)),
+        }
+      }),
+    }
+  }
+
+  /** The box of the diagram that stands for a step: its words ("Find the head of sales"), or undefined when none does. */
+  const boxOf = (wf: Wf | undefined, fn: string) => {
+    const node = wf?.clicks?.find((c) => c.fn === fn)?.node
+    if (!node || !wf?.diagram) return undefined
+    // b[Words], b(Words), b{Words}, b([Words]), b["Words"], b[/Words/]: the words inside the box's brackets.
+    const m = new RegExp(`(?:^|[^\\w-])${node.replace(/-/g, "\\-")}\\s*[[({>]+\\s*"?([^"\\])}]*?)"?\\s*[\\])}]`, "m").exec(wf.diagram)
+    return m?.[1]?.replace(/<br\s*\/?>/gi, " ").replace(/^[/\\]+|[/\\]+$/g, "").trim() || undefined
+  }
+  /** The providers one step function reaches with use("..."), read from its own lines in the file. */
+  const callsOf = (wf: Wf | undefined, fn: string) => {
+    const text = wf?.text ?? ""
+    const at = text.search(new RegExp(`function\\s+${fn}\\s*\\(`))
+    if (at < 0) return []
+    const end = text.slice(at + 1).search(/\n(?:export\s|async\s+function\s|function\s)/)
+    const body = end < 0 ? text.slice(at) : text.slice(at, at + 1 + end)
+    return [...new Set([...body.matchAll(/\buse(?:<[^>]*>)?\(\s*["'`]([\w.-]+)["'`]\s*\)/g)].map((m) => m[1]!))].filter((u) => fb.plugins.some((p) => p.name === u && p.card)).map(labelOf)
+  }
+  /** "12 days old", "1 day old", "bought today": how old an answer from memory is. */
+  const ageOf = (at: string | null) => {
+    if (!at) return null
+    const d = Math.floor((Date.now() - new Date(at).getTime()) / 86_400_000)
+    return d <= 0 ? "bought today" : `${d} ${d === 1 ? "day" : "days"} old`
+  }
+  /** One row's steps on a time axis: each with its name, when it began and how long it took, who was paid and what, or why it failed. */
+  async function stepsOfRow(r: Run, row: number) {
+    const wf = manifest.workflows[r.workflow]
+    const x = (await q(`select state, reason from ${S}.rows where run = $1 and row = $2`, [r.id, row]))[0]
+    if (!x) throw new Refused(`Row ${row} is not in run ${r.id}.`)
+    const steps = await q<{ key: string; fn: string; started_at: string; ended_at: string | null; error: string | null }>(
+      `select key, fn, started_at, ended_at, error from ${S}.steps where run = $1 and row = $2 order by started_at, key`,
+      [r.id, row],
+    )
+    const calls = await ledger().rowCalls(r.id, [row])
+    const now = Date.now()
+    const t = (at: string | null) => (at ? new Date(at).getTime() : now)
+    const from = steps.length ? t(steps[0]!.started_at) : now
+    const to = steps.length ? Math.max(...steps.map((s) => t(s.ended_at))) : now
+    const list = steps.map((s) => {
+      const mine = calls.filter((c) => c.step === s.key)
+      const paid = mine.filter((c) => !c.fromMemory)
+      const by = [...new Set(paid.map((c) => c.from))]
+      const state = s.error ? "failed" : s.ended_at ? "done" : x.state === "running" ? "running" : "failed"
+      const where = callsOf(wf, s.fn)
+      const text =
+        state === "failed"
+          ? s.error || x.reason || "It did not finish."
+          : state === "running"
+            ? where.length
+              ? `waiting for ${where.join(" and ")}…`
+              : "running…"
+            : paid.length
+              ? by.map((b) => `${b} · ${usd(paid.filter((c) => c.from === b).reduce((n, c) => n + c.usd, 0))}`).join(" · ")
+              : mine.length
+                ? ["already known", ageOf(mine.map((c) => c.boughtAt).filter((a): a is string => !!a).sort()[0] ?? null), "free"].filter(Boolean).join(" · ")
+                : "no provider call · free"
+      return { fn: s.fn, name: boxOf(wf, s.fn) ?? s.fn, state, text, at: t(s.started_at) - from, ms: t(s.ended_at) - t(s.started_at) }
+    })
+    return { run: r.id, row, state: x.state as string, reason: x.reason ?? undefined, ms: to - from, steps: list }
+  }
+
   /** "Open in workflow UI": where it leads, or null where it does not work (a server of your own, for who may not manage). */
   const uiWay = () => (placeOf(fb.live) === "server" ? null : `${fb.url}/open/workflow-ui`)
   /** The Workflow SDK's own UI, inside this Flowbound. It has no door of its own: Flowbound's is in front of it. */
@@ -665,6 +849,10 @@ export const workflowSdk = (opts: { on?: Home; editor?: string; vercel?: string 
          add column retries int not null default 2, add column pause_failed int default 11, add column pause_of int default 20;
        drop index if exists ${S}.runs_one_standing;
        create unique index runs_one_auto on ${S}.runs (workflow) where state = 'running' and started_by is not null`,
+      // Each step a row went through: which function, when it began and ended, and why it failed. A row's timeline on its run's page.
+      `create table ${S}.steps (key text primary key, run bigint not null, row bigint not null, fn text not null,
+         started_at timestamptz not null default now(), ended_at timestamptz, error text);
+       create index steps_row on ${S}.steps (run, row, started_at)`,
     ],
     async start(f) {
       fb = f
@@ -697,6 +885,7 @@ export const workflowSdk = (opts: { on?: Home; editor?: string; vercel?: string 
           }
         }, 50)
       }
+      timeSteps()
       return { steps, workflows: () => manifest.workflows, clock, auto }
     },
     routes: {
@@ -830,24 +1019,29 @@ export const workflowSdk = (opts: { on?: Home; editor?: string; vercel?: string 
         print,
       },
       runs: {
-        about: "See runs: all of them, or one with its failed rows and why each failed.",
+        about: "See runs: all of them, newest first, or one with its failed rows and why each failed. With rows: a page of 50 of that run's rows, each with its state and cost.",
         role: "viewer",
         input: {
           run: { type: "number", about: "one run's number" },
           workflow: { about: "only runs of this workflow (its id)" },
           state: { about: "only runs in this state: running, waiting, paused, stopped or done" },
+          offset: { type: "number", about: "skip this many of the newest runs (to see older ones)" },
+          limit: { type: "number", about: "at most this many runs (50 unless said, 51 at most)" },
+          rows: { type: "number", about: "with run: this page of its rows, 50 to a page (1 is the first)" },
         },
         run: async (i) => {
           if (i.run === undefined) {
-            // The newest 50 that fit. Both filters are optional and are compared as values, never put into the SQL.
+            // The newest that fit, 50 at a time. Both filters are optional and are compared as values, never put into the SQL.
             const where = [i.workflow ? "workflow = $1" : "", i.state ? `state = $${i.workflow ? 2 : 1}` : ""].filter(Boolean)
-            const found = await q<Run>(`select * from ${S}.runs${where.length ? ` where ${where.join(" and ")}` : ""} order by id desc limit 50`, [i.workflow, i.state].filter(Boolean))
+            const limit = Math.max(1, Math.min(51, Math.floor(Number(i.limit)) || 50))
+            const offset = Math.max(0, Math.floor(Number(i.offset)) || 0)
+            const found = await q<Run>(`select * from ${S}.runs${where.length ? ` where ${where.join(" and ")}` : ""} order by id desc limit ${limit} offset ${offset}`, [i.workflow, i.state].filter(Boolean))
             return Promise.all(found.map(view))
           }
           const r = await getRun(i.run)
           if (!r) throw new Refused(`There is no run ${i.run}.`)
           const failed = await q(`select row, reason from ${S}.rows where run = $1 and state = 'failed' order by row limit 200`, [r.id])
-          return { ...(await view(r)), failedRows: failed }
+          return { ...(await view(r)), failedRows: failed, ...(i.rows !== undefined ? { rowsPage: await rowsOf(r, Math.max(1, Math.floor(Number(i.rows)) || 1)) } : {}) }
         },
         print: (r: any) =>
           Array.isArray(r)
@@ -860,6 +1054,18 @@ export const workflowSdk = (opts: { on?: Home; editor?: string; vercel?: string 
                   .join("\n")
               : "No runs yet."
             : [print(r), ...r.failedRows.map((f: any) => `  row ${f.row} failed: ${f.reason}`)].join("\n"),
+      },
+      steps: {
+        about: "One row of a run, step by step: each step's name, when it began and how long it took, who was paid and what, an answer already known, or why it failed.",
+        role: "viewer",
+        input: { run: { type: "number", about: "the run's number", required: true }, row: { type: "number", about: "the row's id in its list", required: true } },
+        run: async (i) => {
+          const r = await getRun(i.run)
+          if (!r) throw new Refused(`There is no run ${i.run}.`)
+          return stepsOfRow(r, Number(i.row))
+        },
+        print: (r: Awaited<ReturnType<typeof stepsOfRow>>) =>
+          r.steps.length ? r.steps.map((x) => `${x.name.padEnd(32)} ${`${x.ms} ms`.padEnd(9)} ${x.text}`).join("\n") : `No steps were written down for row ${r.row}.${r.reason ? ` ${r.reason}` : ""}`,
       },
       yes: {
         about:

@@ -69,6 +69,27 @@ test("the try-out: 10 rows, auto inside the caps (no yes), the card's numbers", 
   assert.equal(provider.state.calls - before, 19)
 })
 
+test("a run's rows and each row's steps: names, cost, who was paid, or why it failed", async () => {
+  const [run] = await json("runs")
+  const r = await api("runs", { run: run.run, rows: 1 })
+  const page = r.result.rowsPage
+  assert.equal(page.total, 10)
+  assert.equal(page.list.length, 10)
+  assert.deepEqual(page.list[0], { row: 1, name: "Co1", state: "done", cost: "$0.004" })
+  assert.equal(r.result.how, "try-out")
+  assert.equal(r.result.folder, "")
+  const steps = (await api("steps", { run: run.run, row: 1 })).result
+  assert.deepEqual(
+    steps.steps.map((s: any) => [s.fn, s.state, s.text]),
+    [
+      ["findHead", "done", "FakeData · $0.002"],
+      ["findEmail", "done", "FakeData · $0.002"],
+    ],
+  )
+  assert.ok(steps.steps[1].at >= steps.steps[0].at + steps.steps[0].ms - 5, "the second step begins after the first")
+  assert.match(await p.fb(`steps --run ${run.run} --row 1`), /findHead\s+\d+ ms\s+FakeData · \$0\.002/)
+})
+
 test('ledger: the same call again is answered from memory, and "not found" is remembered too', async () => {
   const before = provider.state.calls
   const again = (await api("fakedata", { path: "/v2/head", body: { company: "Co1" } })).result
