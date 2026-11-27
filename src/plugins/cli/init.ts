@@ -73,7 +73,7 @@ function writeIfMissing(file: string, text: string, made: string[], what: string
 async function install(root: string, quiet: boolean) {
   if (fs.existsSync(path.join(root, "node_modules", "flowbound", "package.json"))) return
   let spec = process.env.FLOWBOUND_INSTALL ?? `flowbound@${pkg.version}`
-  if (!process.env.FLOWBOUND_INSTALL && pkg.private) {
+  if (!process.env.FLOWBOUND_INSTALL && (pkg.private || spawnSync("npm", ["view", spec, "version"], { stdio: "ignore" }).status !== 0)) {
     fs.mkdirSync(path.join(root, ".flowbound"), { recursive: true })
     const out = execFileSync("npm", ["pack", pkgRoot, "--pack-destination", path.join(root, ".flowbound"), "--silent"], { encoding: "utf8" })
       .trim()

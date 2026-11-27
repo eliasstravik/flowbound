@@ -9,9 +9,9 @@ import { repo } from "./helpers.ts"
 const read = (file: string) => fs.readFileSync(path.join(repo, file), "utf8")
 const pkg = JSON.parse(read("package.json"))
 
-test("it stays private until the owner says go", () => {
-  assert.equal(pkg.private, true)
-  assert.match(read("docs/publish.md"), /"private": true,/)
+test("the package can be published with npm provenance", () => {
+  assert.notEqual(pkg.private, true)
+  assert.deepEqual(pkg.publishConfig, { access: "public", provenance: true })
 })
 
 test("it says where it lives, and every manifest carries the same version", () => {
@@ -50,5 +50,6 @@ test("the publish workflow runs only on a release tag, with provenance", () => {
   assert.doesNotMatch(on, /branches|pull_request|workflow_dispatch|schedule|release:/)
   assert.match(wf, /id-token: write/)
   assert.match(wf, /npm publish --provenance/)
-  assert.match(wf, /still says \\"private\\": true, so nothing is published/)
+  assert.match(wf, /environment: npm/)
+  assert.match(wf, /GITHUB_REF_NAME.*v\$v/)
 })
