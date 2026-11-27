@@ -30,11 +30,13 @@ const ICONS = { "arrow-down": arrowDown, "arrow-up": arrowUp, "arrow-up-right": 
 
 const fb = (() => {
   const boot = window.FB
+  const bridge = window.FB_BRIDGE
   const renders = {}
   const templates = {}
   let ids = 0
   let params = Object.fromEntries(new URLSearchParams(location.search))
-  const current = boot.page
+  let current = boot.page
+  let tools
 
   /** h("div", { class: "card" }, child, "text") - text is always set as text, never as HTML. */
   function h(tag, attrs, ...kids) {
@@ -60,6 +62,7 @@ const fb = (() => {
   }
 
   async function call(tool, input) {
+    if (bridge) return bridge.call(tool, input)
     const res = await fetch(`${base}/api/${tool}`, { method: "POST", headers: { "content-type": "application/json", "x-flowbound-via": "page" }, body: JSON.stringify(input || {}) })
     if (res.status === 401 || res.redirected) {
       // Signed out: on the way to the door. The page that asked is left waiting, so it never draws half an answer.
@@ -84,10 +87,22 @@ const fb = (() => {
   const href = (path, p) => base + plain(path, p)
   /** Open a page of this Flowbound, or any address. */
   function open(path, p) {
-    location.href = /^https?:/.test(path) ? path : boot.url + plain(path, p)
+    const url = /^https?:/.test(path) ? path : boot.url + plain(path, p)
+    if (bridge) return bridge.open(url).catch(trouble)
+    location.href = url
   }
   /** Move to another page. */
   function go(path, p) {
+    if (bridge) {
+      if (!renders[path]) return open(path, p)
+      current = path
+      params = p || {}
+      for (const el of document.querySelectorAll(".menu [data-go]")) {
+        if (el.dataset.go === path) el.setAttribute("aria-current", "page")
+        else el.removeAttribute("aria-current")
+      }
+      return draw()
+    }
     location.href = href(path, p)
   }
   /** A link to one of this Flowbound's pages. */
@@ -97,7 +112,7 @@ const fb = (() => {
   let stayAgain = false
   function stay(p) {
     params = Object.fromEntries(Object.entries({ ...params, ...p }).filter(([, v]) => v != null && v !== ""))
-    history.replaceState(null, "", href(current, params))
+    if (!bridge) history.replaceState(null, "", href(current, params))
     // One redraw at a time, always with the newest settings: an older, slower answer never lands on top of a newer one.
     if (staying) return void (stayAgain = true), staying
     staying = (async () => {
@@ -353,6 +368,17 @@ const fb = (() => {
     document.getElementById("menu-open")?.addEventListener("click", () => drawer.showModal())
     // A tap beside the menu closes it, as does a tap on a link in it.
     drawer?.addEventListener("click", (e) => (e.target === drawer || e.target.closest("a, [data-close]")) && drawer.close())
+    if (bridge) document.addEventListener("click", (e) => {
+      const link = e.target.closest("a[href]")
+      if (!link || link.hasAttribute("download") || link.hash.startsWith("#main")) return
+      const address = link.getAttribute("href")
+      if (!address.startsWith("/") && !/^https?:/.test(address)) return
+      e.preventDefault()
+      if (link.dataset.go) return go(link.dataset.go, {})
+      if (/^https?:/.test(address)) return open(address)
+      const [path, query] = address.slice(base.length).split("?")
+      return go(path, Object.fromEntries(new URLSearchParams(query)))
+    })
     for (const s of document.querySelectorAll("section[data-page]")) {
       const t = s.cloneNode(true)
       for (const script of t.querySelectorAll("script")) script.remove()
@@ -361,13 +387,35 @@ const fb = (() => {
   }
   async function start() {
     frame()
+    if (bridge) {
+      try {
+        await bridge.start((view) => {
+          boot.url = view.url
+          boot.live = view.live
+          for (const place of document.querySelectorAll("[data-place]")) {
+            place.dataset.place = view.live ? "live" : "local"
+            place.textContent = view.live ? "Live" : "Your computer"
+          }
+          boot.who = { role: view.role }
+          tools = new Set(view.tools ?? [])
+          go(view.path, view.params)
+        })
+      } catch (error) {
+        trouble(error)
+      }
+      return
+    }
     return draw()
   }
 
   return {
-    live: boot.live,
-    url: boot.url,
-    who: boot.who,
+    get live() { return boot.live },
+    get url() { return boot.url },
+    get who() { return boot.who },
+    embedded: !!bridge,
+    compact: () => !!bridge && document.body.dataset.mode === "inline",
+    supports: (tool) => !bridge || !!tools?.has(tool),
+    route: () => plain(current || "/runs", params),
     h,
     call,
     open,

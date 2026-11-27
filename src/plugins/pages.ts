@@ -23,51 +23,65 @@ const FILES: Record<string, string> = { "page.css": "text/css; charset=utf-8", "
 // The sheet follows the system's light or dark before anything is drawn.
 const THEME = `<script>(function(m){var d=document.documentElement,s=function(){d.dataset.theme||d.classList.toggle("dark",m.matches)};s();m.addEventListener("change",s)})(matchMedia("(prefers-color-scheme: dark)"))</script>`
 
-export const pages = () => {
-  let fb: Flowbound
-  const all = new Map<string, Page>()
-  const read = (file: string) => fs.readFileSync(file, "utf8")
-  const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!)
-  // Each built file is read once (again when it changed on disk), and named with a mark of its content: a browser
-  // keeps it until it changes.
-  const kept = new Map<string, { body: Buffer; mark: string; at: number }>()
-  const get = (name: string) => {
-    const at = fs.statSync(built(name)).mtimeMs
-    if (kept.get(name)?.at !== at) {
-      const body = fs.readFileSync(built(name))
-      kept.set(name, { body, mark: sha(body.toString("base64")).slice(0, 10), at })
-    }
-    return kept.get(name)!
+const read = (file: string) => fs.readFileSync(file, "utf8")
+const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!)
+// Each built file is read once (again when it changed on disk), and named with a mark of its content: a browser
+// keeps it until it changes.
+const kept = new Map<string, { body: Buffer; mark: string; at: number }>()
+const get = (name: string) => {
+  const at = fs.statSync(built(name)).mtimeMs
+  if (kept.get(name)?.at !== at) {
+    const body = fs.readFileSync(built(name))
+    kept.set(name, { body, mark: sha(body.toString("base64")).slice(0, 10), at })
   }
-  const at = (name: string) => `${fb.base}/assets/${name}?v=${get(name).mark}`
-  const FONT = /url\((["']?)(geist[a-z-]*\.woff2)\1\)/g
-  /** The style sheet as a file: its fonts are beside it, each with its own mark. */
-  const sheet = () =>
-    get("page.css")
-      .body.toString("utf8")
-      .replace(FONT, (_m, _q, name: string) => `url("${name}?v=${get(name).mark}")`)
-  /** Where "/" and the name in the corner lead: the page that says it comes first (Needs you), else the runs, else any page in the menu. */
-  const home = () => [...all].find(([, p]) => p.first)?.[0] ?? (all.has("/runs") ? "/runs" : ([...all].find(([, p]) => p.menu)?.[0] ?? "/api"))
-  const head: Pages["head"] = (title) => `<meta charset="utf-8">
+  return kept.get(name)!
+}
+const at = (base: string, name: string) => `${base}/assets/${name}?v=${get(name).mark}`
+const FONT = /url\((["']?)(geist[a-z-]*\.woff2)\1\)/g
+/** The style sheet as a file: its fonts are beside it, each with its own mark. */
+const sheet = () =>
+  get("page.css")
+    .body.toString("utf8")
+    .replace(FONT, (_m, _q, name: string) => `url("${name}?v=${get(name).mark}")`)
+/** Where "/" and the name in the corner lead: the page that says it comes first (Needs you), else the runs, else any page in the menu. */
+const home = (all: Map<string, Page>) => [...all].find(([, p]) => p.first)?.[0] ?? (all.has("/runs") ? "/runs" : ([...all].find(([, p]) => p.menu)?.[0] ?? "/api"))
+const head = (base: string, title: string) => `<meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="color-scheme" content="light dark">
 <title>${esc(title)} · Flowbound</title>
 ${THEME}
-<link rel="stylesheet" href="${at("page.css")}">`
+<link rel="stylesheet" href="${at(base, "page.css")}">`
 
-  const render: Pages["render"] = ({ path, who }) => {
-    const shown = [...all].filter(([p]) => p === path)
-    // The tabs in their order (a page of your own goes after the built-in tabs, in the order of the list).
-    const menu = [...all].filter(([, p]) => p.menu).sort(([, a], [, b]) => (a.order ?? 99) - (b.order ?? 99))
-    const boot = { live: fb.live, url: fb.url, base: fb.base, page: path ?? null, who: who ? { name: who.name, kind: who.kind, checked: who.checked !== false, role: who.role ?? null } : null }
-    const links = menu.map(([p, x]) => `<a href="${fb.base}${p}" data-go="${p}"${p === path ? ' aria-current="page"' : ""}>${esc(x.title)}</a>`).join("")
-    const brand = `<a class="brand" href="${fb.base}/" data-go="${home()}">Flowbound</a>`
-    const place = `<span class="place" data-place="${fb.live ? "live" : "local"}">${fb.live ? "Live" : "Your computer"}</span>`
-    const me =
-      fb.live && who?.kind === "person"
-        ? `<form class="me" action="${fb.base}/door/out" method="post"><span title="${esc(who.name)}">${esc(who.name.replace(/ \(.*\)$/, ""))}</span><button class="btn" data-variant="outline" data-size="sm" type="submit">Sign out</button></form>`
-        : ""
-    return `<!doctype html>
+const render = (
+  all: Map<string, Page>,
+  {
+    path,
+    who,
+    live = false,
+    url = "",
+    base = "",
+    app = false,
+  }: {
+    path?: string
+    who?: Who
+    live?: boolean
+    url?: string
+    base?: string
+    app?: boolean
+  },
+) => {
+  const shown = [...all].filter(([p]) => app || p === path)
+  // The tabs in their order (a page of your own goes after the built-in tabs, in the order of the list).
+  const menu = (app ? shown : [...all]).filter(([, p]) => p.menu).sort(([, a], [, b]) => (a.order ?? 99) - (b.order ?? 99))
+  const boot = { app, live: live, url: url, base: base, page: path ?? null, who: who ? { name: who.name, kind: who.kind, checked: who.checked !== false, role: who.role ?? null } : null }
+  const links = menu.map(([p, x]) => `<a href="${base}${p}" data-go="${p}"${p === path ? ' aria-current="page"' : ""}>${esc(x.title)}</a>`).join("")
+  const brand = `<a class="brand" href="${base}/" data-go="${home(all)}">Flowbound</a>`
+  const place = `<span class="place" data-place="${live ? "live" : "local"}">${live ? "Live" : "Your computer"}</span>`
+  const me =
+    live && who?.kind === "person"
+      ? `<form class="me" action="${base}/door/out" method="post"><span title="${esc(who.name)}">${esc(who.name.replace(/ \(.*\)$/, ""))}</span><button class="btn" data-variant="outline" data-size="sm" type="submit">Sign out</button></form>`
+      : ""
+  return `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -75,17 +89,33 @@ ${THEME}
 <meta name="color-scheme" content="light dark">
 <title>${esc(all.get(path ?? "")?.title ?? "Flowbound")} · Flowbound</title>
 ${THEME}
-<link rel="stylesheet" href="${at("page.css")}">
+${
+  app
+    ? `<style>${get("page.css")
+        .body.toString("utf8")
+        .replace(FONT, (_m, _q, name: string) => `url("data:font/woff2;base64,${get(name).body.toString("base64")}")`)}</style>`
+    : `<link rel="stylesheet" href="${at(base, "page.css")}">`
+}
 <script>window.FB = ${JSON.stringify(boot).replace(/</g, "\\u003c")}</script>
-<script src="${at("page.js")}"></script>
+${
+  app
+    ? `<script>${get("app.js")
+        .body.toString("utf8")
+        .replace(/<\/script/gi, "<\\/script")}</script>
+<script>${get("page.js")
+        .body.toString("utf8")
+        .replace(/<\/script/gi, "<\\/script")}</script>`
+    : `<script src="${at(base, "page.js")}"></script>`
+}
 </head>
-<body>
+<body${app ? ' data-embedded data-mode="inline"' : ""}>
 <a class="skip" href="#main">Skip to the page</a>
 <div class="app">
 <aside class="side"><div class="flex items-center justify-between gap-2">${brand}${place}</div><nav class="menu" aria-label="Pages">${links}</nav>${me}</aside>
 <header class="top"><button class="btn" data-variant="ghost" data-size="icon" type="button" id="menu-open" aria-label="Menu" aria-haspopup="dialog" data-icon="menu"></button>${brand}<span class="ml-auto mr-2">${place}</span></header>
 <dialog class="drawer" id="menu" aria-label="Menu"><div><div class="flex h-10 items-center gap-1"><button class="btn" data-variant="ghost" data-size="icon" type="button" data-close aria-label="Close the menu" data-icon="x"></button>${brand}</div><nav class="menu" aria-label="Pages">${links}</nav>${me}</div></dialog>
 <main id="main" tabindex="-1"><div class="page">
+${app ? '<div class="actions" id="app-actions" hidden></div>' : ""}
 <div id="trouble" class="alert" data-variant="destructive" role="alert" hidden></div>
 ${shown.map(([p, x]) => `<section data-page="${p}" hidden>\n${read(x.file)}\n</section>`).join("\n")}
 </div></main>
@@ -94,7 +124,16 @@ ${shown.map(([p, x]) => `<section data-page="${p}" hidden>\n${read(x.file)}\n</s
 <div id="offline" class="toast" data-tone="bad" role="status" hidden>Lost the connection. Trying again.</div>
 </body>
 </html>`
-  }
+}
+
+// Built-in views only. Hosts can fetch the static resource before the person opens a project.
+export const appPages = new Map<string, Page>([["/runs", { title: "Runs", file: asset("workflow-sdk/runs.html"), menu: true }]])
+export const renderApp = () => render(appPages, { app: true })
+
+export const pages = () => {
+  let fb: Flowbound
+  const all = new Map<string, Page>()
+  const web: Pages["render"] = (o) => render(all, { ...o, live: fb.live, url: fb.url, base: fb.base })
 
   const self = plugin({
     name: "pages",
@@ -105,8 +144,8 @@ ${shown.map(([p, x]) => `<section data-page="${p}" hidden>\n${read(x.file)}\n</s
       // A page that is only for a live Flowbound (people and their rights, agents' tokens) is not there on your own computer.
       for (const p of fb.plugins) for (const [path, page] of Object.entries(p.pages ?? {})) if (!page.live || fb.live) all.set(path, page)
       const html = (body: string) => new Response(body, { headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" } })
-      for (const path of all.keys()) self.routes[`GET ${path}`] = (_req, at) => html(render({ path, who: at.who }))
-      self.routes["GET /"] = () => new Response(null, { status: 302, headers: { location: fb.base + home() } })
+      for (const path of all.keys()) self.routes[`GET ${path}`] = (_req, at) => html(web({ path, who: at.who }))
+      self.routes["GET /"] = () => new Response(null, { status: 302, headers: { location: fb.base + home(all) } })
       // The sheet, the script and the fonts: open to all (the sign-in page needs them), kept by the browser for a year
       // because a changed file has a new mark in its address.
       for (const [name, type] of Object.entries(FILES))
@@ -117,7 +156,7 @@ ${shown.map(([p, x]) => `<section data-page="${p}" hidden>\n${read(x.file)}\n</s
             open: "all" as const,
           },
         )
-      return { list: () => [...all].map(([path, p]) => ({ path, title: p.title })), render, head } satisfies Pages
+      return { list: () => [...all].map(([path, p]) => ({ path, title: p.title })), render: web, head: (title) => head(fb.base, title) } satisfies Pages
     },
     docs: `## The page, for people
 People read, find their way, understand, and see what needs them, on a phone or a desktop. The page is at the address \`flowbound dev\` prints (http://localhost:4111). Tabs: \`/needs\` (Needs you: each yes that waits, a key that is missing), \`/runs\` (what ran, what failed and why), \`/tables\` (results, each cell with its source, age and cost; upload a CSV; download one), \`/workflows\` (your summary and diagram of each workflow, and its code), \`/changes\` (saved changes, checks, preview and Publish), \`/keys\` (keys are typed only there), \`/permissions\` (the mode and caps, and what this month has used).

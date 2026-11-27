@@ -18,6 +18,26 @@ Engineers can use Git and GitHub directly and their workflow pull requests show 
 Members can make, change, run and publish workflows. Admins also manage people, keys and settings. Owners can
 also remove the project. The Changes guide records the old-role mapping and setup.
 
+## Flowbound opens in the chat (27 Nov 2026)
+
+The [MCP Apps specification, 2026-01-26](https://github.com/modelcontextprotocol/ext-apps/blob/main/specification/2026-01-26/apps.mdx)
+links each tool to a fixed `ui://` resource at discovery. Flowbound keeps `search` and `execute` for the work and
+adds one read-only `show` tool for views. Attaching a view to `execute` would also open one for guide reads, background
+checks and every other call. The `show` result selects what to display and carries a plain link for text hosts.
+
+The embedded view uses the same Basecoat pages and components as the website. The host bridge uses the existing
+connection for `execute`, so Flowbound checks the same role and caps on every call. People answer spending requests
+through the agent. Key values and people-only changes stay on Flowbound's signed-in website.
+
+Host support checked on 27 Nov 2026:
+
+- Claude renders inline views on web, desktop and mobile. The side panel, embedded sites and navigation entry
+  points are rolling out on web and desktop, with account and connector eligibility. [Claude support](https://support.claude.com/en/articles/13454812-use-interactive-connectors-in-claude) · [Developer requirements](https://claude.com/docs/connectors/building/mcp-apps/getting-started)
+- ChatGPT uses the same resource and bridge standard. Custom MCP connections are available on the web on eligible
+  plans. [UI documentation](https://developers.openai.com/plugins/build/chatgpt-ui) · [Custom connection access](https://help.openai.com/en/articles/12584461-connecting-custom-mcp-servers-in-chatgpt)
+- Other MCP Apps hosts can use the same resource. In the terminal, use the plain tool results and links.
+  [MCP client support matrix](https://modelcontextprotocol.io/extensions/client-matrix)
+
 ## The reshape to the vision (26 Nov 2026)
 
 ### The person's three answers
@@ -38,7 +58,7 @@ also remove the project. The Changes guide records the old-role mapping and setu
 
 ### How it was built
 - **Agents get two MCP tools, `search` and `execute`**. `execute` runs a few lines of JavaScript with every tool as `flowbound.<name>(input)`, in QuickJS inside WebAssembly: no files, no network, no keys, only the tools, called as the caller with their rights; 64 MB and 10 minutes at most. It is also a command (`npx flowbound execute "<code>"`). Not Node's `vm`: that is no wall, and live the caller is somebody else's agent.
-- `show`, the MCP view resource and every in-chat page went with it: a person opens the link. The page's shared script lost its chat half.
+- The in-chat pages were removed in the reshape. The 27 Nov decision above restores them through the shared page renderer.
 - **Permission modes are presets over caps.** Ask: a run that calls a paid provider waits (state `waiting`) with its question under Needs you. Auto: it runs inside the caps. Skip: no caps, only a budget said in chat. The mode of a run is worked out when it begins: the strictest of the project's, its workflow's and every provider it uses.
 - Caps are budgets in the ledger, held by one atomic UPDATE each as before: the run's own (`run:<id>`), this month's (`month:<YYYY-MM>`), a workflow's or a provider's month, a provider's per run, and the write caps. A month's budget follows the rules as written now.
 - **A hit cap pauses the run** (state `paused`, code `cap`, the cap's id kept) and puts a yes under Needs you, where it waits. A yes on the run's own cap sets a new one (twice the old unless the person said a number); a yes on another cap (the month's, a provider's, the writes) lifts that cap for that run only, and the run's own still holds. Not now stops it.

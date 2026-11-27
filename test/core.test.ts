@@ -278,7 +278,7 @@ test("schedule() and hook() are lines that need the schedules part, and say what
   assert.throws(() => hook({ id: "new-leads", workflow: "" }), /must name its workflow/)
 })
 
-test("MCP offers two tools however many plugins are installed: search, and execute", async () => {
+test("MCP offers search and execute when no app pages are installed", async () => {
   const tools: any[] = [
     { name: "tables", about: "List your tables", input: {} },
     { name: "blitzapi", about: "Call BlitzAPI", input: { path: { about: "the path", required: true } }, price: "$0.0005 a call" },
@@ -300,6 +300,34 @@ test("MCP offers two tools however many plugins are installed: search, and execu
   assert.equal(ran.content[0].text, "hi\n---\n[\n  1,\n  2\n]")
   assert.match((await rpc("tools/call", { name: "show", arguments: {} })).result.content[0].text, /two MCP tools: search and execute/)
   assert.equal(await answer({ jsonrpc: "2.0", method: "notifications/initialized" }, behind), undefined)
+})
+
+test("MCP show opens a run without calling a work tool", async () => {
+  const behind = {
+    about: async () => ({ url: "https://example.test/flowbound", live: true, tools: [] }),
+    call: async () => assert.fail("Showing a view cannot execute work"),
+    app: { url: "https://example.test/flowbound", live: true, role: "viewer", tools: ["runs"] },
+  }
+  const rpc = (method: string, params?: unknown) => answer({ jsonrpc: "2.0", id: 1, method, params }, behind) as Promise<any>
+  const { tools } = (await rpc("tools/list")).result
+  assert.deepEqual(
+    tools.map((t: any) => t.name),
+    ["search", "execute", "show"],
+  )
+  assert.equal(tools[1]._meta?.ui, undefined)
+  const uri = tools[2]._meta.ui.resourceUri
+  const {
+    contents: [resource],
+  } = (await rpc("resources/read", { uri })).result
+  assert.equal(resource.uri, uri)
+  assert.equal(resource.mimeType, "text/html;profile=mcp-app")
+  assert.match(resource.text, /data-page="\/runs"/)
+  assert.doesNotMatch(resource.text, /example\.test/)
+  const { result } = await rpc("tools/call", { name: "show", arguments: { run: 2 } })
+  assert.equal(result.structuredContent.link, "https://example.test/flowbound/runs?run=2")
+  assert.match(result.content[0].text, /Open Flowbound run 2: https:\/\/example\.test\/flowbound\/runs\?run=2/)
+  assert.equal(result._meta.flowbound.role, "viewer")
+  assert.equal((await rpc("tools/call", { name: "show", arguments: { run: "bad" } })).result.isError, true)
 })
 
 test("execute runs code in a sandbox of its own: it reaches only the tools, as the caller, with time and memory capped", async () => {

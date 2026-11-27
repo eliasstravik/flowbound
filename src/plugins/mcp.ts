@@ -13,11 +13,34 @@ import { type Flowbound, plugin } from "../core/plugin.ts"
 import { about } from "../core/server.ts"
 import catalog from "./mcp/catalog.json" with { type: "json" }
 import { execute } from "./mcp/execute.ts"
+import { type Pages, renderApp } from "./pages.ts"
 
 type About = { url: string; live: boolean; tools: { name: string; about: string; input: Record<string, { type?: string; about: string; required?: boolean }>; price?: string; docs?: string }[] }
 /** What the MCP door needs from the Flowbound behind it. The same two calls locally (over HTTP) and live (in process). */
-type Behind = { about: (project?: unknown) => Promise<About>; call: (tool: string, input: unknown, project?: unknown) => Promise<unknown> }
+type Behind = {
+  about: (project?: unknown) => Promise<About>
+  call: (tool: string, input: unknown, project?: unknown) => Promise<unknown>
+  app?: { url: string; live: boolean; role?: string; tools: string[] }
+}
 type Rpc = { jsonrpc: "2.0"; id?: number | string; method: string; params?: any }
+
+const viewUri = "ui://flowbound/app.html"
+const resource = { uri: viewUri, name: "Flowbound", mimeType: "text/html;profile=mcp-app" }
+const ui = { resourceUri: viewUri, visibility: ["model", "app"] }
+const showTool = {
+  name: "show",
+  title: "Show Flowbound",
+  description: "Show a Flowbound run or its run list in chat. After execute starts or reads a run, call show with its run number to display its live status and any approval question. This only opens a view.",
+  annotations: { readOnlyHint: true, openWorldHint: false },
+  inputSchema: {
+    type: "object",
+    properties: {
+      run: { type: "integer", minimum: 1, description: "Run number from Flowbound" },
+      project: { type: "string", description: "Absolute path to the open project folder for local Flowbound." },
+    },
+  },
+  _meta: { ui },
+}
 
 const version = () => {
   try {
@@ -30,23 +53,40 @@ const version = () => {
 const CORS = { "access-control-allow-origin": "*", "access-control-allow-headers": "authorization, content-type, mcp-protocol-version, mcp-session-id", "access-control-allow-methods": "POST, OPTIONS" }
 const text = (s: string, more = {}) => ({ content: [{ type: "text", text: s }], ...more })
 
-export async function answer(msg: Rpc, behind: Behind): Promise<object | undefined> {
+export async function answer(msg: Rpc, behind: Behind, hasApp = !!behind.app): Promise<object | undefined> {
   const ok = (result: unknown) => ({ jsonrpc: "2.0", id: msg.id, result })
   if (msg.id === undefined) return undefined
   try {
     if (msg.method === "initialize")
       return ok({
         protocolVersion: catalog.versions.includes(msg.params?.protocolVersion) ? msg.params.protocolVersion : catalog.versions[0],
-        capabilities: { tools: {} },
+        capabilities: { tools: {}, ...(hasApp ? { resources: {}, extensions: { "io.modelcontextprotocol/ui": {} } } : {}) },
         serverInfo: { name: "flowbound", version: version() },
-        instructions: catalog.instructions,
+        instructions: catalog.instructions + (hasApp ? " After you start or inspect a run for the person, call show with its run number to open it in chat, and share its web link if chat cannot display it." : ""),
       })
     if (msg.method === "ping") return ok({})
-    if (msg.method === "tools/list") return ok({ tools: catalog.tools })
-    if (msg.method === "resources/list") return ok({ resources: [] })
+    if (msg.method === "tools/list") return ok({ tools: hasApp ? [...catalog.tools, showTool] : catalog.tools })
+    if (msg.method === "resources/list") return ok({ resources: hasApp ? [resource] : [] })
+    if (msg.method === "resources/read") {
+      if (msg.params?.uri !== viewUri || !hasApp) return { jsonrpc: "2.0", id: msg.id, error: { code: -32002, message: "Flowbound has no such resource." } }
+      return ok({ contents: [{ uri: viewUri, mimeType: resource.mimeType, text: renderApp(), _meta: { ui: { csp: {} } } }] })
+    }
     if (msg.method === "resources/templates/list") return ok({ resourceTemplates: [] })
     if (msg.method !== "tools/call") return { jsonrpc: "2.0", id: msg.id, error: { code: -32601, message: `Flowbound's MCP server has no ${msg.method}.` } }
     const { name, arguments: args = {} } = msg.params ?? {}
+    if (name === "show" && hasApp) {
+      if (args.run !== undefined && (!Number.isSafeInteger(args.run) || args.run <= 0)) throw new Error("Use a positive run number.")
+      const app = behind.app
+      const url = app?.url ?? (await behind.about(args.project)).url
+      const params = args.run === undefined ? {} : { run: args.run }
+      const link = `${url}/runs${args.run === undefined ? "" : `?run=${args.run}`}`
+      return ok(
+        text(`${args.run === undefined ? "Open Flowbound runs" : `Open Flowbound run ${args.run}`}: ${link}`, {
+          structuredContent: { view: { path: "/runs", params, url, live: app?.live ?? false }, link },
+          _meta: { flowbound: { role: app?.role, tools: app?.tools } },
+        }),
+      )
+    }
     if (name === "search") {
       const info = await behind.about(args.project)
       const words = String(args.query ?? "")
@@ -69,7 +109,7 @@ export async function answer(msg: Rpc, behind: Behind): Promise<object | undefin
       const shown = typeof out.result === "string" ? out.result : JSON.stringify(out.result, null, 2)
       return ok(text(`${out.logs.length ? `${out.logs.join("\n")}\n---\n` : ""}${shown}`, { structuredContent: { result: out.result, logs: out.logs } }))
     }
-    return ok(text(`Flowbound has two MCP tools: search and execute. There is no "${name}".`, { isError: true }))
+    return ok(text(`Flowbound has ${hasApp ? "search, execute and show" : "two MCP tools: search and execute"}. There is no "${name}".`, { isError: true }))
   } catch (e: any) {
     return ok(text(String(e?.message ?? e), { isError: true }))
   }
@@ -157,7 +197,16 @@ export async function stdio(remote?: URL) {
     },
   }
   const respond = async (msg: Rpc) => {
-    if (!remote || msg.method !== "tools/call" || msg.id === undefined) return answer(msg, behind)
+    const show = msg.method === "tools/call" && msg.params?.name === "show"
+    if (msg.id === undefined || msg.method !== "tools/call") return answer(msg, behind, true)
+    if (!remote) {
+      if (!show) return answer(msg, behind, true)
+      try {
+        return await (await api("/mcp", msg, msg.params?.arguments?.project)).json()
+      } catch (error) {
+        return { jsonrpc: "2.0", id: msg.id, error: { code: -32603, message: String(error) } }
+      }
+    }
     const ok = (result: unknown) => ({ jsonrpc: "2.0", id: msg.id, result })
     const session = (connected ??= import("./mcp/company.ts").then(({ signIn }) => signIn(remote, end.signal)))
     try {
@@ -206,11 +255,19 @@ export const mcp = (options: { timeoutMs?: number } = {}) => {
     },
     routes: {
       "POST /mcp": Object.assign(
-        async (req: Request, at: { who: any }) => {
+        async (req: Request, at: { who: import("../core/plugin.ts").Who }) => {
           const msg = await req.json()
           const behind: Behind = {
             about: async () => about(fb) as About,
             call: (tool, input) => fb.call(tool, input, { ...at.who, via: "mcp" }),
+            app:
+              fb.has("pages") &&
+              fb
+                .use<Pages>("pages")
+                .list()
+                .some(({ path }) => path === "/runs")
+                ? { url: fb.url, live: fb.live, role: at.who.role, tools: Object.keys(fb.tools).filter((name) => fb.tools[name]?.by !== "people") }
+                : undefined,
           }
           const out = Array.isArray(msg) ? (await Promise.all(msg.map((m) => answer(m, behind)))).filter(Boolean) : await answer(msg, behind)
           return out && (!Array.isArray(out) || out.length) ? Response.json(out, { headers: CORS }) : new Response(null, { status: 202, headers: CORS })
