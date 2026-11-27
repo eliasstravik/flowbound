@@ -5,12 +5,12 @@ description: Build and run GTM workflows (list building, research, enrichment, s
 
 Flowbound is installed per project, and its instructions ship with the installed version so they always match it.
 
-1. If this folder has no `flowbound.config.ts`, set it up first: `npx flowbound init` (no account, no sign-up).
-2. Read the instructions: `npx flowbound docs`. Follow them; do not work from memory of an older version.
-3. With no shell or project folder (a chat app connected to a live Flowbound): use `search` to find tools, then
-   `execute` with `return await flowbound.docs({ topic: "start" })`. Read the matching live guide before acting;
-   `topic: "topics"` lists parts, `"workflow-sdk"` explains workflows, and `"recipes"` gives examples. Every tool
-   below is available as `flowbound.<tool>(input)` through `execute`, including `doctor`, `permissions`, and `yes`.
+Start with the Flowbound `execute` tool and run `return await flowbound.docs({ topic: "start" })`.
+The first call in a local project sets up the folder and starts Flowbound automatically. It needs no account.
+In a connected chat, the same call reads the guide from the live Flowbound. Use `search` to find tools.
+`topic: "topics"` lists parts, `"workflow-sdk"` explains workflows, and `"recipes"` gives examples. Every tool
+below is available as `flowbound.<tool>(input)` through `execute`, including `doctor`, `permissions`, and `yes`.
+With a shell and no Flowbound tools configured, run `npx flowbound init` once and read `npx flowbound docs`.
 
 Workflows are code in the project's Git repo. Read `workflow-sdk` for the file format and `changes` for the
 Save and Publish steps. In chat, read the code and commit from `workflow-file`, write the new file, and save it

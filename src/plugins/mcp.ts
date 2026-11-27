@@ -2,12 +2,13 @@
 // lines of JavaScript that call tools (several at once, keeping only what is needed). The approach of Cloudflare's
 // code mode and Executor. Over stdio on your own computer (`flowbound mcp`); over HTTPS when live (/mcp).
 import fs from "node:fs"
+import os from "node:os"
 import path from "node:path"
 import readline from "node:readline"
 import { fileURLToPath } from "node:url"
 import { docs } from "../core/docs.ts"
 import { findRoot } from "../core/load.ts"
-import { ensure } from "../core/local.ts"
+import { ensure, join } from "../core/local.ts"
 import { type Flowbound, plugin } from "../core/plugin.ts"
 import { about } from "../core/server.ts"
 import { execute } from "./mcp/execute.ts"
@@ -95,25 +96,60 @@ export async function answer(msg: Rpc, behind: Behind): Promise<object | undefin
 }
 
 /** `flowbound mcp`: speak MCP on stdin and stdout, and pass every call to this folder's running Flowbound. */
-async function stdio(start: string | undefined) {
-  let root = start
+async function stdio() {
+  let root: string | undefined
+  let selecting: Promise<string> | undefined
+  let leave: (() => void) | undefined
+  let closed = false
   let asked = 0
   const waiting = new Map<number, (result: any) => void>()
   const send = (o: object) => process.stdout.write(`${JSON.stringify(o)}\n`)
   let canAskRoots = false
-  const address = async () => {
-    if (!root && canAskRoots) {
+  const select = async () => {
+    const cwd = fs.realpathSync(process.cwd())
+    const here = findRoot(cwd)
+    if (here) return here
+    const folders = new Set<string>()
+    if (canAskRoots) {
       // Some agent apps start the server away from the project. Ask the app which folders it has open.
       const got: any = await new Promise((done) => {
         const id = --asked
-        waiting.set(id, done)
+        const timer = setTimeout(() => {
+          waiting.delete(id)
+          done(undefined)
+        }, 3000)
+        waiting.set(id, (value) => {
+          clearTimeout(timer)
+          done(value)
+        })
         send({ jsonrpc: "2.0", id, method: "roots/list" })
-        setTimeout(() => done(undefined), 3000)
       })
-      for (const r of got?.roots ?? []) root ??= findRoot(fileURLToPath(r.uri))
+      for (const r of got?.roots ?? []) {
+        try {
+          const folder = fs.realpathSync(fileURLToPath(r.uri))
+          if (fs.statSync(folder).isDirectory()) folders.add(folder)
+        } catch {
+          // Some clients report locations that aren't on this machine.
+        }
+      }
     }
-    if (!root) throw new Error(`There is no Flowbound project in ${process.cwd()}. In the project's folder, run: npx flowbound init`)
-    return ensure(root)
+    const folder = folders.has(cwd) || !folders.size ? cwd : folders.size === 1 ? [...folders][0]! : undefined
+    if (!folder || folder === path.parse(folder).root || folder === fs.realpathSync(os.homedir())) {
+      throw new Error("Open one project folder in your agent app, then try Flowbound again.")
+    }
+    const existing = findRoot(folder)
+    if (existing) return existing
+    const { scaffold } = await import("./cli/init.ts")
+    await scaffold(folder)
+    return folder
+  }
+  const address = async () => {
+    root ??= await (selecting ??= select().finally(() => {
+      selecting = undefined
+    }))
+    if (closed) throw new Error("The agent session ended.")
+    leave ??= join(root)
+    return ensure(root, true)
   }
   const api = async (pathname: string, body?: unknown) => {
     const res = await fetch(`${await address()}${pathname}`, {
@@ -145,8 +181,13 @@ async function stdio(start: string | undefined) {
       continue
     }
     if (msg.method === "initialize") canAskRoots = !!msg.params?.capabilities?.roots
-    answer(msg, behind).then((out) => out && send(out))
+    answer(msg, behind).then((out) => {
+      if (out && !closed) send(out)
+    })
   }
+  closed = true
+  for (const done of waiting.values()) done(undefined)
+  leave?.()
 }
 
 export const mcp = () => {
@@ -190,7 +231,7 @@ export const mcp = () => {
       },
     },
     commands: {
-      mcp: { about: "the MCP server for agent apps (search, execute), over stdio", run: () => stdio(findRoot()) },
+      mcp: { about: "the MCP server for agent apps (search, execute), over stdio", run: stdio },
     },
     docs: `## MCP
 \`flowbound mcp\` is the MCP server (stdio). It has two tools however many plugins are installed: \`search\` (find tools and read their inputs and prices) and \`execute\` (a few lines of JavaScript that call tools as \`flowbound.<name>(input)\` and return what you need; several at once with Promise.all). Each tool is also a command: \`npx flowbound <tool>\`, and \`npx flowbound execute "<code>"\` runs the same code.
