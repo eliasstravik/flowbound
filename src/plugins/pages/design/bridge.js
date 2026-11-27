@@ -23,11 +23,17 @@ function keepNewestRun(view, instance) {
   if (!view.params.run || !instance || typeof BroadcastChannel === "undefined") return
   // Hosts can sandbox each view into its own origin. When views share an origin,
   // announce only an ordering key, scoped to this Flowbound and run.
-  const channel = new BroadcastChannel(`flowbound:${view.url}:run:${view.params.run}`)
+  let channel
+  try {
+    channel = new BroadcastChannel(`flowbound:${view.url}:run:${view.params.run}`)
+  } catch {
+    // An isolated sandbox can still show the run even if it cannot reach sibling views.
+    return
+  }
   siblings = channel
   channel.onmessage = ({ data }) => {
     if (typeof data?.instance !== "string") return
-    if (data.instance > instance) return void collapse()
+    if (data.instance > instance) return void collapse().catch(() => {})
     if (data.hello) channel.postMessage({ instance })
   }
   channel.postMessage({ instance, hello: true })
