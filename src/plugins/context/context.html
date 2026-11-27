@@ -36,7 +36,7 @@ fb.page("/context", async (root, params) => {
   const head = ui.head({ title: here ? named(here.split("/").pop()) : "Context", sub: here ? null : "Anything your agent should know, as files and folders. Your agent writes them; workflows and chats use them." })
   const path = here ? ups(here) : null
   if (!all.length) return view.replaceChildren(head, h("p", { class: "text-muted-foreground" }, "Nothing here yet. Ask your agent to write down what it should know."))
-  const folders = [...new Set(all.flatMap((f) => (f.folder ? f.folder.split("/").map((_, i, p) => p.slice(0, i + 1).join("/")) : [])))].sort()
+  const folders = [...new Set(all.flatMap((f) => (f.folder ? f.folder.split("/").map((_, i, p) => p.slice(0, i + 1).join("/")) : [])))].sort((a, b) => a.localeCompare(b))
   if (here && !folders.includes(here)) return view.replaceChildren(ui.path(path.slice(0, -1), path.at(-1)[2]), head, ui.empty({ title: "No folder here", text: "It was moved or emptied.", actions: [ui.link("/context", {}, "All context", { class: "btn", "data-variant": "outline" })] }))
   const kids = folders.filter((f) => (f.includes("/") ? f.slice(0, f.lastIndexOf("/")) : "") === here)
   const plural = (n, one) => `${n} ${one}${n === 1 ? "" : "s"}`

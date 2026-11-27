@@ -395,7 +395,8 @@ export const postgres = (opts: PostgresOptions = {}) => {
       return readers.length === 1 ? readers[0]! : ""
     }
     const ownRows = []
-    for (const [name, about] of Object.entries(own())) {
+    // Runs, facts and calls first; where your tables came from last.
+    for (const [name, about] of Object.entries(own()).sort(([a], [b]) => Number(a.startsWith("fb_postgres.")) - Number(b.startsWith("fb_postgres.")))) {
       const [schema, table] = name.split(".")
       const there = (await query("select 1 from information_schema.tables where table_schema = $1 and table_name = $2", [schema, table])).rows.length
       if (there) ownRows.push({ name, short: table!, about, rows: (await query(`select count(*)::int as n from ${ident(schema!)}.${ident(table!)}`)).rows[0].n })

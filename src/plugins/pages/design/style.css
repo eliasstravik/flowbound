@@ -145,6 +145,7 @@
   /* Data: the table list beside the grid. On a phone the open table's name on top; tap it for the list. */
   .dsplit { @apply grid min-w-0 grid-cols-1 gap-5 md:grid-cols-[13rem_minmax(0,1fr)]; }
   .dsplit > div { @apply flex min-w-0 flex-col gap-4; }
+  .dsplit .table-container { @apply mx-0 px-0; }
   .tpick { @apply w-fit font-mono md:hidden; }
   .tlist { @apply flex flex-col gap-px max-md:rounded-lg max-md:border max-md:p-1 max-md:[&:not([data-open])]:hidden md:sticky md:top-6 md:self-start; }
   .tlist > h2 { @apply text-muted-foreground mx-2 mt-2 mb-0.5 text-xs font-normal first:mt-0; }

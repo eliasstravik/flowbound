@@ -10,7 +10,7 @@ fb.page("/tables", async (root, params) => {
   // The table list, grouped as the workflows are: each folder (a play), then tables in no folder, then Flowbound's own.
   const d = await call("data")
   if (!d.tables.length && !params.table) return view.replaceChildren(ui.head({ title: "Data" }), h("p", { class: "text-muted-foreground" }, "No tables yet. A workflow's results land here."))
-  const folders = [...new Set(d.tables.map((t) => t.folder).filter(Boolean))].sort()
+  const folders = [...new Set(d.tables.map((t) => t.folder).filter(Boolean))].sort((a, b) => a.localeCompare(b))
   const groups = [
     ...folders.map((f) => [f.split("/").map(named).join(" / "), d.tables.filter((t) => t.folder === f)]),
     [folders.length ? "Not in a folder" : "Yours", d.tables.filter((t) => !t.folder)],
