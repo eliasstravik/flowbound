@@ -45,7 +45,7 @@ const home = async (root) => {
     return ui.status(r.state)
   }
   // What ran and what runs now: a run that waits for a yes is already under Needs attention.
-  const ran = runs.filter((r) => r.started)
+  const ran = runs.filter((r) => r.started && !r.asks)
   const recent = ran.length
     ? h("ul", { class: "rows sm:grid-cols-[minmax(0,1fr)_auto_auto]", role: "list" },
         ran.slice(0, 5).map((r) => h("li", {}, ui.link("/runs", { run: r.run }, [
