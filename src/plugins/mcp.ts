@@ -147,7 +147,8 @@ export async function answer(msg: Rpc, behind: Behind, showApp = false): Promise
       let result = out.result
       const record = object(result)
       const run = embedded?.view.params.run
-      const liveRun = run !== undefined && record?.state !== "done" && record?.state !== "stopped"
+      const state = record?.state
+      const liveRun = run !== undefined && (state === undefined || state === "running" || state === "waiting" || (state === "paused" && !!record?.asks))
       if (liveRun && record?.run === Number(run)) {
         // The card reads its own status. Give the model stable context and keep any question that needs a person's answer.
         const { title, asks } = record

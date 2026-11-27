@@ -307,9 +307,10 @@ test("MCP execute selects a view for displayable results and keeps other results
   const run = { run: 2, page: `${url}/runs?run=2`, state: "running", rows: { done: 1, of: 4 } }
   const waiting = { ...run, state: "waiting", asks: { question: "Run the workflow?" } }
   const done = { ...run, state: "done", rows: { done: 4, of: 4 } }
+  const paused = { ...run, state: "paused", why: "Too many failures." }
   const workflow = { id: "sample", page: `${url}/workflows?workflow=sample` }
   const table = { name: "sample", total: 4, columns: [], rows: [] }
-  const values = { run, waiting, done, workflow, table, guide: "# Guide", invalid: { flowboundView: { page: "keys" } }, pick: { flowboundView: { table: "example & test" } } }
+  const values = { run, waiting, done, paused, workflow, table, guide: "# Guide", invalid: { flowboundView: { page: "keys" } }, pick: { flowboundView: { table: "example & test" } } }
   let calls = 0
   const behind = {
     about: async () => ({ url, live: true, tools: [] }),
@@ -348,6 +349,7 @@ test("MCP execute selects a view for displayable results and keeps other results
   assert.notEqual(shown._meta.flowbound.instance, (await call({ code: "run" }))._meta.flowbound.instance)
   assert.deepEqual((await call({ code: "waiting" })).structuredContent.result, { run: 2, asks: waiting.asks, view: "live" })
   assert.deepEqual((await call({ code: "done" })).structuredContent.result.rows, { done: 4, of: 4 })
+  assert.match((await call({ code: "paused" })).content[0].text, /"why": "Too many failures."/)
   assert.deepEqual((await call({ code: "workflow" }))._meta.flowbound.view.params, { workflow: "sample" })
   assert.deepEqual((await call({ code: "table" }))._meta.flowbound.view.params, { table: "sample" })
   assert.deepEqual((await call({ code: "pick" }))._meta.flowbound.view.params, { table: "example & test" })
