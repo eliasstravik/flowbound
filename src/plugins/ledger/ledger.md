@@ -25,7 +25,7 @@ permissions: {
   mode: "auto",                                         // "ask" | "auto" | "skip"
   caps: { perRun: 5, perMonth: 100, writesPerMonth: 500 },
   workflows: { "big-enrich": { mode: "ask" } },         // a rule of its own: a mode, caps, or both
-  providers: { hubspot: { writesPerRun: 200 } },
+  providers: { crm: { writesPerRun: 200 } },
 }
 ```
 

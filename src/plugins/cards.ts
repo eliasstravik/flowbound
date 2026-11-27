@@ -67,24 +67,3 @@ export const treg = (over: Over = {}) =>
     price: { reported: (a) => (a.headers["x-treg-cost-micro"] === undefined ? 0 : (Number(a.headers["x-treg-cost-micro"]) || 0) / 1_000_000) },
     ...over,
   })
-
-/**
- * HubSpot: a CRM that Flowbound can read and write, under the same permissions. Its API has no price per call, so a
- * call costs $0; a write counts by number against the write caps (writesPerRun, writesPerMonth). Searches are POST
- * but only read. A private app's token, typed on the Connections page.
- */
-export const hubspot = (over: Over = {}) =>
-  provider({
-    name: "hubspot",
-    label: "HubSpot",
-    host: "api.hubapi.com",
-    key: { header: "authorization", prefix: "Bearer " },
-    docs: "https://developers.hubspot.com/docs/api-reference/latest/overview",
-    about:
-      "Read and write CRM records: GET /crm/v3/objects/contacts, POST /crm/v3/objects/contacts/search (reads), POST /crm/v3/objects/contacts (writes), PUT /crm/v3/lists/{id}/memberships/add (writes). Every write counts against the write caps.",
-    price: { perCall: 0 },
-    rate: { perSecond: 10 },
-    writes: ({ method, path }) => method !== "GET" && !/\/search$/.test(path),
-    check: "/crm/v3/objects/contacts?limit=1",
-    ...over,
-  })

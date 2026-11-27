@@ -35,7 +35,7 @@ export const acmeData = () =>
 Other card lines: `price.reported: (answer) => usd` when the provider reports each call's cost in its answer
 (`answer.data`, `answer.headers`); that wins over `perCall`. A card that can write to another tool (a CRM, a sequencer) says
 which calls write: `writes: ({ method, path }) => method !== "GET"` (or `true`); each write counts against the write
-caps and is never answered from memory (`hubspot()` is the example). How long a kept fact stays fresh is one setting
+caps and is never answered from memory. How long a kept fact stays fresh is one setting
 for the project, `facts: { freshDays }`, not a card line. With `check`, `npx flowbound doctor --deep` finds a saved key the provider no longer takes; pick a path
 from the manual that costs nothing (an account or credits endpoint). A webhook's signing secret is typed on the
 same page (see `npx flowbound docs schedules`).

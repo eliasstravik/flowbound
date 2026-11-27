@@ -2,6 +2,10 @@
 
 What changed in each version, in the words of what you will notice. Newest first.
 
+## Unreleased
+
+- The HubSpot card is removed. A connection is a name you choose and a key; to write to another tool, add it as a provider and say which calls write (see the README).
+
 ## 0.1.1
 
 - Open Flowbound inside supported chats. Your agent uses two tools: `search` finds what Flowbound can do and `execute` does the work. See run progress, spending questions, result tables and workflow diagrams in chat, with web links in text-only chats.

@@ -89,7 +89,7 @@ function make(host: string, name: keyof typeof PORTS, more: string, env: Record<
     path.join(p.root, "flowbound.config.ts"),
     `import { firecrawl, hook, schedule } from "flowbound"\nimport { fakedata } from "./plugins/fakedata.ts"\nimport { crm } from "./plugins/crm.ts"\nexport default {\n  providers: [fakedata(), crm(), firecrawl()],\n${more}\n}\n`,
   )
-  // A CRM card that can write, under the same permissions (a HubSpot or sequencer card works the same way).
+  // A CRM card that can write, under the same permissions.
   fs.writeFileSync(
     path.join(p.root, "plugins", "crm.ts"),
     `import { provider } from "flowbound"\nexport const crm = () => provider({ name: "crm", label: "FakeCRM", host: "${host}", key: { header: "x-api-key" }, docs: "${host}/docs", price: { perCall: 0 }, writes: ({ method }) => method !== "GET" })\n`,

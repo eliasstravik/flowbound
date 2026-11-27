@@ -5,7 +5,7 @@
 
 import type { Plugin } from "./core/plugin.ts"
 import { ai } from "./plugins/ai.ts"
-import { blitzapi, firecrawl, hubspot } from "./plugins/cards.ts"
+import { blitzapi, firecrawl } from "./plugins/cards.ts"
 import { type ChangesOptions, changes } from "./plugins/changes.ts"
 import { cli } from "./plugins/cli.ts"
 import { context } from "./plugins/context.ts"
@@ -32,7 +32,7 @@ export type { Records } from "./plugins/postgres.ts"
 export type { Card, Picked, Provider, Result } from "./plugins/provider.ts"
 export { provider } from "./plugins/provider.ts"
 export type { HookLine, ScheduleLine } from "./plugins/schedules.ts"
-export { ai, blitzapi, changes, cli, context, door, firecrawl, hook, hubspot, keys, ledger, mcp, overview, pages, postgres, schedule, schedules, workflowSdk }
+export { ai, blitzapi, changes, cli, context, door, firecrawl, hook, keys, ledger, mcp, overview, pages, postgres, schedule, schedules, workflowSdk }
 
 /** What `flowbound.config.ts` says. Only `providers` and `permissions` are needed; the rest has a sensible default. */
 export type Config = {
