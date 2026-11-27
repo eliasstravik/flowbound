@@ -351,6 +351,15 @@ const fb = (() => {
     link,
     /** A state as a dot and a word: ui.status("running"), ui.status("stopped", "Stopped at its cap", "warn") */
     status: (state, text, tone) => h("span", { class: "status", "data-tone": tone || TONES[state] || "idle" }, text || state.replace(/^./, (c) => c.toUpperCase())),
+    /** A run's state as the Runs list and a run's page say it: Running · 57 of 200, Waiting for a yes, Done, Failed. */
+    runState: (r, short) =>
+      r.asks
+        ? ui.status("waiting", "Waiting for a yes", "warn")
+        : r.state === "running"
+          ? ui.status("running", short ? "Running" : `Running · ${num(r.rows.done)} of ${num(r.rows.of)}`)
+          : r.state === "stopped"
+            ? ui.status("stopped", r.code === "person" ? "Stopped" : "Failed", "bad")
+            : ui.status(r.state),
     badge: (text, tone) => h("span", { class: "badge", "data-variant": tone === "bad" ? "destructive" : "secondary", "data-tone": tone }, text),
     /** The top of a page: ui.head({ title, sub, back: ["/runs", "All runs"], status, actions }) */
     head(o) {

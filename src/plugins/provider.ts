@@ -73,10 +73,14 @@ const dig = (data: unknown, path: string): unknown =>
     .reduce<any>((v, k) => (v === null || v === undefined ? undefined : v[k]), data)
 
 /** The workflow run this code is a step of, if any. */
-async function stepOf(): Promise<{ run?: string; fatal?: (m: string) => Error }> {
+async function stepOf(): Promise<{ run?: string; id?: string; fatal?: (m: string) => Error }> {
   try {
     const wf = await import("workflow")
-    return { run: wf.getWorkflowMetadata().workflowRunId, fatal: (m) => new wf.FatalError(m) }
+    let id: string | undefined
+    try {
+      id = wf.getStepMetadata().stepId
+    } catch {}
+    return { run: wf.getWorkflowMetadata().workflowRunId, id, fatal: (m) => new wf.FatalError(m) }
   } catch {
     return {}
   }
@@ -120,6 +124,7 @@ export function provider(card: Card): Plugin {
           reported: card.price?.reported,
           freshDays: opts.freshDays,
           scopeKey: step.run,
+          step: step.id,
           rate: card.rate,
           write: opts.write ?? (typeof card.writes === "function" ? card.writes({ method, path }) : !!card.writes),
           how: opts.how,

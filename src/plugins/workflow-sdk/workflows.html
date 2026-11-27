@@ -136,16 +136,20 @@ fb.page("/workflows", async (root, params) => {
   }
 
   if (tab === "Runs") {
-    const runs = await call("runs", { workflow: w.id })
-    if (!runs.length) return body.append(h("p", { class: "text-muted-foreground" }, "No runs yet. Ask your agent to try it on a few rows."))
-    const state = (r) => (r.asks ? ui.status("waiting", "Waiting for a yes", "warn") : r.state === "running" ? ui.status("running", `Running · ${fb.num(r.rows.done)} of ${fb.num(r.rows.of)}`) : ui.status(r.state))
-    body.append(h("ul", { class: "rows sm:grid-cols-[minmax(8rem,2fr)_auto_auto_minmax(6rem,1fr)]", role: "list" },
-      h("li", { class: "rows-head", "aria-hidden": "true" }, ...["Run", "State", "Spent", "Started"].map((t) => h("span", {}, t))),
-      runs.map((r) => h("li", {}, ui.link("/runs", { run: r.run }, [
-        h("span", {}, r.name.replace(`${r.title}, `, "")),
-        h("span", { "data-live": `state${r.run}` }, state(r)),
-        h("span", { class: "meta" }, h("span", {}, r.spent.text), h("span", {}, r.started ? fb.when(r.started) : "Not begun")),
-      ])))))
+    // The Runs list, for this workflow only: each run by its day, with its state; 50 at a time.
+    const page = Math.max(1, Math.floor(Number(params.page)) || 1)
+    const got = await call("runs", { workflow: w.id, offset: (page - 1) * 50, limit: 51 })
+    const runs = got.slice(0, 50)
+    if (!runs.length && page === 1) return body.append(h("p", { class: "text-muted-foreground" }, "No runs yet. Ask your agent to try it on a few rows."))
+    const day = (at) => new Date(at).toLocaleDateString("en-GB", { day: "numeric", month: "short", ...(new Date(at).getFullYear() === new Date().getFullYear() ? {} : { year: "numeric" }) })
+    const turn = (label, to, off) => h("button", { class: "btn", "data-variant": "outline", "data-size": "sm", type: "button", disabled: off, onclick: () => fb.stay({ page: to > 1 ? to : null }) }, label)
+    body.append(
+      h("ul", { class: "rows sm:grid-cols-[minmax(0,1fr)_auto]", role: "list" },
+        runs.map((r) => h("li", {}, ui.link("/runs", { run: r.run }, [
+          h("span", { title: new Date(r.at).toLocaleString() }, day(r.at)),
+          h("span", { class: "meta" }, h("span", { "data-live": `state${r.run}` }, ui.runState(r))),
+        ])))),
+      page > 1 || got.length > 50 ? h("div", { class: "pager" }, h("p", { class: "num" }, `Page ${fb.num(page)}`), h("div", { class: "actions" }, turn("Previous", page - 1, page <= 1), turn("Next", page + 1, got.length <= 50))) : null)
     if (runs.some((r) => r.state === "running")) fb.poll(3000)
     return
   }

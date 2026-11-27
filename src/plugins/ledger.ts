@@ -70,6 +70,8 @@ export type Ledger = {
       write?: boolean
       /** How the answer is got, when a provider has more than one way: kept with the fact. */
       how?: string
+      /** The workflow step this call is made in (the runner's id for it): a row's steps show their calls. */
+      step?: string
     },
     go: () => Promise<Answer>,
   ) => Promise<Paid>
@@ -86,6 +88,8 @@ export type Ledger = {
   filled: (o: Scope) => Promise<{ calls: number; usd: number; unpriced: number; worth: number; writes: number }>
   /** The same, told apart by who was paid: one line per provider. */
   paidTo: (o: Scope) => Promise<{ from: string; how: string | null; calls: number; fromMemory: number; usd: number }[]>
+  /** Every call one run made for these rows: by row and step, who was paid, what it cost, and when an answer from memory was bought. */
+  rowCalls: (run: number, rows: number[]) => Promise<{ row: number; step: string | null; from: string; usd: number; fromMemory: boolean; boughtAt: string | null }[]>
   /** Where each answered cell of a results table came from, with its age and cost. Keyed "row:fact". */
   sources: (into: string, cells: { row: number; fact: number }[]) => Promise<Record<string, Source>>
   /** Every kept answer, from any provider, whose cleaned inputs hold this value: one lookup across providers. */
@@ -324,7 +328,7 @@ export const ledger = (opts: { permissions?: Permissions; freshDays?: number; on
           fromMemory,
           priced,
           budgets,
-          JSON.stringify({ ...scope, lifted: undefined, mode: undefined, retries: undefined }),
+          JSON.stringify({ ...scope, lifted: undefined, mode: undefined, retries: undefined, step: o.step }),
           write,
         ])
       // A write is an act, not a question: it is done every time, never answered from memory.
@@ -440,6 +444,22 @@ export const ledger = (opts: { permissions?: Permissions; freshDays?: number; on
         [JSON.stringify(scope)],
       )
       return rows.map((r: any) => ({ from: label(r.provider), how: r.how ?? null, calls: r.calls, fromMemory: r.fromMemory, usd: r.usd }))
+    },
+    async rowCalls(run, rows) {
+      if (!rows.length) return []
+      const got = await q(
+        `select (c.scope->>'row')::bigint as row, c.scope->>'step' as step, c.provider, c.cost_usd, c.from_memory, f.at as bought
+         from fb_ledger.calls c left join fb_ledger.facts f on f.id = c.fact where c.scope @> $1::jsonb and (c.scope->>'row')::bigint = any($2::bigint[]) order by c.id`,
+        [JSON.stringify({ run }), rows],
+      )
+      return got.map((r: any) => ({
+        row: Number(r.row),
+        step: r.step ?? null,
+        from: label(r.provider),
+        usd: r.from_memory ? 0 : Number(r.cost_usd),
+        fromMemory: !!r.from_memory,
+        boughtAt: r.bought ? new Date(r.bought).toISOString() : null,
+      }))
     },
     async sources(into, cells) {
       if (!cells.length) return {}
