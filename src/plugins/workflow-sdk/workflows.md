@@ -191,6 +191,8 @@ own for that workflow's caps).
 - `npx flowbound yes <run> [--max-usd <n>]` / `npx flowbound no <run>`: the person's answer to a run that waits
 - `npx flowbound runs` / `npx flowbound runs <number>`: all runs / one run with its failed rows, when it started
   and how long it took; `--state paused` or `--workflow <id>` shows only those
+- `npx flowbound steps --run <number> --row <id>`: one row's steps, as its run's page shows them: each step's name
+  (its box in the diagram), how long it took, who was paid and what, or why it failed
 - one run of a workflow at a time: a second start is refused with the number of the one that is going
 - `npx flowbound resume <number>` (after failures or a missing key), `npx flowbound stop <number>`
 - `npx flowbound lookup <value>`: what is already known about an email, a domain or a name, from every provider

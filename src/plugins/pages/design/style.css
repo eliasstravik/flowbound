@@ -251,6 +251,20 @@
   .decision .amount b { @apply text-2xl font-semibold tracking-tight tabular-nums; }
   .input.money { @apply w-32 text-right tabular-nums; }
 
+  /* A run's rows: tap one for its steps, each on a time axis under it. */
+  .table tr.tap { @apply cursor-pointer; }
+  .table tr.tap:hover > td { @apply bg-muted/60; }
+  .table tr.tap td > button { @apply max-w-none cursor-pointer font-semibold no-underline; }
+  .table td.trace-cell { @apply whitespace-normal pr-0; }
+  .trace { @apply my-1 flex flex-col rounded-lg border px-3 py-1.5; }
+  .trace > .step { @apply grid grid-cols-1 items-center gap-x-3 gap-y-1 border-b py-1.5 sm:grid-cols-[minmax(0,14rem)_minmax(0,1fr)]; }
+  .trace > .step > div:first-child { @apply min-w-0 wrap-anywhere; }
+  .trace .bar { @apply bg-muted relative h-4 rounded; }
+  .trace .bar > i { @apply bg-ok absolute inset-y-0.5 min-w-1 rounded-sm; left: var(--l); width: var(--w); }
+  .trace .bar > i[data-tone="bad"] { @apply bg-destructive; }
+  .trace .bar > i[data-tone="running"] { @apply bg-running; }
+  .trace > .axis { @apply text-muted-foreground flex justify-between pt-1 text-[0.6875rem]/4 tabular-nums sm:ml-[calc(14rem+0.75rem)]; }
+
   /* Forms: a name, the field, a line of help. */
   .field { @apply flex w-full flex-col gap-2; }
   .field > p { @apply text-muted-foreground; }

@@ -170,6 +170,8 @@ export const workflowSdk = (opts: { on?: Home; editor?: string; vercel?: string 
       folder: manifest.workflows[run.workflow]?.folder ?? (run.workflow.includes("/") ? run.workflow.slice(0, run.workflow.lastIndexOf("/")) : ""),
       kind: run.kind,
       state: run.state,
+      /** Why it ended short, in one word: "person" (stopped or Not now), "cap", "failures", "no-key", "changed". */
+      code: run.code ?? undefined,
       startedBy: run.started_by ?? undefined,
       /** What began it: its schedule, its webhook, or someone who asked (a try-out is always asked). */
       how: howOf(run),
@@ -444,7 +446,11 @@ export const workflowSdk = (opts: { on?: Home; editor?: string; vercel?: string 
   }
 
   /** A failure as people read it: without the runner's own words and Flowbound's markers ("[failed]", "[stop:cap@...]"). */
-  const plainWhy = (why: string) => (/\[stop:[\w-]+(?:@[^\]]*)?\]\s*(.*)$/s.exec(why)?.[1] ?? why).replace(/^(?:\w*Error: )?\[failed\]\s*/, "").replace(/^\w*Error: /, "").slice(0, 500)
+  const plainWhy = (why: string) =>
+    (/\[stop:[\w-]+(?:@[^\]]*)?\]\s*(.*)$/s.exec(why)?.[1] ?? why)
+      .replace(/^(?:\w*Error: )?\[failed\]\s*/, "")
+      .replace(/^\w*Error: /, "")
+      .slice(0, 500)
 
   /**
    * Every "use step" function of the workflow files is timed: when it began and ended for which row of which run, and
@@ -746,7 +752,12 @@ export const workflowSdk = (opts: { on?: Home; editor?: string; vercel?: string 
     if (!node || !wf?.diagram) return undefined
     // b[Words], b(Words), b{Words}, b([Words]), b["Words"], b[/Words/]: the words inside the box's brackets.
     const m = new RegExp(`(?:^|[^\\w-])${node.replace(/-/g, "\\-")}\\s*[[({>]+\\s*"?([^"\\])}]*?)"?\\s*[\\])}]`, "m").exec(wf.diagram)
-    return m?.[1]?.replace(/<br\s*\/?>/gi, " ").replace(/^[/\\]+|[/\\]+$/g, "").trim() || undefined
+    return (
+      m?.[1]
+        ?.replace(/<br\s*\/?>/gi, " ")
+        .replace(/^[/\\]+|[/\\]+$/g, "")
+        .trim() || undefined
+    )
   }
   /** The providers one step function reaches with use("..."), read from its own lines in the file. */
   const callsOf = (wf: Wf | undefined, fn: string) => {
@@ -793,7 +804,18 @@ export const workflowSdk = (opts: { on?: Home; editor?: string; vercel?: string 
             : paid.length
               ? by.map((b) => `${b} · ${usd(paid.filter((c) => c.from === b).reduce((n, c) => n + c.usd, 0))}`).join(" · ")
               : mine.length
-                ? ["already known", ageOf(mine.map((c) => c.boughtAt).filter((a): a is string => !!a).sort()[0] ?? null), "free"].filter(Boolean).join(" · ")
+                ? [
+                    "already known",
+                    ageOf(
+                      mine
+                        .map((c) => c.boughtAt)
+                        .filter((a): a is string => !!a)
+                        .sort()[0] ?? null,
+                    ),
+                    "free",
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")
                 : "no provider call · free"
       return { fn: s.fn, name: boxOf(wf, s.fn) ?? s.fn, state, text, at: t(s.started_at) - from, ms: t(s.ended_at) - t(s.started_at) }
     })
