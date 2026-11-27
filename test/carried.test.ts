@@ -256,7 +256,7 @@ test("Home leads the menu and is where the address lands; the menu has a line be
   const html = await (await fetch(`${p.url()}/home`)).text()
   const nav = html.slice(html.indexOf('<nav class="menu"'), html.indexOf("</nav>"))
   const tabs = [...nav.matchAll(/<hr class="sep">|<a href="([^"]+)"[^>]*>([^<]+)(?:<span class="count"[^>]*><\/span>)?<\/a>/g)].map((m) => (m[1] ? `${m[1]} ${m[2]}` : "--"))
-  assert.deepEqual(tabs, ["/home Home", "/workflows Workflows", "/runs Runs", "/schedules Schedules", "/tables Data", "--", "/keys Connections", "/connect Agents", "/permissions Permissions"])
+  assert.deepEqual(tabs, ["/home Home", "/workflows Workflows", "/runs Runs", "/schedules Schedules", "/tables Data", "/context Context", "--", "/keys Connections", "/connect Agents", "/permissions Permissions"])
   // Changes is not in the menu: a line under it says how many are not live yet, once the page has asked.
   assert.match(nav, /<a class="publish" href="\/changes" data-go="\/changes" data-changes hidden><\/a>/)
   assert.match(html, /<section data-page="\/home" hidden>/)

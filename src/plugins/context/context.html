@@ -1,0 +1,62 @@
+<div data-view></div>
+<script>
+fb.page("/context", async (root, params) => {
+  const { h, call, ui } = fb
+  const view = root.querySelector("[data-view]")
+  /** market-research -> Market research: a folder's name as the Workflows page says it. */
+  const named = (slug) => slug.replace(/[-_]+/g, " ").replace(/^./, (c) => c.toUpperCase())
+  /** The path back up through the folders: Context / Market research. */
+  const ups = (folder) => {
+    const parts = folder ? folder.split("/") : []
+    return [["/context", {}, "Context"], ...parts.map((p, i) => ["/context", { folder: parts.slice(0, i + 1).join("/") }, named(p)])]
+  }
+
+  // ---- one file, to read: Markdown drawn as a page, any other text as it is ----
+  if (params.file) {
+    const f = await call("context", { path: params.file })
+    const folder = f.path.includes("/") ? f.path.slice(0, f.path.lastIndexOf("/")) : ""
+    const name = f.path.split("/").pop()
+    fb.title(name)
+    const actions = [h("code", { class: "text-muted-foreground" }, f.file)]
+    if (f.open?.editor && fb.supports("context-open") && fb.can("member")) {
+      const b = h("button", { class: "btn", "data-variant": "outline", "data-size": "sm", type: "button" }, "Open in editor", ui.icon("arrow-up-right"))
+      b.onclick = () => fb.act(b, async () => fb.say(`Opened ${f.file} in ${(await call("context-open", { path: f.path })).with}.`))
+      actions.push(b)
+    }
+    return view.replaceChildren(
+      ui.path(ups(folder), name),
+      h("div", { class: "actions" }, actions),
+      f.kind === "markdown" ? h("article", { class: "prose" }, ui.markdown(f.text)) : h("article", { class: "prose" }, h("pre", {}, f.text)),
+    )
+  }
+
+  // ---- a folder: its folders first, then its files, as a drive shows them ----
+  const all = await call("context")
+  const here = (params.folder || "").replace(/^\/+|\/+$/g, "")
+  const head = ui.head({ title: here ? named(here.split("/").pop()) : "Context", sub: here || !all.length ? null : "Anything your agent should know, as files and folders. Your agent writes them; workflows and chats use them." })
+  const path = here ? ups(here) : null
+  if (!all.length) return view.replaceChildren(head, h("p", { class: "text-muted-foreground" }, "Nothing here yet. Ask your agent to write down what it should know."))
+  const folders = [...new Set(all.flatMap((f) => (f.folder ? f.folder.split("/").map((_, i, p) => p.slice(0, i + 1).join("/")) : [])))].sort((a, b) => a.localeCompare(b))
+  if (here && !folders.includes(here)) return view.replaceChildren(ui.path(path.slice(0, -1), path.at(-1)[2]), head, ui.empty({ title: "No folder here", text: "It was moved or emptied.", actions: [ui.link("/context", {}, "All context", { class: "btn", "data-variant": "outline" })] }))
+  const kids = folders.filter((f) => (f.includes("/") ? f.slice(0, f.lastIndexOf("/")) : "") === here)
+  const plural = (n, one) => `${n} ${one}${n === 1 ? "" : "s"}`
+  const counted = (f) => {
+    const sub = folders.filter((x) => x.startsWith(`${f}/`) && x.split("/").length === f.split("/").length + 1).length
+    return [sub ? plural(sub, "folder") : "", plural(all.filter((x) => x.folder === f || x.folder.startsWith(`${f}/`)).length, "file")].filter(Boolean).join(" · ")
+  }
+  const folderRow = (f) => h("li", {}, ui.link("/context", { folder: f }, [h("span", {}, ui.icon("folder"), named(f.split("/").pop())), h("span", { class: "line in" }, counted(f))]))
+  const fileRow = (f, where) => h("li", {}, ui.link("/context", { file: f.path }, [h("span", {}, f.name), h("span", { class: "line" }, where ?? (f.line || " "))]))
+
+  // Search looks in every folder and in each file's text, and says which folder each hit is in.
+  let typing
+  const q = h("input", { class: "input", type: "search", name: "q", placeholder: "Search context", "aria-label": "Search context", autocomplete: "off", value: params.q || "" })
+  q.addEventListener("input", () => (clearTimeout(typing), (typing = setTimeout(() => fb.stay({ q: q.value.trim() || null }), 250))))
+  const hits = params.q ? await call("context", { search: params.q }) : null
+  const list = hits
+    ? hits.length
+      ? h("ul", { class: "rows files", role: "list" }, hits.map((f) => fileRow(f, f.folder ? f.folder.split("/").map(named).join(" / ") : "Context")))
+      : ui.empty({ title: `Nothing in context has "${params.q}"`, actions: [h("button", { class: "btn", "data-variant": "outline", type: "button", onclick: () => fb.stay({ q: null }) }, "Show every file")] })
+    : h("ul", { class: "rows files", role: "list" }, kids.map(folderRow), all.filter((f) => f.folder === here).map((f) => fileRow(f)))
+  view.replaceChildren(...[path ? ui.path(path.slice(0, -1), path.at(-1)[2]) : null, head, h("form", { class: "toolbar", role: "search", onsubmit: (e) => e.preventDefault() }, q), list].filter(Boolean))
+})
+</script>

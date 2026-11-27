@@ -2,17 +2,19 @@
 import crypto from "node:crypto"
 import fs from "node:fs"
 import path from "node:path"
-import { can, type Flowbound, type Plugin, plugin } from "../core/plugin.ts"
+import { can, type Flowbound, type Plugin, plugin, type Who } from "../core/plugin.ts"
 import { Refused } from "../core/server.ts"
 import { fromCsv, toCsv } from "./csv.ts"
+import { canFetch, consoleOf, type Studio, startStudio } from "./postgres/studio.ts"
 import { asset } from "./util.ts"
 
 export type Picked = { value: unknown; fact: number | null }
 export type Records = {
   /** Run any SQL. Params are $1, $2, ... */
   query: <T = any>(sql: string, params?: unknown[]) => Promise<{ rows: T[]; count: number; columns: string[] }>
-  tables: () => Promise<{ name: string; rows: number; origin: string; kind: string; list?: string }[]>
-  importCsv: (o: { csv: string; file?: string; as?: string; add?: boolean; key?: string }) => Promise<{ name: string; rows: number; added: number; updated: number }>
+  tables: () => Promise<{ name: string; rows: number; origin: string; kind: string; list?: string; workflow?: string; folder?: string }[]>
+  /** `folder`: the folder under workflows/ it belongs with on the Data page ("tam-mapping"). Kept by Flowbound, not in the database. */
+  importCsv: (o: { csv: string; file?: string; as?: string; add?: boolean; key?: string; folder?: string }) => Promise<{ name: string; rows: number; added: number; updated: number }>
   /**
    * Add rows to a list from a step or a tool: one row in, many rows out (a company's five people into `people_list`).
    * The list and any new column are made as needed. With `key`, a row whose key is already there is brought up to
@@ -28,6 +30,15 @@ export type Records = {
   engine: () => Engine
 }
 export type Engine = { kind: "postgres"; url: string } | { kind: "pglite"; db: unknown; dir: string }
+export type PostgresOptions = {
+  url?: string
+  /**
+   * For when the pages are opened from another device: the private name and port Drizzle Studio is shared at (for
+   * example with `tailscale serve --https=4983 http://127.0.0.1:4983`). Studio's page then talks to that address.
+   * Unset: Studio is for a browser on the computer Flowbound runs on.
+   */
+  studio?: { host?: string; port?: number }
+}
 export type TableView = {
   name: string
   kind: string
@@ -36,7 +47,7 @@ export type TableView = {
   total: number
   /** With a search: how many rows it found. `total` stays the whole table. */
   found?: number
-  columns: { name: string; of: "list" | "result" | "table" }[]
+  columns: { name: string; of: "list" | "result" | "table" | "own" }[]
   rows: { id: number | null; cells: unknown[]; facts: (number | null)[] }[]
 }
 
@@ -221,15 +232,32 @@ async function migrate(db: Pick<Driver, "query" | "exec">, plugins: Plugin[]): P
   return applied
 }
 
+/** A folder under workflows/ as Flowbound writes it: tam-mapping/nordics. */
+const folderOf = (v: unknown) => {
+  const f = String(v ?? "")
+    .trim()
+    .replace(/^\/+|\/+$/g, "")
+    .replace(/^workflows\//, "")
+  if (!f) return null
+  if (!f.split("/").every((part) => /^[A-Za-z0-9][A-Za-z0-9-]*$/.test(part)) || f.split("/").length > 8)
+    throw new Refused(`"${f}" is not a folder Flowbound can use: the folder's path under workflows/, like tam-mapping or tam-mapping/nordics.`)
+  return f
+}
+/** A value of one of Flowbound's own tables, as a cell: JSON as its text, a time as it is written. */
+const plainCell = (v: unknown) => (v === null || v === undefined ? null : v instanceof Date ? v.toISOString() : typeof v === "object" ? JSON.stringify(v) : v)
+
 /** The most rows the table tool answers at once: pages and agents read a big table a part at a time. */
 const MOST_ROWS = 500
 /** A CSV bigger than this is not sent into an agent's chat: it gets the way to the file instead. */
 const MOST_CHAT_BYTES = 50_000
 
-export const postgres = (opts: { url?: string } = {}) => {
+export const postgres = (opts: PostgresOptions = {}) => {
   let fb: Flowbound
   let db: Driver
   let applied = 0
+  let studio: Promise<Studio> | undefined
+  /** Flowbound's own tables people may read: "fb_ledger.facts" -> what it holds. Named by the plug-ins that make them. */
+  const own = () => Object.assign({}, ...fb.plugins.map((p) => p.own ?? {})) as Record<string, string>
   const columns = new Map<string, Set<string>>()
 
   const query: Records["query"] = async (sql, params) => {
@@ -245,20 +273,20 @@ export const postgres = (opts: { url?: string } = {}) => {
     }
     return set
   }
-  const note = (name: string, kind: string, origin: string, list?: string, workflow?: string) =>
-    query("insert into fb_postgres.tables (name, kind, origin, list, workflow) values ($1, $2, $3, $4, $5) on conflict (name) do update set kind = $2, origin = $3, list = $4, workflow = $5", [
-      name,
-      kind,
-      origin,
-      list ?? null,
-      workflow ?? null,
-    ])
-  const makeList = async (name: string, fields: string[], origin: string) => {
+  const note = (name: string, kind: string, origin: string, list?: string, workflow?: string, folder?: string | null) =>
+    query(
+      "insert into fb_postgres.tables (name, kind, origin, list, workflow, folder) values ($1, $2, $3, $4, $5, $6) on conflict (name) do update set kind = $2, origin = $3, list = $4, workflow = $5, folder = coalesce($6, fb_postgres.tables.folder)",
+      [name, kind, origin, list ?? null, workflow ?? null, folder ?? null],
+    )
+  const makeList = async (name: string, fields: string[], origin: string, folder?: string | null) => {
     const have = await cols(name)
     if (!have.size) {
       await db.exec(`create table ${ident(name)} (id bigserial primary key${fields.map((f) => `, ${ident(f)} text`).join("")})`)
-      await note(name, "list", origin)
-    } else for (const f of fields) if (!have.has(f)) await db.exec(`alter table ${ident(name)} add column ${ident(f)} text`)
+      await note(name, "list", origin, undefined, undefined, folder)
+    } else {
+      for (const f of fields) if (!have.has(f)) await db.exec(`alter table ${ident(name)} add column ${ident(f)} text`)
+      if (folder) await query("update fb_postgres.tables set folder = $2 where name = $1", [name, folder])
+    }
     columns.delete(name)
   }
   /**
@@ -266,8 +294,8 @@ export const postgres = (opts: { url?: string } = {}) => {
    * in the list is the same row: its other columns are brought up to date and no second row is made. Keys are compared
    * without capitals and outer spaces, as webhook rows are. A row with an empty key is always a new row.
    */
-  const putRows = async (name: string, fields: string[], rows: (string | null | undefined)[][], origin: string, key?: string) => {
-    await makeList(name, fields, origin)
+  const putRows = async (name: string, fields: string[], rows: (string | null | undefined)[][], origin: string, key?: string, folder?: string | null) => {
+    await makeList(name, fields, origin, folder)
     const insert = async (part: (string | null | undefined)[][]) => {
       for (let i = 0; i < part.length; i += 200) {
         const some = part.slice(i, i + 200)
@@ -316,29 +344,103 @@ export const postgres = (opts: { url?: string } = {}) => {
     })
   }
 
+  /**
+   * One of Flowbound's own tables, read-only: only those a plug-in names in `own`, never sign-ins or keys. Newest
+   * first. Searched and sorted in the database, like your own tables.
+   */
+  const readOwn = async (name: string, o: { limit: number; offset: number; search: string; sort: string; desc: boolean }): Promise<TableView> => {
+    const about = own()[name]
+    const [schema, table] = name.split(".")
+    if (!about || !schema || !table) throw new Refused(`There is no table called ${name}. See them with: npx flowbound tables`)
+    const have = (await query<{ column_name: string }>("select column_name from information_schema.columns where table_schema = $1 and table_name = $2 order by ordinal_position", [schema, table])).rows.map(
+      (r) => r.column_name,
+    )
+    if (!have.length) throw new Refused(`There is no table called ${name}.`)
+    const from = `${ident(schema)}.${ident(table)} t`
+    const total = (await query(`select count(*)::int as n from ${from}`)).rows[0].n
+    const view: TableView = { name, kind: "own", origin: about, total, columns: have.map((c) => ({ name: c, of: "own" as const })), rows: [] }
+    const words = o.search.trim()
+    const where = words ? `where position(lower($3) in lower(concat_ws(' ', ${have.map((c) => `t.${ident(c)}::text`).join(", ")}))) > 0` : ""
+    if (where) view.found = (await query(`select count(*)::int as n from ${from} ${where.replace("$3", "$1")}`, [words])).rows[0].n
+    if (o.sort && !have.includes(o.sort)) throw new Refused(`${name} has no column called ${o.sort}. It has: ${have.join(", ")}.`)
+    const dir = o.desc ? "desc" : "asc"
+    const order = o.sort ? `t.${ident(o.sort)} ${dir} nulls last` : `t.${ident(have.includes("id") ? "id" : have.includes("at") ? "at" : have[0]!)} desc`
+    const r = await query(`select * from ${from} ${where} order by ${order} limit $1 offset $2`, where ? [o.limit, o.offset, words] : [o.limit, o.offset])
+    view.rows = r.rows.map((x) => ({ id: null, cells: have.map((c) => plainCell(x[c])), facts: have.map(() => null) }))
+    return view
+  }
+
+  /** Where the database is looked at one step deeper, for where this Flowbound runs: Drizzle Studio here, Neon live. */
+  const deeper = () => {
+    if (fb.live) {
+      const at = consoleOf()
+      return at ? { kind: "console" as const, ...at } : null
+    }
+    return {
+      kind: "studio" as const,
+      shared: !!opts.studio?.host,
+      label: "Open in Drizzle Studio",
+      where: "Drizzle's own Studio, started on this computer against the database Flowbound uses: every table, and it can change them",
+    }
+  }
+
+  /**
+   * The Data page's list: your tables, each with the folder it sits in, and Flowbound's own. A results table is in the
+   * folder of the workflow that fills it; a list in the folder it was imported into, else the one folder of the
+   * workflows that read it. Folders are Flowbound's; the database stays plain.
+   */
+  const data = async (who: Who) => {
+    const yours = await api.tables()
+    const flows: { id: string; folder: string; from?: string; into?: string }[] = fb.has("runs") ? ((await fb.call("workflows", {}, { kind: "system", name: "Flowbound", via: "page" })) as any[]) : []
+    const folderOfTable = (t: (typeof yours)[number]) => {
+      const filler = flows.find((w) => w.id === t.workflow) ?? flows.find((w) => w.into === t.name)
+      if (t.kind === "results" && filler) return filler.folder
+      if (t.folder) return t.folder
+      const readers = [...new Set(flows.filter((w) => w.from === t.name).map((w) => w.folder))]
+      return readers.length === 1 ? readers[0]! : ""
+    }
+    const ownRows = []
+    // Runs, facts and calls first, as the page names them; then the rest; where your tables came from last.
+    const first = ["fb_workflow_sdk.runs", "fb_ledger.facts", "fb_ledger.calls"]
+    const rank = (n: string) => (first.includes(n) ? first.indexOf(n) : n.startsWith("fb_postgres.") ? 99 : 9)
+    for (const [name, about] of Object.entries(own()).sort(([a], [b]) => rank(a) - rank(b))) {
+      const [schema, table] = name.split(".")
+      const there = (await query("select 1 from information_schema.tables where table_schema = $1 and table_name = $2", [schema, table])).rows.length
+      if (there) ownRows.push({ name, short: table!, about, rows: (await query(`select count(*)::int as n from ${ident(schema!)}.${ident(table!)}`)).rows[0].n })
+    }
+    const d = deeper()
+    return {
+      tables: yours.map((t) => ({ ...t, folder: folderOfTable(t) })),
+      own: ownRows,
+      open: d && (d.kind === "console" || canFetch()) && can(who, "admin") ? d : null,
+      page: `${fb.url}/tables`,
+    }
+  }
+
   const api: Records = {
     query,
     engine: () => db.engine,
     async tables() {
       const r = await query(
-        `select c.relname as name, t.kind, t.origin, t.list from pg_class c join pg_namespace n on n.oid = c.relnamespace
+        `select c.relname as name, t.kind, t.origin, t.list, t.workflow, t.folder from pg_class c join pg_namespace n on n.oid = c.relnamespace
          left join fb_postgres.tables t on t.name = c.relname where n.nspname = 'public' and c.relkind = 'r' order by c.relname`,
       )
       const out = []
       for (const t of r.rows) {
         const n = (await query(`select count(*)::int as n from ${ident(t.name)}`)).rows[0].n
-        out.push({ name: t.name, rows: n, origin: t.origin ?? "made with SQL", kind: t.kind ?? "table", list: t.list ?? undefined })
+        out.push({ name: t.name, rows: n, origin: t.origin ?? "made with SQL", kind: t.kind ?? "table", list: t.list ?? undefined, workflow: t.workflow ?? undefined, folder: t.folder ?? undefined })
       }
       return out
     },
-    async importCsv({ csv, file, as, add, key }) {
+    async importCsv({ csv, file, as, add, key, folder }) {
+      const into = folderOf(folder)
       const [head, ...rows] = fromCsv(csv)
       if (!head?.length || !rows.length) throw new Refused("That file has no rows. A list needs a first line of column names, then one line per row.")
       const name = as ? snake(as) : listName(file ?? "list.csv")
       const before = (await cols(name)).size ? (await query(`select count(*)::int as n from ${ident(name)}`)).rows[0].n : -1
       if (before >= 0 && !add) throw new Refused(`${name} is already there with ${before} rows. Add --add to add these rows to it, or --as <name> to make a new list.`)
       const fields = heads(head)
-      const put = await putRows(name, fields, rows, `imported from ${file ? path.basename(file) : "a CSV"}`, key)
+      const put = await putRows(name, fields, rows, `imported from ${file ? path.basename(file) : "a CSV"}`, key, into)
       return { name, rows: Math.max(before, 0) + put.added, ...put }
     },
     async add(list, rows, o = {}) {
@@ -363,6 +465,7 @@ export const postgres = (opts: { url?: string } = {}) => {
     },
     async results(into, list, workflow, title) {
       if (!(await cols(list)).size) throw new Refused(`There is no list called ${list}. Make it with: npx flowbound import <file.csv> --as ${list}`)
+      // Its folder is the workflow's, worked out when the Data page asks: moving the workflow file moves the table with it.
       await db.exec(`create table if not exists ${ident(into)} (id bigint primary key)`)
       await note(into, "results", `made by ${title}`, list, workflow)
       columns.delete(into)
@@ -390,6 +493,7 @@ export const postgres = (opts: { url?: string } = {}) => {
       )
     },
     async read(name, { limit = 100, offset = 0, search = "", sort = "", desc = false } = {}) {
+      if (name.includes(".")) return readOwn(name, { limit, offset, search, sort, desc })
       const have = [...(await cols(name))]
       if (!have.length) throw new Refused(`There is no table called ${name}. See them with: npx flowbound tables`)
       const meta = (await query("select kind, origin, list, workflow from fb_postgres.tables where name = $1", [name])).rows[0] ?? { kind: "table", origin: "made with SQL" }
@@ -435,7 +539,11 @@ export const postgres = (opts: { url?: string } = {}) => {
   return plugin({
     name: "postgres",
     provides: "records",
-    migrations: ["create table fb_postgres.tables (name text primary key, kind text not null, origin text not null, list text, workflow text, made_at timestamptz default now())"],
+    migrations: [
+      "create table fb_postgres.tables (name text primary key, kind text not null, origin text not null, list text, workflow text, made_at timestamptz default now())",
+      // The folder a list was imported into: Flowbound's, for the Data page. The database itself stays plain.
+      "alter table fb_postgres.tables add column folder text",
+    ],
     async start(f) {
       fb = f
       db = await open(fb, opts)
@@ -443,7 +551,12 @@ export const postgres = (opts: { url?: string } = {}) => {
       await db.wall()
       return Object.assign(api, { applied: () => applied })
     },
-    stop: () => db?.close(),
+    stop: async () => {
+      await (await studio?.catch(() => undefined))?.stop()
+      studio = undefined
+      await db?.close()
+    },
+    own: { "fb_postgres.tables": "where each of your tables came from" },
     tools: {
       tables: {
         about: "List your tables: name, rows and where each came from.",
@@ -462,9 +575,57 @@ export const postgres = (opts: { url?: string } = {}) => {
           as: { about: "a name for the list, instead of the one made from the file name" },
           add: { type: "boolean", about: "add the rows to a list that is already there" },
           key: { about: "a column that says which row is which, like email or domain: a row whose key is already in the list is brought up to date, not added again" },
+          folder: { about: "the folder under workflows/ it belongs with on the Data page, like tam-mapping: the play it is for. Without it, the folder of the workflows that read it" },
         },
-        run: (i) => api.importCsv({ csv: i.csv, file: i.csvName, as: i.as, add: i.add, key: i.key }),
+        run: (i) => api.importCsv({ csv: i.csv, file: i.csvName, as: i.as, add: i.add, key: i.key, folder: i.folder }),
         print: (r) => `${r.name}   ${r.rows} rows${r.added < r.rows || r.updated ? ` (${r.added} added${r.updated ? `, ${r.updated} already there and brought up to date` : ""})` : ""}`,
+      },
+      data: {
+        about:
+          "What the Data page lists: your tables, each in the folder of the workflow that fills it (a list: the folder it was imported into), and Flowbound's own (runs, facts, calls and the rest, read-only; read one with the table tool by its full name, like fb_ledger.facts). Also the way one step deeper: Drizzle Studio here, Neon live.",
+        role: "viewer",
+        run: (_i, who) => data(who),
+        print: (r: Awaited<ReturnType<typeof data>>) =>
+          [...r.tables.map((t) => `${(t.folder ? `${t.folder}/` : "") + t.name}   ${t.rows} rows   ${t.origin}`), ...r.own.map((t) => `${t.name}   ${t.rows} rows   ${t.about} (Flowbound's own)`), `Page: ${r.page}`].join(
+            "\n",
+          ),
+      },
+      "data-open": {
+        about:
+          "Open the database one step deeper than the Data page. On your own computer: start Drizzle Studio (Drizzle's own database tool) against the database Flowbound uses and give its address; the first time it is fetched with npm, about half a minute. Live: the address of the project's Neon console.",
+        input: { stop: { type: "boolean", about: "stop Drizzle Studio instead" } },
+        // On your own computer it is the person's database and the person's click. Live it only hands out a link, to a console with its own sign-in.
+        role: "admin",
+        run: async (i) => {
+          const d = deeper()
+          if (!d) throw new Refused("This database is a Postgres of your own: open it in any Postgres tool at its address, which is on the server, not on this page.")
+          if (d.kind !== "studio") return d
+          if (i.stop) {
+            await (await studio?.catch(() => undefined))?.stop()
+            studio = undefined
+            return { kind: "studio", stopped: true }
+          }
+          if (!studio && !canFetch()) throw new Refused("Drizzle Studio is fetched with npm, and npm is not on this computer.")
+          studio ??= startStudio({ root: fb.root, engine: db.engine, port: opts.studio?.port })
+          let up: Studio
+          try {
+            up = await studio
+          } catch (e: any) {
+            studio = undefined
+            throw new Refused(String(e?.message ?? e))
+          }
+          const shared = opts.studio?.host
+          return {
+            ...d,
+            // Studio's page is Drizzle's own, on the web; the data never goes there: the page in the browser talks to this computer directly.
+            href: `https://local.drizzle.studio/?${shared ? `host=${encodeURIComponent(shared)}&` : ""}port=${up.port}`,
+            port: up.port,
+            note: shared
+              ? `Shared at ${shared}:${up.port}. Studio can change data and has no sign-in of its own: keep that address private.`
+              : `It answers on this computer only (127.0.0.1:${up.port}), so open it in a browser on this computer. Studio can change data. It stops when Flowbound stops.`,
+          }
+        },
+        print: (r: any) => (r.stopped ? "Drizzle Studio is stopped." : `${r.label}: ${r.href}\n${r.note ?? r.where}`),
       },
       export: {
         about: "Get a table out as a CSV file. A results table comes with its list's columns beside the answers.",
@@ -514,7 +675,7 @@ export const postgres = (opts: { url?: string } = {}) => {
       },
       sql: {
         about:
-          "Run SQL on your own database: make any table the job needs, or read across tables. Your tables are in schema public. Flowbound's own tables (schemas named fb_*) are not for agents: a token's SQL cannot read them.",
+          "Run SQL on your own database: make any table the job needs, or read across tables. Your tables are in schema public. Flowbound's own tables (schemas named fb_*) are not for SQL: a token's SQL cannot read them. Its runs, facts, calls and the like are read with the table tool by their full name (fb_ledger.facts), as the Data page shows them; sign-ins, keys and yeses never.",
         input: { query: { about: "one SQL statement", required: true } },
         run: async (i, who) => {
           // A results field is JSON, so comparing it with a number or a text fails in Postgres's own words. Say what to write.

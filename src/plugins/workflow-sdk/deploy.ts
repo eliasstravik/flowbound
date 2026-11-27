@@ -10,6 +10,7 @@ import { fileURLToPath } from "node:url"
 import { readList } from "../../core/load.ts"
 import { running } from "../../core/local.ts"
 import type { CommandLine, Flowbound, Plugin } from "../../core/plugin.ts"
+import { contextFiles } from "../context.ts"
 import { driverSource, readWorkflows } from "./build.ts"
 
 const APP = "__app"
@@ -91,7 +92,8 @@ import project from "../../flowbound.config.ts"
 import { boot } from "flowbound"
 import { liveApp } from ${JSON.stringify(path.join(dist, "..", "core", "live.js"))}
 const shared = ((globalThis as any)[Symbol.for("flowbound")] ??= {})
-shared.built = { manifest: ${JSON.stringify(manifest)} }
+// The files in context/, as they were deployed: live there is no project folder to read them from.
+shared.built = { manifest: ${JSON.stringify(manifest)}, context: ${JSON.stringify(contextFiles(root))} }
 // A preview (a branch's own deployment) answers at its own address, so its links and its sign-in stay on the preview.
 const preview = process.env.VERCEL_ENV === "preview"
 const host = preview ? process.env.VERCEL_URL : (process.env.VERCEL_PROJECT_PRODUCTION_URL ?? process.env.VERCEL_URL)

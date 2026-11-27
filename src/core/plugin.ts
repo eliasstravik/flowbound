@@ -110,6 +110,11 @@ export type Plugin = {
   routes?: Record<string, Route>
   /** SQL for this plugin's own tables, applied once each, in order. */
   migrations?: string[]
+  /**
+   * Its own tables people may read on the Data page, under "Flowbound's own": "fb_ledger.facts" -> what it holds, in
+   * a few words. Read-only there. A table not named here (sign-ins, keys, who said yes) is never shown.
+   */
+  own?: Record<string, string>
   /** Words for the `flowbound` command. A function gets the whole list, for a plugin that makes commands out of other plugins' tools. */
   commands?: Record<string, Command> | ((plugins: Plugin[]) => Record<string, Command>)
   /** Words for `flowbound docs`: markdown, or the path of a markdown file. */

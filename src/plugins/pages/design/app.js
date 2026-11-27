@@ -3,6 +3,7 @@
 import arrowDown from "lucide-static/icons/arrow-down.svg"
 import arrowUp from "lucide-static/icons/arrow-up.svg"
 import arrowUpRight from "lucide-static/icons/arrow-up-right.svg"
+import chevronDown from "lucide-static/icons/chevron-down.svg"
 import chevronLeft from "lucide-static/icons/chevron-left.svg"
 import chevronRight from "lucide-static/icons/chevron-right.svg"
 import circleAlert from "lucide-static/icons/circle-alert.svg"
@@ -13,6 +14,7 @@ import coins from "lucide-static/icons/coins.svg"
 import copy from "lucide-static/icons/copy.svg"
 import database from "lucide-static/icons/database.svg"
 import download from "lucide-static/icons/download.svg"
+import fileText from "lucide-static/icons/file-text.svg"
 import folder from "lucide-static/icons/folder.svg"
 import squareArrowOutUpRight from "lucide-static/icons/square-arrow-out-up-right.svg"
 import globe from "lucide-static/icons/globe.svg"
@@ -28,7 +30,7 @@ import upload from "lucide-static/icons/upload.svg"
 import userCheck from "lucide-static/icons/user-check.svg"
 import x from "lucide-static/icons/x.svg"
 
-const ICONS = { "arrow-down": arrowDown, "arrow-up": arrowUp, "arrow-up-right": arrowUpRight, "chevron-left": chevronLeft, "chevron-right": chevronRight, "circle-alert": circleAlert, "circle-check": circleCheck, clock, code, coins, copy, database, download, folder, globe, menu, play, repeat, search, sparkles, "square-pen": squarePen, "square-arrow-out-up-right": squareArrowOutUpRight, table, "triangle-alert": triangleAlert, upload, "user-check": userCheck, x }
+const ICONS = { "arrow-down": arrowDown, "arrow-up": arrowUp, "arrow-up-right": arrowUpRight, "chevron-down": chevronDown, "chevron-left": chevronLeft, "chevron-right": chevronRight, "circle-alert": circleAlert, "circle-check": circleCheck, clock, code, coins, copy, database, download, "file-text": fileText, folder, globe, menu, play, repeat, search, sparkles, "square-pen": squarePen, "square-arrow-out-up-right": squareArrowOutUpRight, table, "triangle-alert": triangleAlert, upload, "user-check": userCheck, x }
 
 const fb = (() => {
   const boot = window.FB
@@ -401,11 +403,201 @@ const fb = (() => {
     path: (ups, here) =>
       h("nav", { class: "path", "aria-label": "Where you are" }, ups.map(([p, q, label]) => [link(p, q, label, { class: "link" }), h("span", { "aria-hidden": "true" }, "/")]), h("span", { "aria-current": "page" }, here)),
     /** Tabs that keep their place in the address: ui.tabs(["Diagram", "Code"], "Code", "tab") */
-    tabs: (names, on, key) =>
-      h("nav", { class: "tabs", "aria-label": "Tabs" }, names.map((n) => link(current, { ...params, [key]: n.toLowerCase() }, n, { "aria-current": n === on ? "page" : null, onclick: (e) => (e.preventDefault(), stay({ [key]: n.toLowerCase() })) }))),
+    // Another tab starts at its own first page, with no search or order carried over from the last one.
+    tabs: (names, on, key) => {
+      const fresh = { page: null, q: null, sort: null, desc: null, step: null }
+      return h("nav", { class: "tabs", "aria-label": "Tabs" }, names.map((n) => link(current, Object.fromEntries(Object.entries({ ...params, ...fresh, [key]: n.toLowerCase() }).filter(([, v]) => v != null)), n, { "aria-current": n === on ? "page" : null, onclick: (e) => (e.preventDefault(), stay({ ...fresh, [key]: n.toLowerCase() })) })))
+    },
     /** Words with their web addresses made into links (a reason that names a manual page). */
     linked: (text) => String(text).split(/(https?:\/\/[^\s)"]+)/).map((part, i) => (i % 2 ? h("a", { class: "link", href: part, target: "_blank", rel: "noreferrer" }, part) : part)),
   }
+
+  /** Can this page call the tool here? In a chat's app only the tools the host hands over. */
+  const supports = (tool) => !bridge || !!tools?.has(tool)
+  // ---- a table's rows: the Data page's grid, also on a workflow's Data tab ----------------------------------------
+  const cellText = (v) => (v === null || v === undefined ? "" : typeof v === "object" ? JSON.stringify(v) : String(v))
+  /** The kept fact behind one answer, in a small panel: where it came from, what was asked, when, what it cost. */
+  async function factOf(t, r, i) {
+    const value = cellText(r.cells[i]) || "not found"
+    const dialog = h("dialog", { class: "dialog", "aria-label": "Where this came from", onclose: () => dialog.remove() })
+    const body = h("section", {}, h("div", { class: "loading", role: "status", "aria-label": "Loading" }, h("span", { class: "skeleton w-full" }), h("span", { class: "skeleton w-4/5" }), h("span", { class: "skeleton w-2/3" })))
+    dialog.append(h("div", {}, h("header", {}, h("h2", { class: "pr-6 leading-snug wrap-anywhere" }, value), h("p", {}, `${t.columns[i].name}, row ${num(r.id)}`)), body, h("footer", {}, h("button", { class: "btn", "data-variant": "outline", type: "button", onclick: () => dialog.close() }, "Close"))))
+    document.body.append(dialog)
+    dialog.showModal()
+    try {
+      if (r.facts[i]) {
+        const f = await call("fact", { id: r.facts[i] })
+        const asked = h("span", { class: "font-mono wrap-anywhere" }, [f.endpoint, f.question].filter(Boolean).join(" "))
+        body.replaceChildren(ui.facts(f.write
+          ? [["To", f.from], ["Wrote", asked], ["When", `${f.boughtOn} (${f.age})`], ["Kind", "A write to another tool: done every time, never answered from memory"], ["By", f.by]]
+          : [["From", f.from], ["Asked", asked], ["Bought", `${f.boughtOn} (${f.age})`], ["Cost", f.cost], ["Fresh", f.fresh ? "Yes: asked again, it is free" : "No: it is bought again next time"], ["By", f.by]]))
+      } else {
+        const f = await call("fact", { into: t.name, row: r.id })
+        body.replaceChildren(
+          h("p", { class: "mb-3" }, `Worked out by ${f.workedOutBy || "the workflow"}, not picked from one answer. The calls made for this row:`),
+          f.calls.length ? ui.facts(f.calls.map((c) => [`${c.from} ${c.request && c.request.path ? c.request.path : ""}`, c.cost])) : h("p", { class: "text-muted-foreground" }, "No calls were made for this row."))
+      }
+    } catch (e) {
+      body.replaceChildren(ui.note(String(e.message || e), "bad"))
+    }
+  }
+  /** Open the database one step deeper: Drizzle Studio here (started on the first tap), the project's Neon console live. */
+  function deeper(way) {
+    if (!way || !supports("data-open")) return null
+    // Studio's page talks to this computer directly: from another device (a phone, a shared address) it cannot reach it.
+    if (way.kind === "studio" && !way.shared && !/^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname)) return null
+    if (way.href) return h("a", { class: "btn", "data-variant": "outline", href: way.href, target: "_blank", rel: "noreferrer", title: way.where }, way.label, icon("arrow-up-right"))
+    const b = h("button", { class: "btn", "data-variant": "outline", type: "button", title: way.where }, way.label, icon("arrow-up-right"))
+    b.onclick = () => {
+      // A window opened now, while the tap counts, and sent on once Studio is up: a later one would be blocked.
+      const w = bridge ? null : window.open("", "_blank")
+      return act(b, async () => {
+        try {
+          const up = await call("data-open", {})
+          if (w) w.location.href = up.href
+          else open(up.href)
+          say(up.note || `${way.label}.`)
+        } catch (e) {
+          w?.close()
+          throw e
+        }
+      })
+    }
+    return b
+  }
+  /**
+   * One table, a page of its rows at a time: Search, Download CSV, Open in (only where it works), then the grid with
+   * every bought answer's source, age and cost under it (tap it for the kept fact), then Previous and Next.
+   * ui.grid(view, { page, size, open }): view is what the table tool answered; the address keeps q, sort, desc, page.
+   */
+  function grid(t, o) {
+    const size = o.size || 50
+    const page = o.page || 1
+    const all = t.found ?? t.total
+    let typing
+    const q = h("input", { class: "input", type: "search", name: "q", placeholder: "Search this table", "aria-label": "Search this table", autocomplete: "off", value: params.q || "" })
+    const find = () => (clearTimeout(typing), (q.value.trim() || "") !== (params.q || "") && stay({ q: q.value.trim(), page: null }))
+    q.addEventListener("input", () => (clearTimeout(typing), (typing = setTimeout(find, 350))))
+    const download = h("button", { class: "btn", "data-variant": "outline", type: "button" }, icon("download"), "Download CSV")
+    download.onclick = () =>
+      act(download, async () => {
+        const out = await call("export", { table: t.name })
+        if (out.tooBigForChat) return say(out.tooBigForChat)
+        const a = h("a", { href: URL.createObjectURL(new Blob([out.save.text], { type: "text/csv" })), download: out.save.name })
+        a.click()
+        URL.revokeObjectURL(a.href)
+      })
+    const inline = !!bridge && document.body.dataset.mode === "inline"
+    const tools = h("form", { class: "toolbar", role: "search", onsubmit: (e) => (e.preventDefault(), find()) }, q, supports("export") && !inline ? download : null, inline ? null : deeper(o.open))
+    /** A column's name is also how to sort by it: once from the lowest, again from the highest, a third time as it was. */
+    const heading = (c) => {
+      const on = params.sort === c.name
+      const next = !on ? { sort: c.name, desc: null } : params.desc ? { sort: null, desc: null } : { sort: c.name, desc: 1 }
+      return h("th", { scope: "col", "aria-sort": on ? (params.desc ? "descending" : "ascending") : null },
+        h("button", { class: "hover:text-foreground -ml-1 inline-flex cursor-pointer items-center gap-1 rounded-sm px-1", type: "button", title: `Sort by ${c.name}`, onclick: () => stay({ ...next, page: null }) }, c.name, on ? icon(params.desc ? "arrow-down" : "arrow-up") : null))
+    }
+    const line = (r) =>
+      h("tr", {}, t.columns.map((c, i) => {
+        const v = cellText(r.cells[i])
+        if (c.of !== "result") return h("td", { class: "cut", title: v.length > 34 ? v : null }, v)
+        // Where it came from, how old it is and what it cost: on every answered cell, as one small line.
+        const src = r.sources && r.sources[i]
+        const tap = supports("fact") && r.id != null && (r.facts[i] || v)
+        return h("td", { class: v ? null : "none" }, tap ? h("button", { type: "button", title: v.length > 34 ? v : null, onclick: () => factOf(t, r, i) }, v || "not found") : v || "not found", src ? h("span", { class: "src" }, src) : null)
+      }))
+    const from = all ? (page - 1) * size + 1 : 0
+    const turn = (label, to, off) => h("button", { class: "btn", "data-variant": "outline", "data-size": "sm", type: "button", disabled: off, onclick: () => stay({ page: to > 1 ? to : null }) }, label)
+    return [
+      tools,
+      t.rows.length
+        ? h("div", { class: "table-container", tabindex: "0", role: "region", "aria-label": t.name }, h("table", { class: "table" }, h("thead", {}, h("tr", {}, t.columns.map(heading))), h("tbody", {}, t.rows.map(line))))
+        : params.q
+          ? ui.empty({ title: `Nothing in ${o.label || t.name} has "${params.q}"`, actions: [h("button", { class: "btn", "data-variant": "outline", type: "button", onclick: () => stay({ q: null, page: null }) }, "Show every row")] })
+          : h("p", { class: "text-muted-foreground" }, o.none || "No rows yet."),
+      all ? h("div", { class: "pager" }, h("p", { class: "num", role: "status" }, `${num(from)} to ${num(from + t.rows.length - 1)} of ${num(all)}`), h("div", { class: "actions" }, turn("Previous", page - 1, page <= 1), turn("Next", page + 1, from + t.rows.length - 1 >= all))) : null,
+    ]
+  }
+
+  // ---- Markdown, read: a file of context drawn as a page. Built as elements, never as HTML, so a file runs nothing. --
+  /** **bold**, *italic*, `code`, [a link](https://...) and bare web addresses, inside one line. */
+  function inline(text) {
+    const out = []
+    const re = /`([^`]+)`|\*\*([^*]+)\*\*|__([^_]+)__|\*([^*\s][^*]*)\*|(?<![\w])_([^_\s][^_]*)_(?![\w])|\[([^\]]+)\]\(([^)\s]+)\)|(https?:\/\/[^\s)<]+)/g
+    let at = 0
+    for (let m; (m = re.exec(text)); ) {
+      if (m.index > at) out.push(text.slice(at, m.index))
+      if (m[1]) out.push(h("code", {}, m[1]))
+      else if (m[2] || m[3]) out.push(h("strong", {}, inline(m[2] || m[3])))
+      else if (m[4] || m[5]) out.push(h("em", {}, inline(m[4] || m[5])))
+      else if (m[6]) out.push(/^(https?:|mailto:)/.test(m[7]) ? h("a", { href: m[7], target: "_blank", rel: "noreferrer" }, inline(m[6])) : h("span", {}, inline(m[6])))
+      else if (m[8]) out.push(h("a", { href: m[8], target: "_blank", rel: "noreferrer" }, m[8]))
+      at = m.index + m[0].length
+    }
+    out.push(text.slice(at))
+    return out
+  }
+  function markdown(text) {
+    const lines = String(text).replace(/\r\n?/g, "\n").replace(/^---\n[\s\S]*?\n---\n/, "").split("\n")
+    const out = []
+    const row = (l) => l.trim().replace(/^\||\|$/g, "").split("|").map((c) => c.trim())
+    for (let i = 0; i < lines.length; ) {
+      const l = lines[i]
+      if (!l.trim()) {
+        i++
+        continue
+      }
+      const fence = /^\s*(```|~~~)/.exec(l)
+      if (fence) {
+        const body = []
+        for (i++; i < lines.length && !lines[i].trim().startsWith(fence[1]); i++) body.push(lines[i])
+        i++
+        out.push(h("pre", {}, h("code", {}, body.join("\n"))))
+        continue
+      }
+      const head = /^(#{1,6})\s+(.*?)\s*#*\s*$/.exec(l)
+      if (head) {
+        out.push(h(`h${Math.min(6, head[1].length)}`, {}, inline(head[2])))
+        i++
+        continue
+      }
+      if (/^\s*([-*_])(\s*\1){2,}\s*$/.test(l)) {
+        out.push(h("hr", {}))
+        i++
+        continue
+      }
+      if (/^\s*>/.test(l)) {
+        const body = []
+        for (; i < lines.length && /^\s*>/.test(lines[i]); i++) body.push(lines[i].replace(/^\s*>\s?/, ""))
+        out.push(h("blockquote", {}, markdown(body.join("\n"))))
+        continue
+      }
+      if (/^\s*\|.*\|\s*$/.test(l) && /^\s*\|?\s*:?-{2,}/.test(lines[i + 1] || "")) {
+        const heads = row(l)
+        const body = []
+        for (i += 2; i < lines.length && /^\s*\|/.test(lines[i]); i++) body.push(row(lines[i]))
+        out.push(h("div", { class: "table-container", tabindex: "0", role: "region", "aria-label": "Table" }, h("table", {}, h("thead", {}, h("tr", {}, heads.map((c) => h("th", {}, inline(c))))), h("tbody", {}, body.map((r) => h("tr", {}, r.map((c) => h("td", {}, inline(c)))))))))
+        continue
+      }
+      const item = /^\s*([-*+]|\d+[.)])\s+(.*)$/
+      if (item.test(l)) {
+        const ordered = /\d/.test(item.exec(l)[1])
+        const items = []
+        for (; i < lines.length && (item.test(lines[i]) || (/^\s{2,}\S/.test(lines[i]) && items.length)); i++) {
+          const m = item.exec(lines[i])
+          if (m) items.push([m[2].replace(/^\[([ xX])\]\s+/, (_, x) => (x === " " ? "☐ " : "☑ "))])
+          else items.at(-1).push(lines[i].trim())
+        }
+        out.push(h(ordered ? "ol" : "ul", {}, items.map((x) => h("li", {}, inline(x.join(" "))))))
+        continue
+      }
+      const para = []
+      for (; i < lines.length && lines[i].trim() && !/^(#{1,6}\s|\s*(```|~~~)|\s*>|\s*([-*+]|\d+[.)])\s)/.test(lines[i]); i++) para.push(lines[i].trim())
+      out.push(h("p", {}, inline(para.join(" "))))
+    }
+    return out
+  }
+  ui.grid = grid
+  ui.markdown = markdown
 
   function frame() {
     for (const el of document.querySelectorAll("[data-icon]")) el.replaceChildren(icon(el.dataset.icon))
@@ -489,7 +681,7 @@ const fb = (() => {
     get mermaid() { return bridge ? `${boot.url}/assets/mermaid.js` : boot.mermaid },
     embedded: !!bridge,
     compact: () => !!bridge && document.body.dataset.mode === "inline",
-    supports: (tool) => !bridge || !!tools?.has(tool),
+    supports,
     route: () => plain(current || "/runs", params),
     h,
     call,

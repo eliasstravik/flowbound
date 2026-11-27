@@ -212,6 +212,21 @@ fs.copyFileSync(path.join("template", "example", "tidy-companies.ts"), path.join
 fs.copyFileSync(path.join("template", "example", "example-companies.csv"), path.join(full.root, "example_companies.csv"))
 for (const [i, [file, rows]] of Object.entries({ target_list: 30, accounts: 60, partners: 12, company_list: 10_000, prospects: 240 }).entries())
   fs.writeFileSync(path.join(full.root, `${file}.csv`), csv(rows, i * 20_000))
+// Context: what the agent should know, as files and folders (all made up).
+const write = (file: string, text: string) => (fs.mkdirSync(path.dirname(path.join(full.root, "context", file)), { recursive: true }), fs.writeFileSync(path.join(full.root, "context", file), text))
+write(
+  "company.md",
+  "# Acme\n\nWhat Acme sells and to whom: payroll software for small Nordic companies. Customers keep it for years; most come through accountants.\n\n## What we sell\n\n- Payroll for **5 to 200** employees\n- Sweden, Norway, Denmark\n\n> We never sell to agencies.\n",
+)
+write(
+  "nordic-saas-icp.md",
+  "---\ndescription: Who we sell to in the Nordics\n---\n# Nordic SaaS\n\nSoftware companies in the Nordics with 20 to 200 employees and a sales team.\n\n| Field | Value |\n| --- | --- |\n| Industry | software |\n| Size | 20 to 200 |\n| Region | SE, NO, DK, FI |\n",
+)
+write("pricing.md", "# Pricing\n\nOur plans and what we never discount. Three plans; we never discount the first year.\n")
+write("case-studies.md", "# Case studies\n\nThree customers who said yes. Northwind cut payroll time by half.\n")
+write("voice.md", "# How we write\n\nShort, plain, no buzzwords. One ask per email.\n")
+for (const f of ["nordics.md", "germany.md", "uk.md"]) write(`market-research/${f}`, `# ${f.replace(".md", "")}\n\nNotes on the market, by the agent.\n`)
+for (const f of ["northwind.md", "bluebird.md", "ironclad.md", "redwood.md", "notes.txt"]) write(`competitors/${f}`, `${f.replace(/\..*/, "")}: what they sell, and where we win.\n`)
 await full.start()
 const fb = async (args: string, o: { fails?: boolean } = {}) => {
   const out = await full.fb(args, o)
@@ -219,7 +234,7 @@ const fb = async (args: string, o: { fails?: boolean } = {}) => {
   return out
 }
 await fb(`keys set fakedata ${KEY}`).catch(async () => full.page("set-key", { name: "fakedata", value: KEY }))
-for (const list of ["target_list", "accounts", "partners", "company_list", "prospects", "crm_list", "example_companies"]) await fb(`import ${list}.csv --as ${list}`)
+for (const list of ["target_list", "accounts", "partners", "company_list", "prospects", "crm_list", "example_companies"]) await fb(`import ${list}.csv --as ${list}${list === "accounts" ? " --folder TAM-mapping" : ""}`)
 await fb("run tidy-companies --try 8 --wait")
 await full.page("set-key", { name: "crm", value: KEY })
 

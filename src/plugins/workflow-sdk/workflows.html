@@ -155,35 +155,18 @@ fb.page("/workflows", async (root, params) => {
   }
 
   if (tab === "Data") {
+    // What it reads and what it fills, then the same grid as the Data page.
     if (!w.into) return body.append(h("p", { class: "text-muted-foreground" }, "It names no results table yet."))
-    body.append(h("p", { class: "text-muted-foreground" }, "Reads ", w.from ? ui.link("/tables", { table: w.from }, w.from, { class: "link font-mono" }) : "?", " · fills ", ui.link("/tables", { table: w.into }, w.into, { class: "link font-mono" })))
-    const size = 50
+    const fills = ui.link("/tables", { table: w.into }, w.into, { class: "link font-mono" })
+    body.append(h("p", { class: "text-muted-foreground" }, w.from ? ["Reads ", ui.link("/tables", { table: w.from }, w.from, { class: "link font-mono" }), " · fills ", fills] : ["Fills ", fills]))
+    const size = compact ? 5 : 50
     const page = Math.max(1, Math.floor(Number(params.page)) || 1)
-    const t = await call("table", { name: w.into, limit: size, offset: (page - 1) * size, search: params.q || undefined }).catch(() => null)
+    const [t, d] = await Promise.all([
+      call("table", { name: w.into, limit: size, offset: (page - 1) * size, search: params.q || undefined, sort: params.sort || undefined, desc: params.desc ? true : undefined }).catch(() => null),
+      fb.supports("data") ? call("data").catch(() => null) : null,
+    ])
     if (!t) return body.append(h("p", { class: "text-muted-foreground" }, "No rows yet. Its results land here once it runs."))
-    const found = t.found ?? t.total
-    let typing
-    const q = h("input", { class: "input", type: "search", name: "q", placeholder: "Search this table", "aria-label": "Search this table", autocomplete: "off", value: params.q || "" })
-    q.addEventListener("input", () => (clearTimeout(typing), (typing = setTimeout(() => fb.stay({ q: q.value.trim() || null, page: null }), 350))))
-    const download = h("button", { class: "btn", "data-variant": "outline", type: "button" }, ui.icon("download"), "Download CSV")
-    download.onclick = () =>
-      fb.act(download, async () => {
-        const out = await call("export", { table: t.name })
-        const a = h("a", { href: URL.createObjectURL(new Blob([out.save.text], { type: "text/csv" })), download: out.save.name })
-        a.click()
-        URL.revokeObjectURL(a.href)
-      })
-    const cell = (r, c, i) => {
-      const v = r.cells[i] == null ? "" : typeof r.cells[i] === "object" ? JSON.stringify(r.cells[i]) : String(r.cells[i])
-      const src = r.sources && r.sources[i]
-      return c.of === "result" ? h("td", { class: v ? null : "none" }, v || "not found", src ? h("span", { class: "src" }, src) : null) : h("td", { class: "cut", title: v.length > 34 ? v : null }, v)
-    }
-    const from = found ? (page - 1) * size + 1 : 0
-    const turn = (label, to, off) => h("button", { class: "btn", "data-variant": "outline", "data-size": "sm", type: "button", disabled: off, onclick: () => fb.stay({ page: to > 1 ? to : null }) }, label)
-    body.append(
-      h("form", { class: "toolbar", role: "search", onsubmit: (e) => e.preventDefault() }, q, fb.supports("export") && !compact ? download : null),
-      t.rows.length ? ui.table(t.columns.map((c) => c.name), t.rows.map((r) => h("tr", {}, t.columns.map((c, i) => cell(r, c, i)))), { label: t.name }) : h("p", { class: "text-muted-foreground" }, params.q ? `Nothing in ${t.name} has "${params.q}".` : "No rows yet. Its results land here once it runs."),
-      found ? h("div", { class: "pager" }, h("p", { class: "num" }, `${fb.num(from)} to ${fb.num(from + t.rows.length - 1)} of ${fb.num(found)}`), found > size ? h("div", { class: "actions" }, turn("Previous", page - 1, page <= 1), turn("Next", page + 1, from + t.rows.length - 1 >= found)) : null) : null)
+    body.append(...ui.grid(t, { page, size, open: d?.open, none: "No rows yet. Its results land here once it runs." }))
     return
   }
 

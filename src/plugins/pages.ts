@@ -1,4 +1,4 @@
-// The page: what people see, on a phone or a desktop. The menu: Home, Workflows, Runs, Schedules, Data, then
+// The page: what people see, on a phone or a desktop. The menu: Home, Workflows, Runs, Schedules, Data, Context, then
 // Connections, Agents and Permissions after a line; Changes is reached from "N changes not live" under the menu.
 // Each is one plain HTML file. How they look is one style sheet and one script, built once when Flowbound itself is
 // built (scripts/build-pages.mjs).
@@ -158,6 +158,7 @@ export const appPages = new Map<string, Page>([
   ["/runs", { title: "Runs", file: asset("workflow-sdk/runs.html"), menu: true, order: 3 }],
   ["/schedules", { title: "Schedules", file: asset("workflow-sdk/schedules.html"), menu: true, order: 4 }],
   ["/tables", { title: "Data", file: asset("postgres/tables.html"), menu: true, order: 5 }],
+  ["/context", { title: "Context", file: asset("context/context.html"), menu: true, order: 6 }],
   ["/keys", { title: "Connections", file: asset("keys/keys.html"), menu: true, order: 7 }],
   ["/permissions", { title: "Permissions", file: asset("ledger/permissions.html"), menu: true, order: 9 }],
   // Not in the menu: Home's old address (an agent's show({ page: "needs" }) still lands on Home), Changes and People.
@@ -197,7 +198,7 @@ export const pages = () => {
       return { list: () => [...all].map(([path, p]) => ({ path, title: p.title })), render: web, head: (title) => head(fb.base, title) } satisfies Pages
     },
     docs: `## The page, for people
-People read, find their way, understand, and see what needs them, on a phone or a desktop. The page is at the address \`flowbound dev\` prints (http://localhost:4111). The menu: \`/home\` (Home: what needs attention, such as a yes that waits or a missing key, recent runs, this month's spend, and a Get started list on a first day), \`/workflows\` (workflows in their folders; each with the Mermaid diagram you wrote, its code, runs and data), \`/runs\` (what ran, what failed and why), \`/schedules\` (every schedule and webhook), \`/tables\` (Data: results, each cell with its source, age and cost), \`/keys\` (Connections: keys are typed only there), \`/permissions\` (the mode and caps). \`/changes\` (saved changes, checks, preview and Publish) is reached from the line under the menu.
+People read, find their way, understand, and see what needs them, on a phone or a desktop. The page is at the address \`flowbound dev\` prints (http://localhost:4111). The menu: \`/home\` (Home: what needs attention, such as a yes that waits or a missing key, recent runs, this month's spend, and a Get started list on a first day), \`/workflows\` (workflows in their folders; each with the Mermaid diagram you wrote, its code, runs and data), \`/runs\` (what ran, what failed and why), \`/schedules\` (every schedule and webhook), \`/tables\` (Data: every table in the folders of its workflows, each bought answer with its source, age and cost, and Flowbound's own tables), \`/context\` (the files in context/, to read), \`/keys\` (Connections: keys are typed only there), \`/permissions\` (the mode and caps). \`/changes\` (saved changes, checks, preview and Publish) is reached from the line under the menu.
 When the person needs a view, return the run, table or workflow from MCP execute and call show with the suggested arguments. Skip show if they ask for no app. The run view updates live. Open it once and say it will show the outcome. Leave the link to the app's Open web page button. In text-only chats, give them the returned page link. A yes is never a button on the page: the person tells you, and you pass it on.
 A plugin's own page is one HTML file (\`pages: { "/path": { title, file, menu: true } }\`) with one script, \`fb.page("/path", async (root, params) => { ... })\`. Build it from the shared parts so it looks and behaves like the rest: \`fb.ui.head\`, \`fb.ui.status\`, \`fb.ui.facts\`, \`fb.ui.table\`, \`fb.ui.empty\`, \`fb.ui.note\`, \`fb.ui.field\`, buttons with \`class="btn"\`, and \`fb.call\`, \`fb.act\`, \`fb.confirm\`, \`fb.say\`, \`fb.poll\`. Only those parts are styled: other class names do nothing.`,
   })

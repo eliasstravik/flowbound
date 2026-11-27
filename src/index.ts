@@ -8,6 +8,7 @@ import { ai } from "./plugins/ai.ts"
 import { blitzapi, firecrawl, hubspot } from "./plugins/cards.ts"
 import { type ChangesOptions, changes } from "./plugins/changes.ts"
 import { cli } from "./plugins/cli.ts"
+import { context } from "./plugins/context.ts"
 import { type DoorOptions, door } from "./plugins/door.ts"
 import { keys } from "./plugins/keys.ts"
 import { ledger, type Permissions } from "./plugins/ledger.ts"
@@ -31,7 +32,7 @@ export type { Records } from "./plugins/postgres.ts"
 export type { Card, Picked, Provider, Result } from "./plugins/provider.ts"
 export { provider } from "./plugins/provider.ts"
 export type { HookLine, ScheduleLine } from "./plugins/schedules.ts"
-export { ai, blitzapi, changes, cli, door, firecrawl, hook, hubspot, keys, ledger, mcp, overview, pages, postgres, schedule, schedules, workflowSdk }
+export { ai, blitzapi, changes, cli, context, door, firecrawl, hook, hubspot, keys, ledger, mcp, overview, pages, postgres, schedule, schedules, workflowSdk }
 
 /** What `flowbound.config.ts` says. Only `providers` and `permissions` are needed; the rest has a sensible default. */
 export type Config = {
@@ -64,6 +65,7 @@ export function flowbound(c: Config = {}): Plugin[] {
     p.keys ?? keys(),
     p.permissions ?? ledger({ permissions: c.permissions, freshDays: c.facts?.freshDays }),
     overview(),
+    context(),
     p.page ?? pages(),
     mcp(),
     ...(c.changes === false ? [] : [changes(c.changes)]),
