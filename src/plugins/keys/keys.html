@@ -1,102 +1,94 @@
 <div data-view></div>
 <script>
+// Connections: one list of keys, each a name the person chose and a secret key, with what uses it, Set or Missing,
+// and Change. Add connection asks only for a name and a key. Keys are typed only here, never in a chat.
 fb.page("/keys", async (root) => {
   const { h, call, ui } = fb
   const view = root.querySelector("[data-view]")
-  const [{ cards }, flows] = await Promise.all([call("keys"), call("workflows").catch(() => [])])
-  // Which workflows reach each card with use("..."): read from the workflow files, so nothing has to be declared.
-  const usedBy = (c) => flows.filter((w) => (w.uses || []).includes(c.name)).map((w) => w.title)
+  const [{ connections }, flows] = await Promise.all([call("keys"), call("workflows").catch(() => [])])
+  // Which workflows reach each key: through the cards that take it, read from each file's use("..."). Nothing is declared.
+  const usedBy = (c) => flows.filter((w) => (w.uses || []).some((u) => c.cards.includes(u))).map((w) => w.title)
   const words = (names) => (names.length < 3 ? names.join(" and ") : `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`)
-  const need = cards.filter((c) => c.needsKey)
-  const missing = need.filter((c) => !c.hasKey)
-  // What stops a workflow comes first: a card with no key that a workflow uses. Then the other missing ones, then the saved.
+  // What stops a workflow comes first: a missing key a workflow uses. Then the other missing ones, then the set ones.
   const rank = (c) => (c.hasKey ? 2 : usedBy(c).length ? 0 : 1)
-  need.sort((a, b) => rank(a) - rank(b))
-  const blocking = missing.filter((c) => usedBy(c).length)
+  connections.sort((a, b) => rank(a) - rank(b))
+  const may = !fb.embedded && fb.can("admin")
+  const head = ui.head({ title: "Connections", sub: "Keys your workflows use, each with a name you choose. Never typed in a chat; your agent uses them and never sees them." })
 
-  if (fb.embedded) {
-    return view.replaceChildren(
-      ui.head({ title: "Connections", actions: [ui.link("/keys", {}, "Manage keys on the web", { class: "btn", "data-variant": "outline", "data-web": true })] }),
-      need.length ? ui.facts(need.map((c) => [c.label, ui.badge(c.hasKey ? "Saved" : "No key yet", c.hasKey ? "ok" : "warn")]))
-        : ui.empty({ title: "No key is needed" }),
-    )
-  }
-
-  const may = fb.can("admin")
-  // A key is typed once and never shown again. It is not a password of this site, so password managers are told to leave it alone.
-  const fields = need.map((c) => ({
-    card: c,
-    input: h("input", { class: "input font-mono", type: "password", name: c.name, autocomplete: "off", spellcheck: "false", "data-1p-ignore": true, "data-lpignore": "true", "data-bwignore": true, disabled: !may, placeholder: c.hasKey ? "•••••••••••• saved" : /key|secret|token/i.test(c.label) ? c.label : `${c.label} key` }),
-  }))
-  const save = h("button", { class: "btn", type: "submit" }, "Save")
-  const state = (c) => (c.hasKey ? ui.badge("Saved", "ok") : ui.badge("No key yet", "warn"))
-  /** Who needs it, in words. A signing secret is used by its webhook line, not by a workflow file. */
-  const use = (c) => {
-    const by = usedBy(c)
-    if (c.incoming) return null
-    if (!by.length) return flows.length ? "No workflow uses it yet." : null
-    return `${c.hasKey ? "Used by" : "Needed by"} ${words(by)}.`
-  }
-  // Taking a key away is asked once more, and the question names what stops.
-  const remove = (c) => {
-    const b = h("button", { class: "btn shrink-0", "data-variant": "outline", type: "button", "aria-label": `Remove the ${c.label} key` }, "Remove")
-    b.onclick = async () => {
-      const by = usedBy(c)
-      const what = c.incoming
-        ? "Rows sent to its webhook are refused until a new secret is saved."
-        : by.length
-          ? `${words(by)} ${by.length === 1 ? "stops" : "stop"} at ${by.length === 1 ? "its" : "their"} next call to ${c.label}, until a new key is saved. Nothing that was already bought is lost.`
-          : "No workflow uses it now. Nothing that was already bought is lost."
-      if (!(await fb.confirm({ title: `Remove the ${c.label}${/key|secret|token/i.test(c.label) ? "" : " key"}?`, text: what, yes: "Remove", tone: "bad" }))) return
-      fb.act(b, async () => {
-        await call("set-key", { name: c.name, value: "" })
+  /** The box for a key: a new one (a name and a key) or one already named (its key only). */
+  const panel = h("div", { hidden: true })
+  const open = (c) => {
+    const name = h("input", { class: "input font-mono", type: "text", name: "name", autocomplete: "off", spellcheck: "false", required: true, placeholder: "MY_SERVICE_KEY", value: c ? c.name : "", readonly: !!c, pattern: "[A-Za-z][A-Za-z0-9_.\\-]{0,63}", title: "A letter, then letters, digits, _ . or -" })
+    // A key is typed once and never shown again. It is not a password of this site, so password managers leave it alone.
+    const value = h("input", { class: "input font-mono", type: "password", name: "value", autocomplete: "off", spellcheck: "false", required: true, "data-1p-ignore": true, "data-lpignore": "true", "data-bwignore": true, placeholder: c && c.hasKey ? "•••••••••••• set" : "" })
+    const save = h("button", { class: "btn", type: "submit" }, "Save")
+    const cancel = h("button", { class: "btn", "data-variant": "ghost", type: "button", onclick: () => ((panel.hidden = true), panel.replaceChildren()) }, "Cancel")
+    const remove = c && c.hasKey ? h("button", { class: "btn", "data-variant": "outline", type: "button" }, "Remove") : null
+    if (remove)
+      remove.onclick = async () => {
+        const by = usedBy(c)
+        const what = c.incoming
+          ? "Rows sent to its webhook are refused until a new secret is saved."
+          : by.length
+            ? `${words(by)} ${by.length === 1 ? "stops" : "stop"} at ${by.length === 1 ? "its" : "their"} next call, until a new key is saved. Nothing that was already bought is lost.`
+            : "No workflow uses it now. Nothing that was already bought is lost."
+        if (!(await fb.confirm({ title: `Remove ${c.name}?`, text: what, yes: "Remove", tone: "bad" }))) return
+        fb.act(remove, async () => {
+          await call("set-key", { name: c.name, value: "" })
+          await fb.redraw()
+          fb.say(`Removed: ${c.name}.`)
+        })
+      }
+    const form = h("form", { class: "card max-w-xl", "data-size": "sm", "aria-labelledby": "k-add" },
+      h("header", {}, h("h2", { id: "k-add" }, c ? `${c.hasKey ? "Change" : "Add"} ${c.label}` : "Add connection")),
+      h("section", { class: "flex flex-col gap-4" },
+        ui.field("Name", name, c ? null : "Your workflows use it by this name."),
+        ui.field(c && c.incoming ? "Secret" : "Key", value, c && c.hint ? c.hint : null),
+        h("div", { class: "actions" }, save, remove, cancel),
+        h("p", { class: "text-muted-foreground" }, "No check; a wrong key shows when a run fails.")))
+    form.onsubmit = (e) => {
+      e.preventDefault()
+      const n = name.value.trim()
+      if (!c && connections.some((x) => x.name === n && x.hasKey)) return fb.trouble(`${n} is already here. Use Change on its line.`)
+      fb.act(save, async () => {
+        await call("set-key", { name: n, value: value.value })
         await fb.redraw()
-        fb.say(`Removed: ${c.label}.`)
+        fb.say(`Saved: ${n}.`)
       })
     }
-    return b
+    panel.replaceChildren(form)
+    panel.hidden = false
+    ;(c ? value : name).focus()
   }
-  const form = h("form", { class: "flex w-full max-w-xl flex-col gap-6", "aria-label": "Add keys" },
-    ...fields.map((f) => {
-      const field = ui.field(f.card.label, f.input, [f.card.hint, use(f.card)].filter(Boolean).join(" ") || null)
-      field.querySelector("label").append(" ", state(f.card))
-      // A saved key has its way out beside its box: typing a new one replaces it, Remove takes it away.
-      if (f.card.hasKey && may) {
-        const slot = document.createComment("")
-        f.input.replaceWith(slot)
-        slot.replaceWith(h("div", { class: "flex items-center gap-2" }, f.input, remove(f.card)))
-      }
-      return field
-    }),
-    need.length ? (may ? h("div", { class: "actions" }, save) : h("p", { class: "text-muted-foreground" }, "Only a manager adds or changes keys.")) : null)
-  form.onsubmit = (e) => {
-    e.preventDefault()
-    const typed = fields.filter((f) => f.input.value.trim())
-    if (!typed.length) return fb.say("Nothing typed, nothing changed.")
-    fb.act(save, async () => {
-      const done = []
-      try {
-        for (const f of typed) (await call("set-key", { name: f.card.name, value: f.input.value }), done.push(f.card.label))
-      } catch (err) {
-        // One was refused: the ones before it are saved, and the page says so before it says what went wrong.
-        if (done.length) await fb.redraw()
-        throw err
-      }
-      await fb.redraw()
-      fb.say(`Saved: ${done.join(", ")}.`)
-    })
+
+  const add = may ? h("button", { class: "btn", type: "button", onclick: () => open(null) }, "Add connection") : null
+  const state = (c) => (c.hasKey ? ui.status("done", "Set") : c.without ? ui.status("idle", "Not needed here") : ui.status("failed", "Missing", "bad"))
+  const use = (c) => {
+    const by = usedBy(c)
+    if (c.incoming) return `Signs the ${c.cards[0]} webhook`
+    return by.length ? words(by) : "No workflow yet"
   }
-  const proxied = cards.filter((c) => !c.needsKey)
-  const sub = missing.length
-      ? `${missing.length} of ${need.length} still need${missing.length === 1 ? "s" : ""} a key.`
-      : null
-  view.replaceChildren(
-    ui.head({ title: "Connections", sub }),
-    need.length ? form : ui.empty({ title: "No key is needed", text: "No provider card in flowbound.config.ts needs a key." }),
-    ...proxied.map((c) => h("p", { class: "text-muted-foreground" }, `${c.label}: its key is kept by a proxy at ${c.host}, not here.`)),
-    h("p", { class: "text-muted-foreground max-w-xl" }, fb.live
-      ? "Keys are saved locked in your own database. One secret on the host unlocks them, and a workflow step only ever gets the key of the card it calls."
-      : "On your own computer, keys are kept out of the chat and out of the project folder. An agent with your whole machine could still dig one out. For a hard wall, use a proxy."),
-    ...(fb.live ? [h("p", {}, ui.link("/connect", {}, "Connect an agent that cannot sign in by itself", { class: "link" }))] : []))
+  const line = (c) => [
+    h("td", { class: "wrap" },
+      h("div", { class: "font-medium" }, c.label),
+      c.label !== c.name ? h("code", { class: "text-muted-foreground block" }, c.name) : null,
+      h("span", { class: "text-muted-foreground block sm:hidden" }, use(c)),
+      c.without && !c.hasKey ? h("span", { class: "text-muted-foreground block" }, c.without) : null),
+    h("td", { class: "wrap max-sm:hidden" }, use(c)),
+    h("td", { class: "align-top" },
+      state(c),
+      may ? h("div", { class: "pt-1.5" }, h("button", { class: "btn", "data-variant": "outline", "data-size": "sm", type: "button", "aria-label": `${c.hasKey ? "Change" : "Add"} ${c.name}`, onclick: () => open(c) }, c.hasKey ? "Change" : "Add")) : null),
+  ]
+  const table = connections.length ? ui.table(["Service", "Used by", "Status"], connections.map(line), { label: "Connections" }) : null
+  // On a phone "Used by" sits under the name, not in a column of its own.
+  table?.querySelectorAll("th")[1].classList.add("max-sm:hidden")
+  view.replaceChildren(...[
+    head,
+    add ? h("div", { class: "actions" }, add) : null,
+    panel,
+    table ||
+      h("p", { class: "text-muted-foreground" }, "No connections yet. Add the first one a workflow needs."),
+    !may && !fb.embedded ? h("p", { class: "text-muted-foreground" }, "Only an Admin or Owner adds or changes keys.") : null,
+  ].filter(Boolean))
 })
 </script>

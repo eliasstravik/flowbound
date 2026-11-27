@@ -18,6 +18,7 @@ import fileText from "lucide-static/icons/file-text.svg"
 import folder from "lucide-static/icons/folder.svg"
 import squareArrowOutUpRight from "lucide-static/icons/square-arrow-out-up-right.svg"
 import globe from "lucide-static/icons/globe.svg"
+import maximize from "lucide-static/icons/maximize-2.svg"
 import menu from "lucide-static/icons/menu.svg"
 import play from "lucide-static/icons/play.svg"
 import repeat from "lucide-static/icons/repeat.svg"
@@ -30,7 +31,7 @@ import upload from "lucide-static/icons/upload.svg"
 import userCheck from "lucide-static/icons/user-check.svg"
 import x from "lucide-static/icons/x.svg"
 
-const ICONS = { "arrow-down": arrowDown, "arrow-up": arrowUp, "arrow-up-right": arrowUpRight, "chevron-down": chevronDown, "chevron-left": chevronLeft, "chevron-right": chevronRight, "circle-alert": circleAlert, "circle-check": circleCheck, clock, code, coins, copy, database, download, "file-text": fileText, folder, globe, menu, play, repeat, search, sparkles, "square-pen": squarePen, "square-arrow-out-up-right": squareArrowOutUpRight, table, "triangle-alert": triangleAlert, upload, "user-check": userCheck, x }
+const ICONS = { "arrow-down": arrowDown, "arrow-up": arrowUp, "arrow-up-right": arrowUpRight, "chevron-down": chevronDown, "chevron-left": chevronLeft, "chevron-right": chevronRight, "circle-alert": circleAlert, "circle-check": circleCheck, clock, code, coins, copy, database, download, "file-text": fileText, folder, globe, "maximize-2": maximize, menu, play, repeat, search, sparkles, "square-pen": squarePen, "square-arrow-out-up-right": squareArrowOutUpRight, table, "triangle-alert": triangleAlert, upload, "user-check": userCheck, x }
 
 const fb = (() => {
   const boot = window.FB
@@ -344,7 +345,12 @@ const fb = (() => {
   /** May the person looking at the page do this? On your own computer: everything. */
   const can = (role) => !boot.who || !boot.who.role || ROLES.indexOf(boot.who.role) >= ROLES.indexOf(role)
   /** The browser tab's name, so two runs open side by side can be told apart. */
-  const title = (text) => (document.title = `${text} · Flowbound`)
+  const title = (text) => {
+    document.title = `${text} · Flowbound`
+    // In a chat the page's name also sits beside "Flowbound" in the view's own bar.
+    const named = document.getElementById("app-title")
+    if (named) named.textContent = text
+  }
 
   // ---- the parts pages are made of ---------------------------------------------------------------------------
   const TONES = { running: "running", done: "ok", active: "ok", saved: "ok", stopped: "bad", failed: "bad", paused: "warn", waiting: "warn", asked: "warn", "needs a yes": "warn", missing: "warn" }

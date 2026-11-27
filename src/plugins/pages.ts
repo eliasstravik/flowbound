@@ -140,7 +140,7 @@ ${
 <header class="top">${brand}${place}<button class="btn ml-auto" data-variant="ghost" data-size="icon" type="button" id="menu-open" aria-label="Menu" aria-haspopup="dialog" data-icon="menu"></button></header>
 <dialog class="drawer" id="menu" aria-label="Menu"><div><div class="flex h-10 items-center gap-1"><button class="btn" data-variant="ghost" data-size="icon" type="button" data-close aria-label="Close the menu" data-icon="x"></button>${brand}</div><nav class="menu" aria-label="Pages">${links}${changes}</nav>${me}</div></dialog>
 <main id="main" tabindex="-1"><div class="page">
-${app ? '<div class="actions" id="app-actions" hidden></div>' : ""}
+${app ? '<header class="app-bar" id="app-actions" hidden><b>Flowbound</b><span id="app-title"></span></header><div id="app-loading" class="loading" role="status" aria-label="Loading"><span class="skeleton w-2/5"></span><span class="skeleton w-full"></span><span class="skeleton w-4/5"></span><span class="skeleton w-2/3"></span></div>' : ""}
 <div id="trouble" class="alert" data-variant="destructive" role="alert" hidden></div>
 ${shown.map(([p, x]) => `<section data-page="${p}" hidden>\n${read(x.file)}\n</section>`).join("\n")}
 </div></main>
@@ -160,6 +160,7 @@ export const appPages = new Map<string, Page>([
   ["/tables", { title: "Data", file: asset("postgres/tables.html"), menu: true, order: 5 }],
   ["/context", { title: "Context", file: asset("context/context.html"), menu: true, order: 6 }],
   ["/keys", { title: "Connections", file: asset("keys/keys.html"), menu: true, order: 7 }],
+  ["/connect", { title: "Agents", file: asset("door/connect.html"), menu: true, order: 8 }],
   ["/permissions", { title: "Permissions", file: asset("ledger/permissions.html"), menu: true, order: 9 }],
   // Not in the menu: Home's old address (an agent's show({ page: "needs" }) still lands on Home), Changes and People.
   ["/needs", { title: "Home", file: asset("overview/overview.html") }],
@@ -198,7 +199,7 @@ export const pages = () => {
       return { list: () => [...all].map(([path, p]) => ({ path, title: p.title })), render: web, head: (title) => head(fb.base, title) } satisfies Pages
     },
     docs: `## The page, for people
-People read, find their way, understand, and see what needs them, on a phone or a desktop. The page is at the address \`flowbound dev\` prints (http://localhost:4111). The menu: \`/home\` (Home: what needs attention, such as a yes that waits or a missing key, recent runs, this month's spend, and a Get started list on a first day), \`/workflows\` (workflows in their folders; each with the Mermaid diagram you wrote, its code, runs and data), \`/runs\` (what ran, what failed and why), \`/schedules\` (every schedule and webhook), \`/tables\` (Data: every table in the folders of its workflows, each bought answer with its source, age and cost, and Flowbound's own tables), \`/context\` (the files in context/, to read), \`/keys\` (Connections: keys are typed only there), \`/permissions\` (the mode and caps). \`/changes\` (saved changes, checks, preview and Publish) is reached from the line under the menu.
+People read, find their way, understand, and see what needs them, on a phone or a desktop. The page is at the address \`flowbound dev\` prints (http://localhost:4111). The menu: \`/home\` (Home: what needs attention, such as a yes that waits or a missing key, recent runs, this month's spend, and a Get started list on a first day), \`/workflows\` (workflows in their folders; each with the Mermaid diagram you wrote, its code, runs and data), \`/runs\` (what ran, what failed and why), \`/schedules\` (every schedule and webhook), \`/tables\` (Data: every table in the folders of its workflows, each bought answer with its source, age and cost, and Flowbound's own tables), \`/context\` (the files in context/, to read), \`/keys\` (Connections: each a name and a key, typed only there), \`/connect\` (Agents: how to connect one, and the connected ones), \`/permissions\` (the mode and caps; live, a People tab for Admins and Owners). \`/changes\` (saved changes not live yet, with their checks; ask the agent to publish) is reached from "N changes not live · See them" under the menu.
 When the person needs a view, return the run, table or workflow from MCP execute and call show with the suggested arguments. Skip show if they ask for no app. The run view updates live. Open it once and say it will show the outcome. Leave the link to the app's Open web page button. In text-only chats, give them the returned page link. A yes is never a button on the page: the person tells you, and you pass it on.
 A plugin's own page is one HTML file (\`pages: { "/path": { title, file, menu: true } }\`) with one script, \`fb.page("/path", async (root, params) => { ... })\`. Build it from the shared parts so it looks and behaves like the rest: \`fb.ui.head\`, \`fb.ui.status\`, \`fb.ui.facts\`, \`fb.ui.table\`, \`fb.ui.empty\`, \`fb.ui.note\`, \`fb.ui.field\`, buttons with \`class="btn"\`, and \`fb.call\`, \`fb.act\`, \`fb.confirm\`, \`fb.say\`, \`fb.poll\`. Only those parts are styled: other class names do nothing.`,
   })

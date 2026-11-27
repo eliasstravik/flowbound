@@ -1,7 +1,7 @@
 import { createSign, randomUUID } from "node:crypto"
 import type { Who } from "../../core/plugin.ts"
 import { Refused } from "../../core/server.ts"
-import { authorLine, branchPrefix, type Change, checkNames, type Edit, link, type Repository, type Save, stale, workflowFile } from "./model.ts"
+import { authorLine, branchPrefix, type Change, checkNames, type Edit, link, type Repository, requester, type Save, stale, workflowFile } from "./model.ts"
 
 type Options = {
   name: string
@@ -17,6 +17,8 @@ type Pull = {
   title: string
   state: "open" | "closed"
   merged_at?: string
+  body?: string | null
+  updated_at?: string
   draft: boolean
   changed_files: number
   merge_commit_sha: string
@@ -227,7 +229,18 @@ export class GitHub implements Repository {
 
   private async describe(p: Pull, files?: Awaited<ReturnType<GitHub["files"]>>): Promise<Change> {
     const state = p.merged_at ? "published" : p.state
-    const change: Change = { id: String(p.number), title: p.title, branch: p.head.ref, head: p.head.sha, state, checks: [], pull: `${this.web}/pull/${p.number}`, external: !(await this.owned(p)) }
+    const change: Change = {
+      id: String(p.number),
+      title: p.title,
+      branch: p.head.ref,
+      head: p.head.sha,
+      state,
+      checks: [],
+      pull: `${this.web}/pull/${p.number}`,
+      external: !(await this.owned(p)),
+      by: requester(p.body) ?? p.user.login,
+      at: p.updated_at,
+    }
     if (state === "published") change.published = p.merge_commit_sha
     if (state !== "open") return change
     const [checks, preview, review, paths, base] = await Promise.all([

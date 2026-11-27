@@ -10,7 +10,7 @@ export type Login = { id: "google" | "microsoft" | "sso"; label: string; issuer:
 /** What the company's login said about the person, the last time they signed in. */
 export type Claims = { hd?: string; tid?: string; groups?: string[]; verified?: boolean }
 export type Signed = { user: string; email: string; name: string }
-export type Connection = { id: string; app: string; email: string; since: Date }
+export type Connection = { id: string; app: string; email: string; since: Date; used: Date | null }
 export type Engine = Awaited<ReturnType<typeof engine>>
 
 const DAY = 12 * 3600 // a browser session lasts a working day
@@ -254,7 +254,9 @@ export async function engine(o: { fb: Flowbound; secret: string; login?: Login; 
     async connections(email?: string): Promise<Connection[]> {
       return (
         await q(
-          `select k.id, c.name as app, lower(u.email) as email, k."createdAt" as since from fb_door."oauthConsent" k join fb_door."user" u on u.id = k."userId"
+          `select k.id, c.name as app, lower(u.email) as email, k."createdAt" as since,
+             (select max(t."createdAt") from fb_door."oauthAccessToken" t where t."userId" = k."userId" and t."clientId" = k."clientId") as used
+           from fb_door."oauthConsent" k join fb_door."user" u on u.id = k."userId"
            join fb_door."oauthClient" c on c."clientId" = k."clientId" where $1::text is null or lower(u.email) = $1 order by k."createdAt"`,
           [email ?? null],
         )

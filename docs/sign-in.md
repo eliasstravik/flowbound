@@ -27,18 +27,23 @@ environment, so a deploy needs no file change: `FLOWBOUND_LOGIN` (`google`, `mic
 
 ## Rights
 
-By default, an owner assigns access after sign-in. Each person on the People page has one of:
+Each person on Permissions → People (seen only by Admins and Owners) has one of:
 
 | Rights | May |
 | --- | --- |
-| nothing yet | Sign in, and see who to ask. |
+| nothing yet | Sign in, and see who to ask (someone the login vouched for who is neither at an allowed domain nor invited). |
 | Viewer | Read workflows, changes, runs, tables and lists. |
 | Member | Also save, try, run and publish workflows and pass on a yes to spending. |
 | Admin | Also manage keys, settings, and roles for Members and Viewers. |
 | Owner | Also manage Admins and Owners, and remove the project through its host. |
 
-The people in `owners` start as Owners. Add others on the People page, including before they first sign in.
-With `groups`, roles come from the work login at sign-in. For a verified Google domain or Microsoft directory, you can set `defaultRole: "member"` or `FLOWBOUND_LOGIN_DEFAULT_ROLE=member` to give new people Member access on their first sign-in. Owners, group roles, and existing people keep their assigned roles. A chat acts for its person, up to Member.
+The people in `owners` start as Owners. **Allowed domains:** people with a work email at one of them sign in as
+Viewers. The first comes from `domain` in the settings; after that Owners add and take away domains on the People tab
+(taking one away stops new sign-ins from it; people already in keep their role). **Invite by email:** an Admin or
+Owner invites any address at any domain with a role (Member by default). No email is sent: share Flowbound's address;
+the person signs in with the Google (or, inside the company's directory, Microsoft) account on that address, whose
+email the login has checked.
+With `groups`, roles come from the work login at sign-in. For a verified Google domain or Microsoft directory, new people at an allowed domain start as Viewers; set `defaultRole: "member"` or `FLOWBOUND_LOGIN_DEFAULT_ROLE=member` to make that Member. Owners, group roles, and existing people keep their assigned roles. A chat acts for its person, up to Member.
 
 ## Try it with a real Google Workspace
 
@@ -67,8 +72,8 @@ FLOWBOUND_LOGIN_CLIENT_ID=<the client id> FLOWBOUND_LOGIN_CLIENT_SECRET=<the cli
 ```
 
 Open `http://localhost:4111`, tap "Sign in with Google". You are the Owner named in the settings; a colleague
-who signs in shows up on the People page with nothing until you give them rights; an account outside your domain
-is told it cannot come in. Google shows its "wants to access your Google Account" page at each sign-in: that is
+who signs in shows up on Permissions → People as a Viewer; an account outside your domains
+is told it cannot come in unless you invited it. Google shows its "wants to access your Google Account" page at each sign-in: that is
 what lets Flowbound ask Google later whether a person is still there.
 
 Microsoft is the same shape: in Entra, App registrations, New registration, "Accounts in this organizational
@@ -84,7 +89,7 @@ token; `login` is the Okta address.
 - Agents and chat apps: once an hour Flowbound asks the company's login again whether their person is still
   there (it keeps a renewal for that, locked with the host's secret). When the login says no, they stop until the
   person signs in again. A chat app's own token lasts an hour and renews.
-- A manager's "remove from Flowbound" on the People page (linked from Permissions) works at once: browser, tokens and
+- Remove on Permissions → People works at once: browser, tokens and
   chat apps, so their agent can no longer pass on a yes either.
 - Not built: instant removal pushed by the company's directory (SCIM). Add it when a customer asks.
 

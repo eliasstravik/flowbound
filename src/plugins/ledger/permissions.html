@@ -1,8 +1,13 @@
 <div data-view></div>
 <script>
-fb.page("/permissions", async (root) => {
+fb.page("/permissions", async (root, params) => {
   const { h, call, money, num, ui } = fb
   const view = root.querySelector("[data-view]")
+  // People is a tab only Admins and Owners see, and only live: on your own computer nobody signs in.
+  const people = fb.live && !fb.embedded && fb.can("admin") && fb.who?.kind !== "token"
+  const tab = people && params.tab === "people" ? "People" : "Rules"
+  const tabs = people ? ui.tabs(["Rules", "People"], tab, "tab") : null
+  if (tab === "People") return view.replaceChildren(ui.head({ title: "Permissions" }), tabs, ...(await peopleTab()), h("p", { class: "text-muted-foreground" }, "Only Admins and Owners see the People tab."))
   const p = await call("permissions")
   const MODES = [
     ["ask", "Ask every time", "Every paid run asks first, even a 10-row try."],
@@ -15,6 +20,7 @@ fb.page("/permissions", async (root) => {
   const rule = (r) => [r.title, [r.mode ? MODES.find((m) => m[0] === r.mode)?.[1] : null, caps(r.caps), r.thisMonth && r.thisMonth.usd ? `${money(r.thisMonth.usd)} this month` : null].filter(Boolean).join(" · ") || "No rule of its own"]
   view.replaceChildren(...[
     ui.head({ title: "Permissions", sub: "Like your agent's own permission modes: how much it may do without asking. Change it any time." }),
+    tabs,
     h("ul", { class: "modes", role: "list", "aria-label": "Mode" },
       MODES.map(([key, name, text]) => h("li", { "aria-current": p.mode === key ? "true" : null }, h("b", {}, name, p.mode === key ? h("span", { class: "badge", "data-variant": "secondary" }, "Now") : null), h("span", {}, text)))),
     h("section", { class: "flex flex-col gap-3", "aria-labelledby": "caps-title" },
@@ -40,7 +46,104 @@ fb.page("/permissions", async (root) => {
       h("p", { class: "text-muted-foreground" }, `Kept facts are used again for ${num(p.freshDays)} days, then bought again.`),
       h("p", { class: "text-muted-foreground" }, "To change it, tell your agent, or edit permissions in flowbound.config.ts:"),
       h("pre", { class: "snippet" }, p.written)),
-    fb.live && fb.can("viewer") ? h("p", {}, ui.link("/people", {}, "People and what each may do", { class: "link" })) : null,
   ].filter(Boolean))
+
+  /** The People tab: allowed domains (Owners edit them), the people with their roles, Change role, Remove, Invite by email. */
+  async function peopleTab() {
+    const p = await call("people")
+    const ROLES = { viewer: "Viewer", member: "Member", admin: "Admin", owner: "Owner" }
+    const mayGive = (k) => p.isOwner || !["admin", "owner"].includes(k)
+    const roleSelect = (name, on) => h("select", { class: "select w-full", name }, Object.entries(ROLES).filter(([k]) => mayGive(k)).map(([k, v]) => h("option", { value: k, selected: k === on }, v)))
+    const done = async (said) => (await fb.redraw(), fb.say(said))
+
+    // Invite by email: any address, any domain, with a role (Member unless chosen). No email is sent.
+    const invite = h("div", { hidden: params.invite !== "1" })
+    if (p.canManage && p.rightsFrom === "managers") {
+      const email = h("input", { class: "input", type: "email", name: "invite-email", placeholder: "name@company.com", autocomplete: "off", required: true })
+      const role = roleSelect("invite-role", "member")
+      const send = h("button", { class: "btn", type: "submit" }, "Invite")
+      const form = h("form", { class: "card max-w-xl", "data-size": "sm", "aria-labelledby": "p-invite" },
+        h("header", {}, h("h2", { id: "p-invite" }, "Invite by email")),
+        h("section", { class: "flex flex-col gap-4" },
+          ui.field("Email", email), ui.field("Role", role),
+          h("div", { class: "actions" }, send, h("button", { class: "btn", "data-variant": "ghost", type: "button", onclick: () => fb.stay({ invite: null }) }, "Cancel")),
+          h("p", { class: "text-muted-foreground" }, "No email is sent: share Flowbound's address with them. They sign in with the Google or Microsoft account on this address.")))
+      form.onsubmit = (e) => {
+        e.preventDefault()
+        const to = email.value.trim().toLowerCase()
+        if (p.people.some((x) => x.email === to && x.rights !== "removed")) return fb.trouble(`${to} is already here. Use Change role on their line.`)
+        fb.act(send, async () => {
+          await call("set-rights", { email: to, rights: role.value })
+          fb.stay({ invite: null })
+          fb.say(`Invited: ${to}, as ${ROLES[role.value]}.`)
+        })
+      }
+      invite.append(form)
+    }
+
+    // Allowed domains: whose people may sign in, as Viewers. Owners add and take away.
+    const domains = p.domains
+      ? (() => {
+          const chips = h("div", { class: "flex flex-wrap items-center gap-2" },
+            p.domains.map((d) => h("span", { class: "badge", "data-variant": "outline" }, d,
+              p.isOwner ? h("button", { type: "button", class: "-mr-1 ml-0.5 cursor-pointer", "aria-label": `Take away ${d}`, onclick: async (e) => {
+                if (!(await fb.confirm({ title: `Take away ${d}?`, text: `New people at ${d} can no longer sign in. People already in keep their role.`, yes: "Take away", tone: "bad" }))) return
+                fb.act(e.currentTarget, async () => (await call("set-domain", { domain: d, remove: true }), done(`Taken away: ${d}.`)))
+              } }, ui.icon("x")) : null)),
+            !p.domains.length ? h("span", { class: "text-muted-foreground" }, "None: only invited people may sign in.") : null)
+          if (p.isOwner) {
+            const field = h("input", { class: "input w-44", type: "text", name: "domain", placeholder: "example.org", autocomplete: "off", "aria-label": "Domain" })
+            const addBtn = h("button", { class: "btn", "data-variant": "outline", type: "submit" }, "Add domain")
+            const form = h("form", { class: "flex flex-wrap items-center gap-2" }, field, addBtn)
+            form.onsubmit = (e) => (e.preventDefault(), field.value.trim() ? fb.act(addBtn, async () => (await call("set-domain", { domain: field.value }), done(`Added: ${field.value.trim().toLowerCase()}.`))) : field.focus())
+            chips.append(form)
+          }
+          return h("section", { class: "flex flex-col gap-2" }, h("h2", {}, "Allowed domains"), h("p", { class: "text-muted-foreground" }, "Anyone with these work addresses may sign in, as a Viewer."), chips)
+        })()
+      : null
+
+    const rows = p.people.filter((x) => x.rights !== "removed")
+    const line = (x) => {
+      const mine = p.canManage && p.rightsFrom === "managers" && x.email && x.setBy === "a manager" && x.email !== p.you && x.rights !== "removed" && (p.isOwner || !["admin", "owner"].includes(x.rights))
+      const cell = h("td", { class: "wrap align-top" }, x.rights === "removed" ? "Removed" : x.rights === "none" ? "Waiting for a role" : ROLES[x.rights], x.setBy !== "a manager" ? h("span", { class: "text-muted-foreground block" }, `set by ${x.setBy}`) : null)
+      if (mine) {
+        const change = h("button", { class: "btn", "data-variant": "outline", "data-size": "sm", type: "button" }, "Change role")
+        const remove = h("button", { class: "btn", "data-variant": "outline", "data-size": "sm", type: "button" }, "Remove")
+        const buttons = h("div", { class: "flex flex-wrap gap-2 pt-1.5" }, change, remove)
+        change.onclick = () => {
+          const pick = roleSelect(`role-${x.email}`, x.rights)
+          pick.setAttribute("aria-label", `Role for ${x.email}`)
+          const save = h("button", { class: "btn", "data-size": "sm", type: "button" }, "Save")
+          save.onclick = async () => {
+            if (pick.value === x.rights) return fb.redraw()
+            if (["admin", "owner"].includes(pick.value) && !(await fb.confirm({ title: `Make ${x.email} an ${ROLES[pick.value]}?`, text: "They will be able to manage keys and people.", yes: "Change role" }))) return
+            fb.act(save, async () => (await call("set-rights", { email: x.email, rights: pick.value }), done(`${x.email}: ${ROLES[pick.value]}.`)))
+          }
+          buttons.replaceWith(h("div", { class: "flex flex-wrap items-center gap-2 pt-1.5" }, h("div", { class: "w-36" }, pick), save, h("button", { class: "btn", "data-variant": "ghost", "data-size": "sm", type: "button", onclick: () => fb.redraw() }, "Cancel")))
+          pick.focus()
+        }
+        remove.onclick = async () => {
+          if (!(await fb.confirm({ title: `Remove ${x.email}?`, text: "They can no longer come in, and agents connected as them stop working.", yes: "Remove", tone: "bad" }))) return
+          fb.act(remove, async () => (await call("remove-person", { email: x.email }), done(`Removed: ${x.email}.`)))
+        }
+        cell.append(buttons)
+      }
+      const name = x.name && x.name !== x.email ? x.name : x.email || x.name
+      return [
+        h("td", { class: "wrap align-top" }, h("div", { class: "font-medium" }, name, x.invited ? " (invited)" : ""), x.email && x.email !== name ? h("span", { class: "text-muted-foreground block" }, x.email) : !x.email ? h("span", { class: "text-muted-foreground block" }, "team password, name not checked") : null),
+        cell,
+      ]
+    }
+    const canInvite = p.canManage && p.rightsFrom === "managers"
+    return [
+      invite,
+      domains,
+      h("section", { class: "flex flex-col gap-2" },
+        h("h2", {}, "People"),
+        p.rightsFrom === "groups" ? h("p", { class: "text-muted-foreground" }, "Each person's role comes from their groups in the company's login.") : null,
+        ui.table(["Person", "Role"], rows.map(line), { label: "People" })),
+      canInvite && params.invite !== "1" ? h("div", { class: "actions" }, h("button", { class: "btn", "data-variant": "outline", type: "button", onclick: () => fb.stay({ invite: "1" }) }, "Invite by email")) : null,
+    ].filter(Boolean)
+  }
 })
 </script>

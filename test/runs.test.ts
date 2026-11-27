@@ -40,7 +40,7 @@ test("keys: only a person on a page can save one; it is kept outside the project
   assert.match(await p.fb("set-key fakedata sk-test-123", { fails: true }), /flowbound <command>/)
   assert.match((await api("set-key", { name: "fakedata", value: "sk-test-123" })).error, /for a person on a page, not for an agent/)
   assert.deepEqual((await p.page("set-key", { name: "fakedata", value: "sk-test-123" })).result, { name: "fakedata", hasKey: true })
-  assert.match(await p.fb("keys"), /FakeData\s+key is in/)
+  assert.match(await p.fb("keys"), /FAKEDATA_KEY\s+set/)
   assert.doesNotMatch(await p.fb("keys --json"), /sk-test/)
   const inProject = fs
     .readdirSync(p.root, { recursive: true })
@@ -49,6 +49,29 @@ test("keys: only a person on a page can save one; it is kept outside the project
   for (const f of inProject) if (fs.statSync(f).isFile() && fs.statSync(f).size < 2_000_000) assert.ok(!fs.readFileSync(f).includes("sk-test-123"), `the key is in ${f}`)
   const [dir] = fs.readdirSync(p.home)
   assert.equal(fs.statSync(path.join(p.home, dir!, "keys.json")).mode & 0o777, 0o600)
+})
+
+test("connections: any name and a key, nothing checked; a key saved under its card's old name is carried over", async () => {
+  // A key for a provider Flowbound has never heard of: a name the person chooses, and the key. No list, no check.
+  assert.deepEqual((await p.page("set-key", { name: "SAMPLE_DATA_KEY", value: "sk-sample-1" })).result, { name: "SAMPLE_DATA_KEY", hasKey: true })
+  const listed = (await api("keys", {})).result.connections
+  assert.deepEqual(
+    listed.find((c: any) => c.name === "SAMPLE_DATA_KEY"),
+    { name: "SAMPLE_DATA_KEY", label: "SAMPLE_DATA_KEY", cards: [], hasKey: true },
+  )
+  // A card no workflow uses and nobody gave a key is not listed: there is no list of known services.
+  assert.ok(listed.every((c: any) => c.hasKey || c.incoming || c.cards.length))
+  assert.match((await p.page("set-key", { name: "no spaces allowed", value: "x" })).error, /starts with a letter/)
+  assert.doesNotMatch(await p.fb("keys --json"), /sk-sample/)
+  await p.page("set-key", { name: "SAMPLE_DATA_KEY", value: "" })
+  // Before connections had names, a key was kept under its card's name ("fakedata"): it still works, as FAKEDATA_KEY.
+  const [dir] = fs.readdirSync(p.home)
+  const file = path.join(p.home, dir!, "keys.json")
+  const kept = JSON.parse(fs.readFileSync(file, "utf8"))
+  const old = { ...kept, fakedata: kept.FAKEDATA_KEY }
+  delete old.FAKEDATA_KEY
+  fs.writeFileSync(file, JSON.stringify(old), { mode: 0o600 })
+  assert.equal((await api("keys", {})).result.connections.find((c: any) => c.name === "FAKEDATA_KEY")?.hasKey, true)
 })
 
 test("keys: whatever path is asked for, the key only ever travels to the card's own address", async () => {

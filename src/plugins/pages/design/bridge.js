@@ -1,6 +1,8 @@
 // The shared pages use the host's connection inside chat. No cookies, credentials or requests from this frame.
 import { App } from "@modelcontextprotocol/ext-apps"
 
+// While the view waits for its tool's answer it asks for this much room and shows a loading skeleton, not nothing.
+const LOADING_HEIGHT = 180
 const app = new App({ name: "Flowbound", version: "1.0.0" }, { availableDisplayModes: ["inline", "fullscreen"] }, { autoResize: false })
 let display
 let context
@@ -49,7 +51,9 @@ app.ontoolresult = async (result) => {
   stopSizing ??= app.setupSizeChangedNotifications()
   let status = "error"
   try {
-    if ((await display({ ...view, role, tools })) !== false) {
+    const shown = await display({ ...view, role, tools })
+    document.getElementById("app-loading")?.remove()
+    if (shown !== false) {
       fallback = undefined
       status = "loaded"
       if (!document.body.hidden) keepNewestRun(view, instance)
@@ -96,23 +100,29 @@ window.FB_BRIDGE = {
   async start(show) {
     display = show
     const actions = document.getElementById("app-actions")
-    const expand = window.fb.h("button", { id: "app-expand", class: "btn", type: "button", "data-variant": "outline", "data-size": "sm", hidden: true, onclick: async () => {
+    const expand = window.fb.h("button", { id: "app-expand", class: "btn", type: "button", "data-variant": "ghost", "data-size": "icon", "aria-label": "Expand", title: "Expand", hidden: true, onclick: async () => {
       try {
         const { mode } = await app.requestDisplayMode({ mode: "fullscreen" })
         update({ displayMode: mode })
       } catch (error) {
         window.fb.trouble(error)
       }
-    } }, "Expand Flowbound")
-    const web = window.fb.h("button", { class: "btn", type: "button", "data-variant": "ghost", "data-size": "sm", disabled: true, onclick: () => window.fb.act(web, () => this.open(fallback ?? (window.FB.url + window.fb.route()))) }, "Open web page")
-    actions.replaceChildren(expand, web)
+    } }, window.fb.ui.icon("maximize-2"))
+    const web = window.fb.h("button", { class: "btn", type: "button", "data-variant": "outline", "data-size": "sm", disabled: true, onclick: () => window.fb.act(web, () => this.open(fallback ?? (window.FB.url + window.fb.route()))) }, "Open in Flowbound", window.fb.ui.icon("arrow-up-right"))
+    actions.append(expand, web)
     actions.hidden = false
     display = (view) => {
       web.disabled = false
+      display.shown = true
       return show(view)
     }
     await app.connect()
     update(app.getHostContext())
+    // Until the answer comes: the bar and a skeleton, and a height to hold them. A collapse (an error, a cancel) is 0.
+    if (document.getElementById("app-loading") && !display.shown) {
+      document.body.hidden = false
+      await app.sendSizeChanged({ height: LOADING_HEIGHT }).catch(() => {})
+    }
   },
   async call(name, input) {
     const code = `return await flowbound[${JSON.stringify(name)}](${JSON.stringify(input ?? {})})`

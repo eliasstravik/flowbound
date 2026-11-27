@@ -43,7 +43,7 @@ needs a long-lived worker, so it does not run on serverless hosts) and a Postgre
    Flowbound listens on 127.0.0.1 only. Put your own HTTPS front (Caddy, nginx, a tunnel) before it and pass
    everything through.
 4. Open the address, sign in, add keys on the keys page, give your colleagues rights on the People page, and
-   connect each agent or chat app on the Connect page.
+   connect each agent or chat app as the Agents page shows.
 
 Flowbound's own access check is the only door: pages need a signed-in person the door lets in, `/api` and `/mcp`
 need an agent that acts for one (Claude and ChatGPT get there by sending the person to sign in and allow

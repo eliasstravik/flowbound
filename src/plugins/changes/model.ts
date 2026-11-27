@@ -17,6 +17,10 @@ export type Change = {
   previewState?: string
   published?: string
   page?: string
+  /** Whose change it is: the name in its "Requested by" line, else who wrote it. */
+  by?: string
+  /** When it was last saved (ISO). */
+  at?: string
 }
 export type Save = { title: string; head: string; edits: Edit[]; id?: string }
 export type Repository = {
@@ -36,6 +40,8 @@ export const stale = () => new Refused("This change moved. Read the latest versi
 export const lines = (s: string) => s.trim().split("\n").filter(Boolean)
 export const plain = (s: string) => s.replace(/[\p{Cc}\p{Zl}\p{Zp}]/gu, " ").trim()
 export const attributed = (who: Who) => plain(who.personName ?? (who.email ? who.name.replace(` (${who.email})`, "") : who.name)).slice(0, 120)
+/** The name in a change's "Requested by …." line, if it has one. */
+export const requester = (text: string | null | undefined) => /Requested by (.+?)(?: \(name not checked\))?\.(?:\n|$)/.exec(text ?? "")?.[1]
 export const authorLine = (who: Who) => `Requested by ${attributed(who)}${who.checked === false ? " (name not checked)" : ""}.`
 export const link = (value: unknown, host: (host: string) => boolean) => {
   if (typeof value !== "string") return undefined
