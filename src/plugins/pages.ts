@@ -137,7 +137,7 @@ ${
 <a class="skip" href="#main">Skip to the page</a>
 <div class="app">
 <aside class="side"><div class="flex items-center justify-between gap-2">${brand}${place}</div><nav class="menu" aria-label="Pages">${links}${changes}</nav>${me}</aside>
-<header class="top"><button class="btn" data-variant="ghost" data-size="icon" type="button" id="menu-open" aria-label="Menu" aria-haspopup="dialog" data-icon="menu"></button>${brand}<span class="ml-auto mr-2">${place}</span></header>
+<header class="top">${brand}${place}<button class="btn ml-auto" data-variant="ghost" data-size="icon" type="button" id="menu-open" aria-label="Menu" aria-haspopup="dialog" data-icon="menu"></button></header>
 <dialog class="drawer" id="menu" aria-label="Menu"><div><div class="flex h-10 items-center gap-1"><button class="btn" data-variant="ghost" data-size="icon" type="button" data-close aria-label="Close the menu" data-icon="x"></button>${brand}</div><nav class="menu" aria-label="Pages">${links}${changes}</nav>${me}</div></dialog>
 <main id="main" tabindex="-1"><div class="page">
 ${app ? '<div class="actions" id="app-actions" hidden></div>' : ""}

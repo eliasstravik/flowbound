@@ -16,7 +16,7 @@ fb.page("/schedules", async (root) => {
       lines.map((s) => {
         const w = flow(s.workflow)
         return [
-          h("td", {}, ui.link("/workflows", { workflow: s.workflow }, w ? w.title : s.workflow, { class: "font-medium no-underline hover:underline" }), h("span", { class: "src" }, w && w.folder ? w.folder.split("/").map(named).join(" / ") : "Workflows")),
+          h("td", {}, ui.link("/workflows", { workflow: s.workflow }, w ? w.title : s.workflow, { class: "font-medium no-underline hover:underline" }), h("span", { class: "text-muted-foreground block" }, w && w.folder ? w.folder.split("/").map(named).join(" / ") : "Workflows")),
           s.starts,
           s.kind === "webhook" ? "on each delivery" : s.nextDue ? h("span", { title: new Date(s.nextDue).toLocaleString() }, fb.ahead(s.nextDue)) : "",
         ]

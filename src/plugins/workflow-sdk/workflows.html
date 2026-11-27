@@ -78,7 +78,8 @@ fb.page("/workflows", async (root, params) => {
                   h("div", {}, h("dd", { class: "sub" }, s.secretSaved ? "Signed with the secret on the Connections page" : "No signing secret yet: add it on the Connections page", s.lastDelivery ? ` · last delivery ${fb.ago(s.lastDelivery)}` : "")),
                 ]
               : h("div", {}, h("dt", {}, "Starts"), h("dd", {}, s.text, s.next ? ` · next ${fb.ahead(s.next)}` : ""))),
-          h("div", {}, h("dt", {}, "Also"), h("dd", {}, "When you or your agent asks")),
+          // A schedule also runs when asked; a webhook's box is its address alone, as the prototype has it.
+          w.starts.some((s) => s.kind === "schedule") ? h("div", {}, h("dt", {}, "Also"), h("dd", {}, "When you or your agent asks")) : null,
         ]
       : h("div", {}, h("dt", {}, "Starts"), h("dd", {}, "When you or your agent asks")))
 
@@ -209,7 +210,7 @@ fb.page("/workflows", async (root, params) => {
   const canvas = h("figure", { class: "canvas", "aria-label": `Diagram of ${w.title}, written by your agent` }, stage, zoomBar)
   const stepButtons = h("div", { class: "actions" })
   const shown = h("div", { class: "flex min-w-0 flex-col gap-2" })
-  const notDrawn = w.notDrawn && w.notDrawn.length ? h("p", { class: "sub" }, `The diagram doesn't show ${w.notDrawn.length === 1 ? "the step" : "the steps"} ${w.notDrawn.join(", ")}: ask your agent to add ${w.notDrawn.length === 1 ? "it" : "them"}.`) : null
+  const notDrawn = w.notDrawn && w.notDrawn.length ? h("p", { class: "sub" }, `The diagram doesn't mention ${w.notDrawn.length === 1 ? "step" : "steps"} ${w.notDrawn.join(", ")}. Ask your agent to add ${w.notDrawn.length === 1 ? "it" : "them"} to the diagram.`) : null
   body.append(...[canvas, stepButtons, shown, notDrawn].filter(Boolean))
 
   // Which step is open: its box is marked, its button pressed, and its code is shown under the diagram.

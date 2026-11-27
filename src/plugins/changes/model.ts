@@ -31,7 +31,7 @@ export type Repository = {
 export const branchPrefix = "flowbound/"
 export const shaPattern = /^[0-9a-f]{40}$/
 export const checkNames = ["types", "workflows", "tests"]
-export const workflowFile = /^workflows\/(?:[a-z0-9][a-z0-9-]*\/)*[a-z0-9][a-z0-9-]*\.ts$/
+export const workflowFile = /^workflows\/(?:[A-Za-z0-9][A-Za-z0-9-]*\/)*[a-z0-9][a-z0-9-]*\.ts$/
 export const stale = () => new Refused("This change moved. Read the latest version before trying again.", undefined, 409)
 export const lines = (s: string) => s.trim().split("\n").filter(Boolean)
 export const plain = (s: string) => s.replace(/[\p{Cc}\p{Zl}\p{Zp}]/gu, " ").trim()

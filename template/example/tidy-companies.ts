@@ -6,6 +6,17 @@
 export const from = "example_companies" //  the list it reads (made from examples/example-companies.csv)
 export const into = "example_tidy" //       the results table it writes
 
+// For people, on the workflow's page: one line, and a diagram with a box (click line) for each step.
+export const summary = "Cleans names and domains in a list. Free."
+export const diagram = `
+flowchart TD
+  a[A company from the list] --> b[Find its domain in the website]
+  b --> c[Drop AB, Inc and the like from its name]
+  c --> d([Save])
+  click b domainOf
+  click c shortName
+`
+
 export async function tidyCompanies(company) {
   "use workflow"
   // One row of the list comes in. Steps do the work; this function only says in which order.

@@ -27,13 +27,15 @@ const home = async (root) => {
   /** Anything else that needs a person: what is the matter, and the way to it. */
   const other = (n) => {
     const [state, tone] = n.when === "soon" ? ["Soon", "warn"] : ["Blocked", "bad"]
-    const parts = [h("span", {}, n.what), h("span", { class: "meta" }, h("span", {}, ui.status(state.toLowerCase(), state, tone)))]
+    const parts = n.name
+      ? [h("span", {}, n.name), h("span", { class: "meta" }, h("span", { class: "sm:text-muted-foreground!" }, n.why), h("span", {}, ui.status(state.toLowerCase(), state, tone)))]
+      : [h("span", { class: "whitespace-normal" }, n.what), h("span", { class: "meta" }, h("span", {}), h("span", {}, ui.status(state.toLowerCase(), state, tone)))]
     return h("li", {}, n.page ? ui.link(n.page, n.params || {}, parts) : h("a", {}, parts))
   }
   const attention = needs.length
     ? [
         ...needs.filter((n) => n.yes).map(yes),
-        needs.some((n) => !n.yes) ? h("ul", { class: "rows sm:grid-cols-[minmax(0,1fr)_auto]", role: "list" }, needs.filter((n) => !n.yes).map(other)) : null,
+        needs.some((n) => !n.yes) ? h("ul", { class: "rows sm:grid-cols-[minmax(8rem,1fr)_minmax(0,2fr)_auto]", role: "list" }, needs.filter((n) => !n.yes).map(other)) : null,
       ]
     : [h("p", { class: "text-muted-foreground" }, "Nothing needs you right now.")]
 
@@ -42,9 +44,11 @@ const home = async (root) => {
     if (r.state === "running") return ui.status("running", `Running · ${fb.num(r.rows.done)} of ${fb.num(r.rows.of)}`)
     return ui.status(r.state)
   }
-  const recent = runs.length
+  // What ran and what runs now: a run that waits for a yes is already under Needs attention.
+  const ran = runs.filter((r) => r.started)
+  const recent = ran.length
     ? h("ul", { class: "rows sm:grid-cols-[minmax(0,1fr)_auto_auto]", role: "list" },
-        runs.slice(0, 5).map((r) => h("li", {}, ui.link("/runs", { run: r.run }, [
+        ran.slice(0, 5).map((r) => h("li", {}, ui.link("/runs", { run: r.run }, [
           h("span", {}, r.title),
           h("span", { class: "meta" }, h("span", {}, runState(r)), h("span", { class: "text-muted-foreground" }, r.started ? fb.ago(r.started) : "")),
         ]))))
@@ -60,7 +64,7 @@ const home = async (root) => {
         h("li", {}, h("a", { class: "pointer-events-none" },
           h("span", {}, "All workflows"),
           h("span", { class: "meta" },
-            cap ? h("span", { class: "flex items-center" }, ui.progress(used, cap, used >= cap ? "warn" : null)) : h("span", {}),
+            cap ? h("span", { class: "flex w-24 items-center sm:w-auto" }, ui.progress(used, cap, used >= cap ? "warn" : null)) : h("span", { class: "max-sm:hidden" }),
             h("span", {}, h("b", {}, fb.money(used)), cap ? h("span", { class: "text-muted-foreground" }, ` of ${fb.money(cap)}`) : null))))),
     ]
   }

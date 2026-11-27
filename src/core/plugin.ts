@@ -77,6 +77,9 @@ export type Attention = {
   when?: "now" | "soon"
   /** A yes that waits: the run it is for. The page shows it as a question, with Not now beside it. */
   yes?: { run: number }
+  /** For Home's short row: what it is about ("Read websites") and why, in a few words ("Needs a Firecrawl connection"). */
+  name?: string
+  why?: string
 }
 
 export type Command = {

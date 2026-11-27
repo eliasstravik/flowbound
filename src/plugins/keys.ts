@@ -186,6 +186,8 @@ export const keys = () => {
           if (by.length && !(c.without && !fb.live))
             out.push({
               what: `${label(c)} has no key, and ${words(by)} ${by.length === 1 ? "needs" : "need"} it.`,
+              name: words(by),
+              why: `Needs a ${label(c)} connection`,
               fix: "Type it on the Connections page, never in a chat. The agent uses it and never sees it.",
               page: "/keys",
             })

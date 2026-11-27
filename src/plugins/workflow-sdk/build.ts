@@ -55,7 +55,7 @@ export function usesOf(file: string, text = fs.readFileSync(file, "utf8"), seen 
   return [...names].sort()
 }
 
-const FOLDER = /^[a-z0-9][a-z0-9-]*$/
+const FOLDER = /^[A-Za-z0-9][A-Za-z0-9-]*$/
 const FILE = /^[a-z0-9][a-z0-9-]*\.ts$/
 /**
  * The workflow files under workflows/, also in folders and subfolders (workflows/tam-mapping/nordics/build-tam-list.ts).

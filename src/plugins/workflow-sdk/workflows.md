@@ -6,9 +6,12 @@ Its code stays in Git. Engineers can also edit it on a branch and open a pull re
 A workflow is one TypeScript file in `workflows/`, on the open Workflow SDK. Its path is its id:
 `workflows/find-sales-heads.ts` is `find-sales-heads`, exports the function `findSalesHeads`, and people see it as
 "Find sales heads". Put the workflows of one play in a folder, with subfolders if it helps:
-`workflows/tam-mapping/find-sales-heads.ts` is `tam-mapping/find-sales-heads` (folder and file names in lower-case
-letters, digits and dashes), and that id is what `npx flowbound run`, schedules and webhooks name. In a folder, a file
-without `"use workflow"` is a helper, not a workflow. The file says where its list comes from and where the answers go, handles **one row**, and
+`workflows/tam-mapping/find-sales-heads.ts` is `tam-mapping/find-sales-heads`, and that id is what
+`npx flowbound run`, schedules and webhooks name. File names are lower-case letters, digits and dashes; a folder's
+name may have capitals, and people see it with spaces for dashes (`TAM-mapping` shows as "TAM mapping"). In a folder,
+a file without `"use workflow"` is a helper, not a workflow.
+
+The file says where its list comes from and where the answers go, handles **one row**, and
 returns the answer. Flowbound does the rest: reads the list, saves each answer, skips rows already done, runs 5 rows
 at a time, keeps which paid answer each field came from, and holds every call to the person's permissions.
 

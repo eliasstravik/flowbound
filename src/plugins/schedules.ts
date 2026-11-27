@@ -352,7 +352,13 @@ export const schedules = () => {
       const cards = fb.has("keys") ? await fb.use<Keys>("keys").cards() : []
       for (const d of declared())
         if (d.kind === "webhook" && !cards.find((c) => c.name === d.name)?.hasKey)
-          out.push({ what: `The webhook "${d.name}" has no signing secret, so every delivery is refused.`, fix: "Type the secret the sender signs with on the Connections page, never in a chat.", page: "/keys" })
+          out.push({
+            name: title(d.workflow.split("/").pop()!),
+            why: `The webhook ${d.name} has no signing secret`,
+            what: `The webhook "${d.name}" has no signing secret, so every delivery is refused.`,
+            fix: "Type the secret the sender signs with on the Connections page, never in a chat.",
+            page: "/keys",
+          })
       return out
     },
     docs: asset("schedules/schedules.md"),

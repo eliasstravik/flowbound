@@ -99,7 +99,11 @@ function make(host: string, name: keyof typeof PORTS, more: string, env: Record<
 const host = await fake()
 // A first-time user: the project as it is right after `init`, with nothing in it.
 const empty = make(host, "empty", '  permissions: { mode: "auto", caps: { perRun: 5, perMonth: 100, writesPerMonth: 500 } },')
+// The free sample is there on a first day, not run yet: the prototype's first day.
+fs.copyFileSync(path.join("template", "example", "tidy-companies.ts"), path.join(empty.root, "workflows", "tidy-companies.ts"))
+fs.copyFileSync(path.join("template", "example", "example-companies.csv"), path.join(empty.root, "example_companies.csv"))
 await empty.start()
+await empty.fb("import example_companies.csv --as example_companies")
 say(`empty  ${empty.url()}`)
 
 // Behind the door: a work login (never reached here: the sign-in page only shows its button) and the team password.
@@ -151,8 +155,8 @@ const full = make(
     providers: { fakedata: { perMonth: 50 }, crm: { writesPerRun: 25 } },
   },
   schedules: [
-    schedule({ id: "weekly-heads", workflow: "tam-mapping/find-sales-heads", every: "monday 08:00", timezone: "Europe/Stockholm" }),
-    schedule({ id: "daily-accounts", workflow: "tam-mapping/score-accounts", every: "day 07:30", timezone: "Europe/Stockholm" }),
+    schedule({ id: "weekly-heads", workflow: "TAM-mapping/find-sales-heads", every: "monday 08:00", timezone: "Europe/Stockholm" }),
+    schedule({ id: "daily-accounts", workflow: "TAM-mapping/score-accounts", every: "day 07:30", timezone: "Europe/Stockholm" }),
     hook({ id: "new-leads", workflow: "inbound/enrich-leads", key: "domain" }),
   ],`,
   // FULL_URL: the address it is looked at from when it is shared under a path on a private network.
@@ -163,11 +167,11 @@ const w = (file: string, o: Parameters<typeof workflow>[0], summary: string) => 
   fs.mkdirSync(path.dirname(path.join(full.root, "workflows", `${file}.ts`)), { recursive: true })
   fs.writeFileSync(path.join(full.root, "workflows", `${file}.ts`), `${workflow(o)}\nexport const summary = ${JSON.stringify(summary)}\n`)
 }
-w("tam-mapping/find-sales-heads", { from: "target_list", into: "sales_heads", fn: "findSalesHeads" }, "Finds the head of sales at each company, then a work email.")
+w("TAM-mapping/find-sales-heads", { from: "target_list", into: "sales_heads", fn: "findSalesHeads" }, "Finds the head of sales at each company, then a work email.")
 // The agent's own diagram for people, in the file beside the code (the prototype's "Find sales heads"): a Mermaid
 // flowchart, with a click line tying each step's box to its function.
 fs.appendFileSync(
-  path.join(full.root, "workflows", "tam-mapping", "find-sales-heads.ts"),
+  path.join(full.root, "workflows", "TAM-mapping", "find-sales-heads.ts"),
   `
 export const diagram = \`
 flowchart TD
@@ -182,8 +186,8 @@ flowchart TD
 \`
 `,
 )
-w("tam-mapping/score-accounts", { from: "accounts", into: "account_scores", fn: "scoreAccounts" }, "Scores each company against the ICP with a model.")
-w("tam-mapping/nordics/research-companies", { from: "company_list", into: "company_research", fn: "researchCompanies", path: "/v2/slow" }, "Pulls every company that fits the ICP into one list.")
+w("TAM-mapping/score-accounts", { from: "accounts", into: "account_scores", fn: "scoreAccounts" }, "Scores each company against the ICP with a model.")
+w("TAM-mapping/nordics/research-companies", { from: "company_list", into: "company_research", fn: "researchCompanies", path: "/v2/slow" }, "Pulls every company that fits the ICP into one list.")
 w("champion-tracking/check-partners", { from: "partners", into: "partner_contacts", fn: "checkPartners" }, "Checks each partner's contact every week.")
 w("champion-tracking/find-buyers", { from: "prospects", into: "buyers", fn: "findBuyers" }, "Finds past users of the product among your customers' contacts.")
 w("inbound/enrich-leads", { from: "posted_leads", into: "leads", fn: "enrichLeads" }, "Takes each lead from the website form and saves it.")
@@ -220,8 +224,8 @@ await fb("run tidy-companies --try 8 --wait")
 await full.page("set-key", { name: "crm", value: KEY })
 
 // Done, with rows that failed and why.
-await fb("run tam-mapping/find-sales-heads --try 10 --wait")
-await fb("run tam-mapping/find-sales-heads --wait")
+await fb("run TAM-mapping/find-sales-heads --try 10 --wait")
+await fb("run TAM-mapping/find-sales-heads --wait")
 // Kept facts with an age: some bought 12 days ago (still fresh), some 140 days ago (past the window, bought again),
 // and some rows asked again and answered from what is already known.
 const sql = async (query: string) => {
@@ -232,13 +236,13 @@ const factsOf = (rows: string) => `select fact from fb_ledger.calls where scope-
 await sql(`update fb_ledger.facts set at = now() - interval '12 days' where id in (${factsOf("between 1 and 5")})`)
 await sql(`update fb_ledger.facts set at = now() - interval '140 days' where id in (${factsOf("between 6 and 8")})`)
 await sql("delete from sales_heads where id in (1, 2, 3, 6, 7, 8)")
-await fb("run tam-mapping/find-sales-heads --wait")
+await fb("run TAM-mapping/find-sales-heads --wait")
 // Writes to the CRM: the run pauses at the CRM's own 25 writes, with a yes waiting.
 await fb("run inbound/add-to-crm --try 5 --wait")
 await fb("run inbound/add-to-crm --wait")
 // Paused at its cap, with a yes waiting under Needs you.
-await fb("run tam-mapping/score-accounts --try 10 --wait")
-await fb("run tam-mapping/score-accounts --max-usd 0.05 --wait")
+await fb("run TAM-mapping/score-accounts --try 10 --wait")
+await fb("run TAM-mapping/score-accounts --max-usd 0.05 --wait")
 // Asked first (its workflow's own rule is ask): the try-out is passed a yes, then the full run waits for one, with its estimate.
 const asked = JSON.parse(await full.fb("run champion-tracking/find-buyers --try 10 --json"))
 await fb(`yes ${asked.run}`)
@@ -246,8 +250,8 @@ await full.until(async () => JSON.parse(await full.fb(`runs ${asked.run} --json`
 await fb("run champion-tracking/find-buyers")
 await fb("run champion-tracking/check-partners --try 10 --wait")
 // In progress: a slow provider and a long list.
-await fb("run tam-mapping/nordics/research-companies --try 10 --wait")
-await fb("run tam-mapping/nordics/research-companies --max-usd 4")
+await fb("run TAM-mapping/nordics/research-companies --try 10 --wait")
+await fb("run TAM-mapping/nordics/research-companies --max-usd 4")
 say(`full   ${full.url()}`)
 say("ready")
 process.on("SIGTERM", async () => (await Promise.all([full.stop(), empty.stop(), liveServer.close()]), process.exit(0)))
