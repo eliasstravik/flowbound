@@ -5,7 +5,7 @@ fb.page("/connect", async (root) => {
   const view = root.querySelector("[data-view]")
   if (!fb.live) {
     return view.replaceChildren(
-      ui.head({ title: "Connect an agent" }),
+      ui.head({ title: "Agents" }),
       ui.empty({ title: "Agents here need no token", text: "This Flowbound runs on your own computer, and agents here need no token: they reach it through the flowbound command or its MCP server.", more: h("p", { class: "text-muted-foreground max-w-sm" }, "Signing in is for a live Flowbound, where a chat app or a teammate's agent connects from somewhere else. Go live with: ", h("code", {}, "flowbound deploy")) }))
   }
   const all = await call("tokens")
@@ -51,7 +51,7 @@ fb.page("/connect", async (root) => {
   showList(all)
   const address = `${fb.url}/mcp`
   view.replaceChildren(
-    ui.head({ title: "Connect an agent" }),
+    ui.head({ title: "Agents" }),
     h("div", { class: "grid max-w-2xl gap-4" },
       h("article", { class: "card", "data-size": "sm", "aria-labelledby": "c-chat" },
         h("header", {}, h("h2", { id: "c-chat" }, "Claude, ChatGPT and other chat apps"), h("p", {}, "Add a custom connector in the app with this address. It sends you here to sign in and allow it; there is no token to copy. From then on it works as you.")),

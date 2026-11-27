@@ -296,5 +296,5 @@ export async function deploy(args: string[], cl: CommandLine, on?: string): Prom
         "Then: npx flowbound deploy",
       ].join("\n"),
     )
-  else say(`Next: a signed-in person makes a token at ${url}/connect and types it on this computer's keys page. Then \`--live\` commands reach it.`)
+  else say(`Next: a signed-in person makes a token at ${url}/connect and types it on this computer's Connections page. Then \`--live\` commands reach it.`)
 }

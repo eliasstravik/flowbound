@@ -46,7 +46,7 @@ export type Paid = { answer: Answer; fact: number; cost: number; fromMemory: boo
 export type Budget = { id: string; maxUsd: number | null; maxCalls: number | null; usd: number; calls: number; heldUsd: number }
 /** A card's speed limit: calls to one provider are spaced out, across rows, runs and copies of Flowbound. */
 export type Rate = { perSecond?: number; perMinute?: number }
-/** Where a cell's answer came from, for the Tables page and agents: "BlitzAPI · bought 12 days ago for $0.004 · free now". */
+/** Where a cell's answer came from, for the Data page and agents: "BlitzAPI · bought 12 days ago for $0.004 · free now". */
 export type Source = { fact: number; from: string; at: string; cost: number; ageDays: number; fresh: boolean; known: boolean; text: string }
 
 export type Ledger = {
@@ -658,7 +658,7 @@ export const ledger = (opts: { permissions?: Permissions; freshDays?: number; on
           ].join("\n"),
       },
     },
-    /** For Needs you: a provider that reported a higher price for an endpoint than its card says. */
+    /** For Home: a provider that reported a higher price for an endpoint than its card says. */
     async attention() {
       const rows = await q("select provider, endpoint, usd, expected from fb_ledger.prices where expected is not null and usd > expected + 1e-9 order by at desc limit 10")
       return rows.map(
@@ -669,7 +669,7 @@ export const ledger = (opts: { permissions?: Permissions; freshDays?: number; on
         }),
       )
     },
-    pages: { "/permissions": { title: "Permissions", file: asset("ledger/permissions.html"), menu: true, order: 6 } },
+    pages: { "/permissions": { title: "Permissions", file: asset("ledger/permissions.html"), menu: true, order: 9 } },
     docs: asset("ledger/ledger.md"),
   })
 }

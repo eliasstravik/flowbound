@@ -72,7 +72,7 @@ export function changes(options: ChangesOptions = {}) {
         repo = new GitHub({ name, appId, key, installation, directory: options.directory, checks: options.checks, vercelProject: options.vercelProject ?? process.env.FLOWBOUND_VERCEL_PROJECT })
     },
     stop: () => (repo instanceof LocalGit ? repo.stop() : undefined),
-    pages: { "/changes": { title: "Changes", file: asset("changes/changes.html"), menu: true, order: 4.5 } },
+    pages: { "/changes": { title: "Changes", file: asset("changes/changes.html") } },
     docs: asset("changes/changes.md"),
     tools: {
       "workflow-file": {

@@ -73,7 +73,7 @@ The person is often on a phone, between other things. Write for that.
 
 - A few plain lines. The result or the numbers first, then what they need to decide.
 - One question at a time, and only one they alone can answer. What you can look up, look up.
-- Ask for a yes only when Flowbound asks for one (a run that waits under Needs you) and for what cannot be undone.
+- Ask for a yes only when Flowbound asks for one (a run that waits on Home) and for what cannot be undone.
   Everything else, do and say you did.
 - Say what a thing costs before it is bought, in dollars, with the cap you suggest.
 - When something is wrong, say what, what you did about it, and the one thing they must do, with its link.
@@ -81,7 +81,7 @@ The person is often on a phone, between other things. Write for that.
 
 `npx flowbound doctor` lists everything that needs the person or is not right, each with the one thing to do. Run it
 first when something seems off, and before you tell them all is well. The person sees the same list on the page
-under Needs you: http://localhost:4111/needs.
+on Home: http://localhost:4111/home.
 
 ## A job, start to finish
 
@@ -92,7 +92,7 @@ The person says something like "find the head of sales at each of these 200 comp
    `--add --key email` brings rows already there up to date and adds only the new ones.
 2. **The providers.** `npx flowbound keys` shows which provider cards have a key. Each card is listed further down
    with its manual. If a card you need has no key, stop and tell the person: "Add the Firecrawl and BlitzAPI keys on
-   the keys page: http://localhost:4111/keys. I can use them, but I never see them." Never ask for a key in the chat,
+   the Connections page: http://localhost:4111/keys. I can use them, but I never see them." Never ask for a key in the chat,
    never look for the keys file.
 3. **Learn the calls.** Read the provider's manual (the link on its card). Then make one real call to see what
    comes back: `npx flowbound blitzapi /v2/enrichment/email --body '{"person_linkedin_url":"..."}'`.
@@ -131,7 +131,7 @@ like their agent app's own permission modes:
   sequencer) count by number against the write caps.
 - A budget the person says in chat is that run's cap in every mode: `--max-usd`. A provider with no price on its card
   is capped by calls: `--max-calls`.
-- When a run waits for a yes (ask mode, or it reached a cap and paused), it shows under Needs you and in `doctor`
+- When a run waits for a yes (ask mode, or it reached a cap and paused), it shows on Home and in `doctor`
   with its question. Show the person the question word for word and pass on **their** answer: `npx flowbound yes
   <run>` (`--max-usd <n>` when they name a new cap), or `npx flowbound no <run>`. A yes is never a button on the
   page: it always comes through you. Never say yes for them, never invent a cap, and never widen the permissions in
@@ -147,7 +147,7 @@ like their agent app's own permission modes:
 
 | What it says | What happened | What you do |
 | --- | --- | --- |
-| stopped: "has no key yet" or "refused the key" | A provider has no working key. Nothing more was spent. | Ask the person to add the key on the keys page, then `npx flowbound resume <number>`. |
+| stopped: "has no key yet" or "refused the key" | A provider has no working key. Nothing more was spent. | Ask the person to add the key on the Connections page, then `npx flowbound resume <number>`. |
 | waits for a yes: "Reached the $X cap ... so it paused" | A cap held: the run's own, this month's, a provider's or the writes. | Show the person the question; pass on their answer: `npx flowbound yes <number> [--max-usd <n>]` or `no <number>`. |
 | waits for a yes: "Run ... on N rows?" | The mode is ask every time. | The same: the question word for word, then their answer. |
 | paused: "N of the last 20 rows failed" (the file's `pauseAfter`) | A provider is refusing calls (often its speed limit). | Fix the cause (for a speed limit, set `rate` on the card: Flowbound then spaces the calls), then `npx flowbound resume <number>`. |
@@ -155,8 +155,8 @@ like their agent app's own permission modes:
 | stopped: the workflow file changed | The file was edited during the run. | Try it again, then run the rest. |
 | "Run N of ... is going now" | One run of a workflow at a time, and one is going. | Wait for it (`npx flowbound runs <N>`), or stop it if nobody wants it. If it has not moved for long, `npx flowbound doctor` says so. |
 | failed rows | Those rows failed their tries (3 unless the file's `retries` says); the run carried on. | `npx flowbound runs <number>` lists each row and why. A later run tries them again. |
-| a schedule: "waits for a yes under Needs you, so this time was skipped" | A run of that workflow waits for the person. | Ask them; once answered, the schedule runs again. |
-| a webhook answers 401 | The delivery's signature is missing or wrong, or no signing secret is saved. Nothing was taken in. | `npx flowbound schedules <name>` says which. The secret is typed on the keys page. |
+| a schedule: "waits for a yes on Home, so this time was skipped" | A run of that workflow waits for the person. | Ask them; once answered, the schedule runs again. |
+| a webhook answers 401 | The delivery's signature is missing or wrong, or no signing secret is saved. Nothing was taken in. | `npx flowbound schedules <name>` says which. The secret is typed on the Connections page. |
 | `spend` shows "Price check" | A provider reported a higher price than its card says. That price is set aside from now on. | Tell the person; fix `price` on the card or the call. |
 
 A run that was going when the computer slept or Flowbound stopped carries on by itself when Flowbound is back.
@@ -210,6 +210,6 @@ export default { providers: [/* ... */], plugins: [myScoring()] }
 
 A plugin is one object: `name`, `needs`, `provides`, and any of `tools` (what agents can call: each becomes a
 command and is reachable over MCP), `pages`, `routes`, `migrations`, `commands`, `docs`, `start`, `attention`
-(what needs a person: it shows in the check-up and under Needs you). A later plugin
+(what needs a person: it shows in the check-up and on Home). A later plugin
 with the same `provides` replaces an earlier one. No plugin imports another plugin's code: reach a provider, the
 records or any other part with `use("<name>")`, in a tool, a step or a plugin's `start`.

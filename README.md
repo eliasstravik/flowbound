@@ -129,15 +129,17 @@ Left to the agent: how workflows are written, retries, which provider first, sco
 
 ## The page, on your phone
 
-Six tabs: **Needs you** · Runs · Tables · Workflows · Keys · Permissions.
+The menu: **Home** · Workflows · Runs · Schedules · Data, then Connections · Agents · Permissions.
 
-- Needs you: each yes that waits ("Run Find sales heads on 200 rows, stop at $1.60?"), and a key that is missing
-  ("Firecrawl needs a key · type it on the Keys page, never in a chat").
-- Tables: your results, each cell with its source, age and cost; upload a list as CSV; download as CSV.
-- Workflows: your agent's summary and diagram; with none yet, "No summary yet: ask your agent to write one", then
-  the code.
+- Home: talk to Flowbound from your own agent; what needs attention (each yes that waits, "Run Find sales heads on
+  200 rows, stop at $1.60?", and a key that is missing); recent runs; this month's spend. On a first day, a Get
+  started list that ticks itself.
+- Workflows: in folders, like a drive. Each workflow has its diagram (drawn from the agent's Mermaid flowchart; tap a
+  step for its code), its code, its runs and its data, and says what starts it.
 - Runs: what ran, what failed and why.
-- Keys: keys are typed only here.
+- Schedules: every schedule and webhook, with the next time.
+- Data: your results, each cell with its source, age and cost; upload a list as CSV; download as CSV.
+- Connections: keys are typed only here.
 - Permissions: the mode, the caps and what this month has used.
 
 ## A workflow, on the page
@@ -146,17 +148,23 @@ Six tabs: **Needs you** · Runs · Tables · Workflows · Keys · Permissions.
 publish after its checks pass. Undo saves a revert. GitHub pull requests keep the diff and any required
 company review. On a laptop, it works with local Git. See the Changes page or run `npx flowbound docs changes`.
 
-The agent writes a summary and draws a diagram for people, in the workflow file beside the code. Flowbound only shows
-them; it never draws them from the code.
+The agent writes a one-line summary and a diagram for people, in the workflow file beside the code, and keeps the
+diagram in step with every code change. Workflows of one play can sit in a folder (`workflows/tam-mapping/`).
 
 ```ts
-// workflows/find-sales-heads.ts
-export const summary = "For each company: find its head of sales, then a work email. If the first provider finds nobody, try a second."
-export const diagram = `<svg viewBox="0 0 320 250">...</svg>`
+// workflows/tam-mapping/find-sales-heads.ts
+export const summary = "Finds the head of sales at each company, then a work email."
+export const diagram = `
+flowchart TD
+  a[Companies from your list] --> b[Find the head of sales]
+  b --> c{Found?}
+  c -- yes --> d[Find their work email]
+  click b findHead
+  click d findEmail
+`
 ```
 
-The diagram is cleaned before it is shown, so it can only draw (no scripts, no links), and it is drawn in the page's
-own text colour, light or dark. Last run: 200 rows · 175 found · $0.29.
+Flowbound draws the Mermaid flowchart on the workflow's page in its own colours; tap a box for that step's code. Last run: 200 rows · 175 found · $0.29.
 
 ## On your own computer
 

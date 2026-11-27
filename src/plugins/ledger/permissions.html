@@ -36,7 +36,7 @@ fb.page("/permissions", async (root) => {
       : null,
     h("section", { class: "flex flex-col gap-3", "aria-labelledby": "how-title" },
       h("h2", { id: "how-title" }, "How it works"),
-      h("p", { class: "text-muted-foreground" }, "The modes are three presets over caps. A workflow or provider can have its own mode or caps; the strictest one wins. Writes to other tools count by number, not dollars. When a cap is hit, the run pauses and a yes appears under Needs you; it waits there until answered, and a schedule skips its next run meanwhile. A budget you say in chat is that run's cap, in every mode."),
+      h("p", { class: "text-muted-foreground" }, "The modes are three presets over caps. A workflow or provider can have its own mode or caps; the strictest one wins. Writes to other tools count by number, not dollars. When a cap is hit, the run pauses and a yes appears on Home; it waits there until answered, and a schedule skips its next run meanwhile. A budget you say in chat is that run's cap, in every mode."),
       h("p", { class: "text-muted-foreground" }, `Kept facts are used again for ${num(p.freshDays)} days, then bought again.`),
       h("p", { class: "text-muted-foreground" }, "To change it, tell your agent, or edit permissions in flowbound.config.ts:"),
       h("pre", { class: "snippet" }, p.written)),

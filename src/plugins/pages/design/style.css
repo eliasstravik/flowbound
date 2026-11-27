@@ -92,11 +92,16 @@
   /* The frame: a sidebar from 1024px; under it a top bar and a menu that slides in. */
   .app { @apply isolate min-h-dvh lg:grid lg:grid-cols-[15rem_minmax(0,1fr)]; }
   .side { @apply bg-sidebar sticky top-0 flex h-dvh flex-col gap-4 overflow-y-auto border-r px-3 py-4 max-lg:hidden; }
-  .top { @apply bg-background sticky top-0 z-20 flex h-14 items-center gap-1 border-b px-2 lg:hidden; }
+  .top { @apply bg-background sticky top-0 z-20 flex h-14 items-center gap-2 border-b px-2 lg:hidden; }
   .brand { @apply flex min-h-8 items-center gap-2 px-2 text-[0.9375rem] font-semibold tracking-tight no-underline; }
   .menu { @apply flex flex-col gap-px; }
   .menu a { @apply text-muted-foreground hover:bg-accent hover:text-foreground flex min-h-8 items-center rounded-md px-2 no-underline max-lg:min-h-11; }
   .menu a[aria-current="page"] { @apply bg-accent text-foreground; }
+  /* Under a line: where you set things up. Home's count of what needs attention; the changes not live yet. */
+  .menu .sep { @apply my-2 border-t; }
+  .menu .count { @apply bg-foreground text-background ml-auto rounded-full px-1.5 text-xs leading-5 font-medium tabular-nums; }
+  .menu .publish { @apply text-muted-foreground mt-3 flex min-h-8 items-center rounded-md px-2 text-xs no-underline hover:text-foreground max-lg:min-h-11; }
+  .menu .publish u { @apply ml-1 underline-offset-4; }
   .me { @apply text-muted-foreground mt-auto flex items-center justify-between gap-2 px-2 pt-2; }
   .me > span { @apply truncate; }
   .drawer { @apply bg-sidebar m-0 h-dvh max-h-none w-[min(19rem,86vw)] max-w-none rounded-none border-0 border-r p-0 backdrop:bg-black/50; }
@@ -117,6 +122,32 @@
   .title { @apply flex flex-wrap items-center gap-x-3 gap-y-1; }
   .actions { @apply flex flex-wrap items-center gap-2; }
   .sub { @apply text-muted-foreground text-xs; }
+  /* Where you are, as a path back up: Workflows / TAM mapping / Find sales heads. */
+  .path { @apply text-muted-foreground -mb-3 flex flex-wrap items-center gap-x-1.5 gap-y-0.5; }
+  .path a { @apply hover:text-foreground decoration-foreground/30 inline-flex min-h-8 items-center underline underline-offset-4 max-sm:min-h-11; }
+  .path [aria-current] { @apply text-foreground font-medium; }
+  /* Tabs under a page's top; the one shown is marked. */
+  .tabs { @apply -mb-2 flex gap-1 overflow-x-auto border-b; }
+  .tabs a { @apply text-muted-foreground hover:text-foreground -mb-px inline-flex min-h-10 items-center border-b-2 border-transparent px-3 no-underline max-sm:min-h-11; }
+  .tabs a[aria-current] { @apply border-foreground text-foreground font-medium; }
+  /* A plain line in a hairline box: Home's "Talk to Flowbound from your own agent". */
+  .hint { @apply rounded-lg border px-3 py-2.5; }
+  /* Get started: each item a link, struck through once it happened. */
+  .checklist { @apply flex list-decimal flex-col border-t pl-5; }
+  .checklist > li { @apply border-b py-2.5 pl-1; }
+  .checklist > li[data-done] > :is(a, span) { @apply text-muted-foreground line-through; }
+  /* Folders and files, as a drive shows them: the name, then one line under it. */
+  .files a { @apply flex-col items-start gap-0.5 sm:flex; }
+  .files a > :first-child { @apply flex w-full items-center gap-2; }
+  .files a > :first-child svg { @apply text-muted-foreground; }
+  .files .line { @apply text-muted-foreground w-full truncate; }
+  .files .line.in { @apply pl-6; }
+  /* What starts a workflow: its schedule and next time, or its webhook's address. */
+  .starts { @apply flex flex-col gap-1 rounded-lg border px-3 py-2.5; }
+  .starts > div { @apply grid grid-cols-[3.5rem_minmax(0,1fr)] items-baseline gap-x-2; }
+  .starts dt { @apply text-muted-foreground; }
+  .starts dd.sub { @apply col-start-2; }
+  .starts code { @apply break-all; }
   .link { @apply decoration-foreground/30 hover:decoration-foreground underline underline-offset-4; }
   .num { @apply tabular-nums; }
   .cut { @apply max-w-[36ch] truncate; }
@@ -154,7 +185,7 @@
   }
 
   /* Lists whose rows lead somewhere: columns on a desktop, two lines on a phone. */
-  .rows { @apply grid border-t sm:gap-x-6; }
+  .rows { @apply grid grid-cols-[minmax(0,1fr)] border-t sm:gap-x-6; }
   .rows.narrow { @apply max-w-2xl; }
   .rows > li { @apply col-span-full grid grid-cols-subgrid border-b; }
   .rows > .rows-head { @apply text-muted-foreground items-center py-2 font-medium max-sm:hidden; }
@@ -211,6 +242,8 @@
   /* The yes: the one place a person lets money be spent. It never looks like anything else. */
   .decision { @apply bg-muted/50 flex w-full max-w-xl flex-col gap-4 rounded-lg border p-4; }
   .card .decision { @apply max-w-none; }
+  .decision[data-tone="warn"] { @apply border-warn/50 max-w-none gap-1.5; }
+  .decision[data-tone="warn"] > .actions { @apply mt-1.5; }
   .decision > h2, .decision > h3 { @apply text-base font-semibold; }
   .decision .ask { @apply flex flex-col gap-1 whitespace-pre-line; }
   .decision .amount { @apply flex flex-wrap items-end justify-between gap-x-6 gap-y-3; }
@@ -255,8 +288,16 @@
   /* A workflow: the agent's summary and diagram for people, then its code. The diagram is drawn in the text colour. */
   .workflow { @apply flex max-w-2xl min-w-0 flex-col gap-4; }
   .workflow .lead { @apply text-base/7 text-pretty; }
-  .diagram { @apply text-foreground rounded-lg border p-4; }
-  .diagram > svg { @apply mx-auto h-auto w-full max-w-80; }
+  /* The diagram: the agent's Mermaid flowchart on a dotted ground, with zoom and Fit in the corner. */
+  .canvas { @apply text-foreground relative overflow-hidden rounded-lg border bg-[radial-gradient(var(--border)_1px,transparent_1px)] bg-[size:16px_16px]; }
+  .canvas > .stage { @apply flex min-h-48 touch-pan-y justify-center overflow-auto px-4 pt-4 pb-16; }
+  .canvas > .stage > svg { @apply h-auto max-w-none shrink-0; }
+  .canvas .node[data-step] { @apply cursor-pointer; }
+  .canvas .node[data-step]:hover :is(rect, polygon, path, circle) { stroke: var(--foreground) !important; }
+  .canvas .node[aria-current] :is(rect, polygon, path, circle) { stroke: var(--foreground) !important; stroke-width: 2px !important; }
+  .btn[aria-pressed="true"] { @apply bg-accent border-foreground/40; }
+  .canvas > .zoom { @apply bg-background absolute right-2 bottom-2 flex rounded-md border; }
+  .canvas > .zoom button { @apply text-muted-foreground hover:text-foreground min-h-9 min-w-9 px-2 max-sm:min-h-11 max-sm:min-w-11; }
   .code { @apply bg-muted/40 grid max-h-[80dvh] grid-cols-[auto_minmax(0,1fr)] overflow-auto rounded-lg border font-mono text-xs leading-5; }
   .code > :first-child { @apply text-muted-foreground bg-background/60 sticky left-0 flex flex-col border-r px-2 text-right tabular-nums select-none; }
   .code > :first-child > [data-on] { @apply text-foreground font-semibold; }

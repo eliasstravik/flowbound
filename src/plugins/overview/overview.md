@@ -1,4 +1,4 @@
-## Needs you, and the check-up
+## Home, and the check-up
 
 `npx flowbound doctor` says everything that needs a person or is not right, each with the one thing to do about it.
 Run it first when something seems off, and before you tell the person all is well. It looks at:
@@ -17,7 +17,7 @@ tried with), and says which one the provider no longer takes. `--live` asks the 
 
 "Coming up" is what works today and will not for long. Tell the person about those too, in one line.
 
-The person sees the same list first on the page, under Needs you (http://localhost:4111/needs): each yes that waits,
+The person sees the same list first on the page, on Home (http://localhost:4111/needs): each yes that waits,
 with Not now beside it (a yes is never a button: they tell you), and what else needs them.
 
 A plug-in of your own says what needs a person with one more line, and it shows up in both places:

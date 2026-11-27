@@ -3,9 +3,15 @@
 Save a workflow from chat with the tools in the Changes guide (`npx flowbound docs changes`).
 Its code stays in Git. Engineers can also edit it on a branch and open a pull request in GitHub.
 
-A workflow is one TypeScript file in `workflows/`, on the open Workflow SDK. Its file name is its id:
+A workflow is one TypeScript file in `workflows/`, on the open Workflow SDK. Its path is its id:
 `workflows/find-sales-heads.ts` is `find-sales-heads`, exports the function `findSalesHeads`, and people see it as
-"Find sales heads". The file says where its list comes from and where the answers go, handles **one row**, and
+"Find sales heads". Put the workflows of one play in a folder, with subfolders if it helps:
+`workflows/tam-mapping/find-sales-heads.ts` is `tam-mapping/find-sales-heads`, and that id is what
+`npx flowbound run`, schedules and webhooks name. File names are lower-case letters, digits and dashes; a folder's
+name may have capitals, and people see it with spaces for dashes (`TAM-mapping` shows as "TAM mapping"). In a folder,
+a file without `"use workflow"` is a helper, not a workflow.
+
+The file says where its list comes from and where the answers go, handles **one row**, and
 returns the answer. Flowbound does the rest: reads the list, saves each answer, skips rows already done, runs 5 rows
 at a time, keeps which paid answer each field came from, and holds every call to the person's permissions.
 
@@ -51,26 +57,36 @@ Look at the try-out's rows (`npx flowbound table <into>`) before you run the res
 ### The summary and the diagram, for people
 
 People read and understand a workflow on its page through what you write for them, in the file beside the code.
-Flowbound only shows it; it never draws anything from the code. Write both with every workflow, and change them in
-the same edit as the code:
+Write both with every workflow:
 
 ```ts
-export const summary = "For each company: find its head of sales, then a work email. If the first provider finds nobody, try a second. Skips companies we already know."
-export const diagram = `<svg viewBox="0 0 320 250">
-  <rect x="70" y="6" width="180" height="36" rx="8" fill="none" stroke="currentColor"/>
-  <text x="160" y="29" text-anchor="middle" fill="currentColor" font-size="12">A company from your list</text>
-  ...
-</svg>`
+export const summary = "Finds the head of sales at each company, then a work email."
+export const diagram = `
+flowchart TD
+  a[Companies from your list] --> b[Find the head of sales]
+  b --> c{Found?}
+  c -- yes --> d[Find their work email]
+  c -- no --> f[Mark as not found]
+  d --> e([Save])
+  f --> e
+  click b findHead
+  click d findEmail
+`
 ```
 
-- `summary`: a few plain sentences for a business person: what goes in, what comes out, what it does when the first
-  try finds nothing. No code words.
-- `diagram`: an SVG drawing of the steps, boxes and arrows, top to bottom, narrow enough for a phone (about 320 wide).
-  Name each step and the provider it pays. Draw with `currentColor` so it follows the page's light or dark. Only
-  drawing survives: shapes, paths, text and markers; scripts, links, images and styles are taken out before it is
-  shown.
-- With neither, the page says "No summary yet: ask your agent to write one", then the code. `npx flowbound workflows`
-  lists the workflows that still lack one.
+- `summary`: one plain line for a business person: what goes in and what comes out. No code words.
+- `diagram`: a Mermaid flowchart (`flowchart TD`) of what the workflow does, the way you would explain it to the
+  person: boxes in plain words, a `{diamond}` for each decision with its answers on the arrows (`-- yes -->`),
+  branches, merges and loops as they are. Flowbound draws it with Mermaid in its own colours and font, first thing
+  on the workflow's page.
+- One `click <box> <function>` line for every `"use step"` function, naming the box that stands for it: tapping the
+  box shows that step's code. A step with no click line gets a quiet line on the page saying the diagram doesn't
+  show it, and `npx flowbound workflows` names it.
+- **Keep it in step with the code.** Every time you change the code, change the diagram (and the summary) in the same
+  edit: a new step gets a box and a click line, a removed one goes, a new branch is drawn. Read the diagram back
+  against the code before you save.
+- Without a diagram the page opens on the code with a line saying there is none. `npx flowbound workflows` lists the
+  workflows that still lack a summary or a diagram.
 
 ### The two kinds of function
 
@@ -111,7 +127,7 @@ question about the same input is answered from memory. Before each call the most
 whole prompt, and `maxTokens` of answer), so keep the input to what the question needs and pass
 `{ maxTokens: 300 }` as a third argument when the answer is short.
 
-It runs on the model key the person types on the Keys page, here and live. See "AI model" under the provider cards
+It runs on the model key the person types on the Connections page, here and live. See "AI model" under the provider cards
 (`npx flowbound docs ai`).
 
 ### Your own tables
@@ -152,7 +168,7 @@ Every run is held to the permissions in `flowbound.config.ts` (`npx flowbound pe
   question; ask the person, word for word, and pass their answer on.
 - **skip**: it just runs, with no caps.
 - A budget the person says in chat ("don't spend more than $5") is `--max-usd 5`: that run's cap, in every mode.
-- When a cap is reached the run pauses, and its yes waits under Needs you (`/needs`) and in `npx flowbound doctor`.
+- When a cap is reached the run pauses, and its yes waits on Home (`/home`) and in `npx flowbound doctor`.
   Ask the person; pass on a yes with `npx flowbound yes <run>` (`--max-usd <n>` when they name a new cap) or a no
   with `npx flowbound no <run>`. Never say yes for them, and never widen the permissions in flowbound.config.ts unless
   they ask you to.

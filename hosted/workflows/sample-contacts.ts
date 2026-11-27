@@ -3,7 +3,12 @@ import { use } from "flowbound"
 export const from = "sample_companies"
 export const into = "sample_contacts"
 export const summary = "Use the sample provider to find a fictional contact for each example company."
-export const diagram = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 42"><text x="10" y="24">Sample company → Sample provider → Contact</text></svg>`
+export const diagram = `
+flowchart TD
+  a[A sample company] --> b[Look it up at the sample provider]
+  b --> c([Save the contact])
+  click b lookup
+`
 
 export async function sampleContacts(company: { domain: string }) {
   "use workflow"

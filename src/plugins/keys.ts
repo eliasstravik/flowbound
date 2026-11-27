@@ -13,7 +13,7 @@ export type KeyCard = {
   label?: string
   host: string
   key: false | { header: string; prefix?: string }
-  /** Why the key is needed, shown under its field on the keys page. */
+  /** Why the key is needed, shown under its field on the Connections page. */
   hint?: string
   /** For a card that also works with no key on a person's own computer: one line saying how. */
   without?: string
@@ -125,7 +125,7 @@ export const keys = () => {
       const headers = new Headers(init.headers)
       if (card.key) {
         const key = await read(name)
-        if (!key) throw new Refused(`${label(card)} has no key yet. Add it on the keys page: ${fb.url}/keys`, { code: "no-key", card: name })
+        if (!key) throw new Refused(`${label(card)} has no key yet. Add it on the Connections page: ${fb.url}/keys`, { code: "no-key", card: name })
         headers.set(card.key.header, (card.key.prefix ?? "") + key)
       }
       return fetch(url, { ...init, headers, redirect: "manual" })
@@ -146,13 +146,13 @@ export const keys = () => {
     },
     tools: {
       keys: {
-        about: "Which provider cards have a key, and which still need one. Never shows a key. Keys are typed by a person on the keys page.",
+        about: "Which provider cards have a key, and which still need one. Never shows a key. Keys are typed by a person on the Connections page.",
         role: "viewer",
         run: async () => ({ cards: await api.cards(), page: `${fb.url}/keys` }),
         print: (r) => {
           const need = r.cards.filter((c: any) => c.needsKey)
           const w = Math.max(...need.map((c: any) => c.label.length), 4) + 3
-          return [...need.map((c: any) => `${c.label.padEnd(w)}${c.hasKey ? "key is in" : "no key yet"}`), `Keys are typed on the keys page: ${r.page}`].join("\n")
+          return [...need.map((c: any) => `${c.label.padEnd(w)}${c.hasKey ? "key is in" : "no key yet"}`), `Keys are typed on the Connections page: ${r.page}`].join("\n")
         },
       },
       "set-key": {
@@ -184,7 +184,13 @@ export const keys = () => {
         if (!have.has(c.name)) {
           // A card that also works with no key on a person's own computer (the model, on their agent login) is not a problem there.
           if (by.length && !(c.without && !fb.live))
-            out.push({ what: `${label(c)} has no key, and ${words(by)} ${by.length === 1 ? "needs" : "need"} it.`, fix: "Type it on the Keys page, never in a chat. The agent uses it and never sees it.", page: "/keys" })
+            out.push({
+              what: `${label(c)} has no key, and ${words(by)} ${by.length === 1 ? "needs" : "need"} it.`,
+              name: words(by),
+              why: `Needs a ${label(c)} connection`,
+              fix: "Type it on the Connections page, never in a chat. The agent uses it and never sees it.",
+              page: "/keys",
+            })
         } else if (deep && c.check) {
           // The same free call a typed key is tried with, now with the saved one: has the provider taken it back?
           const res = await fetch(address(c, c.check), {
@@ -195,7 +201,7 @@ export const keys = () => {
           if (res && (res.status === 401 || res.status === 403))
             out.push({
               what: `${label(c)} no longer takes the saved key (it answered ${res.status}).${by.length ? ` ${words(by)} will stop at ${by.length === 1 ? "its" : "their"} next call.` : ""}`,
-              fix: "A person types a new key on the keys page.",
+              fix: "A person types a new key on the Connections page.",
               page: "/keys",
             })
           else if (!res) out.push({ what: `${label(c)} could not be reached to try its key.`, fix: "Nothing to do if the provider is only down for a moment. Run the check-up again later.", when: "soon" })
@@ -203,7 +209,7 @@ export const keys = () => {
       }
       return out
     },
-    pages: { "/keys": { title: "Keys", file: asset("keys/keys.html"), menu: true, order: 5 } },
+    pages: { "/keys": { title: "Connections", file: asset("keys/keys.html"), menu: true, order: 7 } },
     docs: asset("keys/keys.md"),
   })
 }

@@ -3,11 +3,13 @@ import fs from "node:fs"
 import path from "node:path"
 import { pathToFileURL } from "node:url"
 import { camel, sha, title } from "../util.ts"
-import { cleanDiagram } from "./diagram.ts"
+import { readDiagram, stepsOf } from "./diagram.ts"
 
 export type Wf = {
-  /** The file name without .ts: the one id of a workflow. */
+  /** Its path under workflows/ without .ts: the one id of a workflow ("find-sales-heads", "tam-mapping/find-sales-heads"). */
   id: string
+  /** The folder it sits in under workflows/ ("tam-mapping/nordics"), or "" for a file straight in workflows/. */
+  folder: string
   title: string
   file: string
   fn: string
@@ -22,8 +24,12 @@ export type Wf = {
   pauseAfter: { failed: number; of: number } | false
   /** What it does, in plain words, written by the agent for people: `export const summary`. */
   summary?: string
-  /** The agent's drawing of it, cleaned so it can only draw: `export const diagram`. */
+  /** The agent's drawing of it, a Mermaid flowchart without its click lines: `export const diagram`. */
   diagram?: string
+  /** The boxes of the drawing tied to steps (`click <box> <function>`). */
+  clicks?: { node: string; fn: string }[]
+  /** The file's "use step" functions, in the order written. */
+  steps?: string[]
   /** Why the drawing cannot be shown, when it cannot. */
   diagramProblem?: string
   /** The parts the file reaches with use("..."): provider cards, "ai", "records". Read from its text, so nothing has to be declared. */
@@ -36,7 +42,7 @@ export type Manifest = { workflows: Record<string, Wf>; ids: { run: string; row:
 
 /**
  * Every name a workflow file reaches with use("..."), also in the files of its own it imports ("./lib/find.ts").
- * It reads the text, so a name put together while running (use(which)) is not seen: the keys page says "used by"
+ * It reads the text, so a name put together while running (use(which)) is not seen: the Connections page says "used by"
  * for what a file names plainly, never "not used".
  */
 export function usesOf(file: string, text = fs.readFileSync(file, "utf8"), seen = new Set<string>()): string[] {
@@ -49,16 +55,39 @@ export function usesOf(file: string, text = fs.readFileSync(file, "utf8"), seen 
   return [...names].sort()
 }
 
+const FOLDER = /^[A-Za-z0-9][A-Za-z0-9-]*$/
+const FILE = /^[a-z0-9][a-z0-9-]*\.ts$/
+/**
+ * The workflow files under workflows/, also in folders and subfolders (workflows/tam-mapping/nordics/build-tam-list.ts).
+ * A file straight in workflows/ is always a workflow. In a folder, only a file that says "use workflow" is one: the
+ * rest are its helpers (workflows/tam-mapping/lib/find.ts).
+ */
+export function workflowFiles(root: string): { id: string; folder: string; file: string }[] {
+  const out: { id: string; folder: string; file: string }[] = []
+  const walk = (dir: string, folder: string, depth: number) => {
+    for (const e of fs.readdirSync(dir, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
+      const file = path.join(dir, e.name)
+      if (e.isDirectory()) {
+        if (depth < 8 && FOLDER.test(e.name) && e.name !== "node_modules") walk(file, folder ? `${folder}/${e.name}` : e.name, depth + 1)
+        continue
+      }
+      if (!e.isFile() || !FILE.test(e.name)) continue
+      if (folder && !/["']use workflow["']/.test(fs.readFileSync(file, "utf8"))) continue
+      out.push({ id: `${folder ? `${folder}/` : ""}${e.name.slice(0, -3)}`, folder, file })
+    }
+  }
+  const dir = path.join(root, "workflows")
+  if (fs.existsSync(dir)) walk(dir, "", 0)
+  return out
+}
+
 /** Read every workflow file: its id, what it exports, and whether it is well formed. */
 export async function readWorkflows(root: string): Promise<Record<string, Wf>> {
-  const dir = path.join(root, "workflows")
   const out: Record<string, Wf> = {}
-  for (const name of fs.existsSync(dir) ? fs.readdirSync(dir).sort() : []) {
-    if (!/^[a-z0-9][a-z0-9-]*\.ts$/.test(name)) continue
-    const id = name.slice(0, -3)
-    const file = path.join(dir, name)
+  for (const { id, folder, file } of workflowFiles(root)) {
+    const name = path.basename(file, ".ts")
     const text = fs.readFileSync(file, "utf8")
-    const wf: Wf = { id, title: title(id), file, fn: camel(id), hash: sha(text), concurrency: 5, retries: 2, pauseAfter: { failed: 11, of: 20 }, text, uses: usesOf(file, text) }
+    const wf: Wf = { id, folder, title: title(name), file, fn: camel(name), hash: sha(text), concurrency: 5, retries: 2, pauseAfter: { failed: 11, of: 20 }, text, uses: usesOf(file, text), steps: stepsOf(text) }
     out[id] = wf
     try {
       const mod = await import(`${pathToFileURL(file).href}?h=${wf.hash}`)
@@ -69,15 +98,16 @@ export async function readWorkflows(root: string): Promise<Record<string, Wf>> {
       else if (mod.pauseAfter && typeof mod.pauseAfter === "object" && Number(mod.pauseAfter.failed) > 0)
         wf.pauseAfter = { failed: Math.floor(Number(mod.pauseAfter.failed)), of: Math.max(Math.floor(Number(mod.pauseAfter.failed)), Math.floor(Number(mod.pauseAfter.of)) || 20) }
       if (typeof mod.summary === "string" && mod.summary.trim()) wf.summary = mod.summary.trim()
-      const drawn = cleanDiagram(mod.diagram)
-      wf.diagram = drawn.svg
+      const drawn = readDiagram(mod.diagram)
+      wf.diagram = drawn.source
+      wf.clicks = drawn.clicks
       wf.diagramProblem = drawn.problem
       if (typeof mod[wf.fn] !== "function") wf.problem = `it must export an async function named ${wf.fn} (the file name in camel case)`
       else if (!new RegExp(`function\\s+${wf.fn}\\s*\\([^)]*\\)[^{]*\\{\\s*["']use workflow["']`).test(text)) wf.problem = `${wf.fn} must start with the line "use workflow"`
       else if (typeof wf.from !== "string" || typeof wf.into !== "string") wf.problem = 'it must name its list and its results table: export const from = "..." and export const into = "..."'
       // Caps live in the permissions, never in a workflow file; what runs by itself is a line in flowbound.config.ts.
       else if (mod.every !== undefined || mod.on !== undefined || mod.maxUsdPerMonth !== undefined || mod.maxCallsPerMonth !== undefined)
-        wf.problem = `"every", "on" and a monthly cap do not go in a workflow file. Remove them: a schedule or webhook is a line in flowbound.config.ts (schedules: [schedule({ id: "${id}-schedule", workflow: "${id}", every: "monday 08:00" })]), and caps are in its permissions`
+        wf.problem = `"every", "on" and a monthly cap do not go in a workflow file. Remove them: a schedule or webhook is a line in flowbound.config.ts (schedules: [schedule({ id: "${name}-schedule", workflow: "${id}", every: "monday 08:00" })]), and caps are in its permissions`
     } catch (e: any) {
       wf.problem = `it does not load: ${String(e?.message ?? e).split("\n")[0]}`
     }

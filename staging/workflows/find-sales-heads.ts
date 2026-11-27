@@ -4,18 +4,20 @@ export const from = "target_list"
 export const into = "sales_heads"
 export const summary =
   "For each company on the list: find its LinkedIn page, then its most senior sales leader (CRO first, then head of sales, then VP Sales), then a work email for them. A company with no LinkedIn page, or nobody found, is skipped for the steps after. All three lookups use BlitzAPI."
-export const diagram = `<svg viewBox="0 0 320 250" aria-label="Diagram of find sales heads">
-<g font-size="12" fill="currentColor" font-family="system-ui, sans-serif">
-<rect x="70" y="6" width="180" height="36" rx="8" fill="none" stroke="currentColor" opacity=".5"/><text x="160" y="29" text-anchor="middle">A company from the list</text>
-<path d="M160 42v18" stroke="currentColor" opacity=".5"/>
-<rect x="40" y="60" width="240" height="36" rx="8" fill="none" stroke="currentColor"/><text x="160" y="83" text-anchor="middle">Find its LinkedIn page (BlitzAPI)</text>
-<path d="M160 96v18" stroke="currentColor" opacity=".5"/><text x="168" y="110" opacity=".6">none? stop here</text>
-<rect x="40" y="114" width="240" height="36" rx="8" fill="none" stroke="currentColor"/><text x="160" y="137" text-anchor="middle">Find the top sales leader (BlitzAPI)</text>
-<path d="M160 150v18" stroke="currentColor" opacity=".5"/><text x="168" y="164" opacity=".6">nobody? skip the email</text>
-<rect x="40" y="168" width="240" height="36" rx="8" fill="none" stroke="currentColor"/><text x="160" y="191" text-anchor="middle">Find a work email (BlitzAPI)</text>
-<path d="M160 204v18" stroke="currentColor" opacity=".5"/>
-<text x="160" y="238" text-anchor="middle" opacity=".7">Name, title, LinkedIn and email in sales_heads</text>
-</g></svg>`
+export const diagram = `
+flowchart TD
+  a[A company from the list] --> b[Find its LinkedIn page]
+  b --> c{Found?}
+  c -- no --> z([Skip it])
+  c -- yes --> d[Find the top sales leader]
+  d --> e{Found?}
+  e -- yes --> f[Find a work email]
+  e -- no --> g([Save without an email])
+  f --> h([Save name, title, LinkedIn and email])
+  click b companyLinkedin
+  click d findHead
+  click f findEmail
+`
 
 const EXCLUDE = [
   "Assistant", "Executive Assistant", "Advisor", "Office of", "Former",

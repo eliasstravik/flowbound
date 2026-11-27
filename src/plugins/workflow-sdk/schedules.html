@@ -1,0 +1,28 @@
+<div data-view></div>
+<script>
+// Every schedule and webhook in one place: the workflow it starts (with its folder), when, and the next time.
+fb.page("/schedules", async (root) => {
+  const { h, call, ui } = fb
+  const view = root.querySelector("[data-view]")
+  const named = (slug) => slug.replace(/[-_]+/g, " ").replace(/^./, (c) => c.toUpperCase())
+  const [lines, flows] = await Promise.all([fb.supports("schedules") ? call("schedules").catch(() => []) : [], call("workflows").catch(() => [])])
+  const head = ui.head({ title: "Schedules", sub: "Every schedule and webhook, in one place." })
+  if (!lines.length) return view.replaceChildren(head, h("p", { class: "text-muted-foreground" }, "Nothing runs on a schedule or a webhook yet."))
+  const flow = (id) => flows.find((w) => w.id === id)
+  view.replaceChildren(
+    head,
+    ui.table(
+      ["Workflow", "Starts", "Next"],
+      lines.map((s) => {
+        const w = flow(s.workflow)
+        return [
+          h("td", {}, ui.link("/workflows", { workflow: s.workflow }, w ? w.title : s.workflow, { class: "font-medium no-underline hover:underline" }), h("span", { class: "text-muted-foreground block" }, w && w.folder ? w.folder.split("/").map(named).join(" / ") : "Workflows")),
+          s.starts,
+          s.kind === "webhook" ? "on each delivery" : s.nextDue ? h("span", { title: new Date(s.nextDue).toLocaleString() }, fb.ahead(s.nextDue)) : "",
+        ]
+      }),
+      { label: "Schedules and webhooks" },
+    ),
+  )
+})
+</script>

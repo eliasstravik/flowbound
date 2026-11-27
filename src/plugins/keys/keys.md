@@ -1,10 +1,10 @@
 ## Keys and provider cards
 
 A data provider is a small card: where it lives, how its key attaches, where its manual is, what a call costs.
-You read the manual and write the calls. A key is typed once by the person on the keys page
+You read the manual and write the calls. A key is typed once by the person on the Connections page
 (http://localhost:4111/keys), kept outside the project folder, and attached by Flowbound on the way out, only to
 that card's address. `npx flowbound keys` says which cards have one. Nothing prints or returns a key.
-The keys page shows under each key which workflows use it (read from each file's `use("...")`), puts a key a
+The Connections page shows under each key which workflows use it (read from each file's `use("...")`), puts a key a
 workflow is waiting for first, and lets the person remove a saved key: the question names the workflows that
 stop. `npx flowbound doctor` says which keys are missing for which workflow; `--deep` also tries every saved key
 again at its provider.

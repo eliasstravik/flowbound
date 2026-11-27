@@ -79,3 +79,15 @@ export function toCron(every: string): string {
 
 /** How people read it: "every monday 08:00 (Europe/Stockholm)". */
 export const when = (every: string, timezone?: string) => `every ${String(every).trim().toLowerCase()}${"span" in parse(every) ? "" : ` (${timezone ?? `${here()}, this machine's clock`})`}`
+
+/** When a schedule starts, as people read it: "Every Monday 08:00 (Stockholm)", "Every weekday 07:30", "Every 2 hours". */
+export const starts = (every: string, timezone?: string) => {
+  const text = String(every).trim().toLowerCase()
+  const p = parse(every)
+  if ("span" in p) return `Every ${text.replace(/^1\s+/, "")}`
+  const [day, time] = text.split(/\s+/)
+  const days = day === "day" || day === "daily" ? "day" : day === "weekday" ? "weekday" : DAYS.find((d) => d.startsWith(day!))!.replace(/^./, (c) => c.toUpperCase())
+  const [h, m] = time!.split(":")
+  const place = timezone ? ` (${timezone.split("/").pop()!.replace(/_/g, " ")})` : ""
+  return `Every ${days} ${h!.padStart(2, "0")}:${m}${place}`
+}

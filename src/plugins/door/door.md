@@ -45,4 +45,4 @@ A tool of your own says the least a person needs with `role: "viewer" | "member"
 
 From the project folder, `--live` after a command asks the live Flowbound instead of this computer
 (`npx flowbound import targets.csv --live`, `npx flowbound runs --live`). The person types a live token once on
-the local keys page.
+the local Connections page.

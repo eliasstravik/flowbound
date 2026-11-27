@@ -1,4 +1,5 @@
-// The page: what people see, on a phone or a desktop. Tabs: Needs you, Runs, Tables, Workflows, Changes, Keys, Permissions.
+// The page: what people see, on a phone or a desktop. The menu: Home, Workflows, Runs, Schedules, Data, then
+// Connections, Agents and Permissions after a line; Changes is reached from "N changes not live" under the menu.
 // Each is one plain HTML file. How they look is one style sheet and one script, built once when Flowbound itself is
 // built (scripts/build-pages.mjs).
 import fs from "node:fs"
@@ -19,7 +20,14 @@ const built = (name: string) => {
   if (!fs.existsSync(file)) throw new Error(`The pages are not built yet (${name} is missing). Run: npm run build`)
   return file
 }
-const FILES: Record<string, string> = { "page.css": "text/css; charset=utf-8", "page.js": "text/javascript; charset=utf-8", "geist.woff2": "font/woff2", "geist-ext.woff2": "font/woff2", "geist-mono.woff2": "font/woff2" }
+const FILES: Record<string, string> = {
+  "page.css": "text/css; charset=utf-8",
+  "page.js": "text/javascript; charset=utf-8",
+  "geist.woff2": "font/woff2",
+  "geist-ext.woff2": "font/woff2",
+  "geist-mono.woff2": "font/woff2",
+  "mermaid.js": "text/javascript; charset=utf-8",
+}
 // The sheet follows the system's light or dark before anything is drawn.
 const THEME = `<script>(function(m){var d=document.documentElement,s=function(){d.dataset.theme||d.classList.toggle("dark",m.matches)};s();m.addEventListener("change",s)})(matchMedia("(prefers-color-scheme: dark)"))</script>`
 
@@ -43,7 +51,7 @@ const sheet = () =>
   get("page.css")
     .body.toString("utf8")
     .replace(FONT, (_m, _q, name: string) => `url("${name}?v=${get(name).mark}")`)
-/** Where "/" and the name in the corner lead: the page that says it comes first (Needs you), else the runs, else any page in the menu. */
+/** Where "/" and the name in the corner lead: the page that says it comes first (Home), else the runs, else any page in the menu. */
 const home = (all: Map<string, Page>) => [...all].find(([, p]) => p.first)?.[0] ?? (all.has("/runs") ? "/runs" : ([...all].find(([, p]) => p.menu)?.[0] ?? "/api"))
 const head = (base: string, title: string) => `<meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -73,8 +81,25 @@ const render = (
   const shown = [...all].filter(([p]) => app || p === path)
   // The tabs in their order (a page of your own goes after the built-in tabs, in the order of the list).
   const menu = (app ? shown : [...all]).filter(([, p]) => p.menu).sort(([, a], [, b]) => (a.order ?? 99) - (b.order ?? 99))
-  const boot = { app, live: live, url: url, base: base, page: path ?? null, who: who ? { name: who.name, kind: who.kind, checked: who.checked !== false, role: who.role ?? null } : null }
-  const links = menu.map(([p, x]) => `<a href="${base}${p}" data-go="${p}"${p === path ? ' aria-current="page"' : ""}>${esc(x.title)}</a>`).join("")
+  // Mermaid is big and only a workflow's page needs it: the page fetches it from here when it draws a diagram.
+  const boot = {
+    app,
+    live: live,
+    url: url,
+    base: base,
+    page: path ?? null,
+    mermaid: app ? `${url}/assets/mermaid.js` : at(base, "mermaid.js"),
+    who: who ? { name: who.name, kind: who.kind, checked: who.checked !== false, role: who.role ?? null } : null,
+  }
+  // Where you set things up (Connections, Agents, Permissions) sits under a line, after what you look at. Home's count
+  // and "N changes not live" are filled in by the page once it asks.
+  const links = menu
+    .map(
+      ([p, x], i) =>
+        `${(x.order ?? 99) >= 7 && (menu[i - 1]?.[1].order ?? 99) < 7 ? '<hr class="sep">' : ""}<a href="${base}${p}" data-go="${p}"${p === path || (x.first && path === "/needs") ? ' aria-current="page"' : ""}>${esc(x.title)}${x.first ? '<span class="count" data-count hidden></span>' : ""}</a>`,
+    )
+    .join("")
+  const changes = all.has("/changes") ? `<a class="publish" href="${base}/changes" data-go="/changes" data-changes hidden></a>` : ""
   const brand = `<a class="brand" href="${base}/" data-go="${home(all)}">Flowbound</a>`
   const place = `<span class="place" data-place="${live ? "live" : "local"}">${live ? "Live" : "Your computer"}</span>`
   const me =
@@ -111,9 +136,9 @@ ${
 <body${app ? ' data-embedded data-mode="inline" hidden' : ""}>
 <a class="skip" href="#main">Skip to the page</a>
 <div class="app">
-<aside class="side"><div class="flex items-center justify-between gap-2">${brand}${place}</div><nav class="menu" aria-label="Pages">${links}</nav>${me}</aside>
-<header class="top"><button class="btn" data-variant="ghost" data-size="icon" type="button" id="menu-open" aria-label="Menu" aria-haspopup="dialog" data-icon="menu"></button>${brand}<span class="ml-auto mr-2">${place}</span></header>
-<dialog class="drawer" id="menu" aria-label="Menu"><div><div class="flex h-10 items-center gap-1"><button class="btn" data-variant="ghost" data-size="icon" type="button" data-close aria-label="Close the menu" data-icon="x"></button>${brand}</div><nav class="menu" aria-label="Pages">${links}</nav>${me}</div></dialog>
+<aside class="side"><div class="flex items-center justify-between gap-2">${brand}${place}</div><nav class="menu" aria-label="Pages">${links}${changes}</nav>${me}</aside>
+<header class="top">${brand}${place}<button class="btn ml-auto" data-variant="ghost" data-size="icon" type="button" id="menu-open" aria-label="Menu" aria-haspopup="dialog" data-icon="menu"></button></header>
+<dialog class="drawer" id="menu" aria-label="Menu"><div><div class="flex h-10 items-center gap-1"><button class="btn" data-variant="ghost" data-size="icon" type="button" data-close aria-label="Close the menu" data-icon="x"></button>${brand}</div><nav class="menu" aria-label="Pages">${links}${changes}</nav>${me}</div></dialog>
 <main id="main" tabindex="-1"><div class="page">
 ${app ? '<div class="actions" id="app-actions" hidden></div>' : ""}
 <div id="trouble" class="alert" data-variant="destructive" role="alert" hidden></div>
@@ -128,13 +153,16 @@ ${shown.map(([p, x]) => `<section data-page="${p}" hidden>\n${read(x.file)}\n</s
 
 // Built-in views only. Hosts can fetch the static resource before the person opens a project.
 export const appPages = new Map<string, Page>([
-  ["/needs", { title: "Needs you", file: asset("overview/overview.html"), menu: true, first: true }],
-  ["/runs", { title: "Runs", file: asset("workflow-sdk/runs.html"), menu: true }],
-  ["/tables", { title: "Tables", file: asset("postgres/tables.html"), menu: true }],
-  ["/workflows", { title: "Workflows", file: asset("workflow-sdk/workflows.html"), menu: true }],
-  ["/changes", { title: "Changes", file: asset("changes/changes.html"), menu: true }],
-  ["/keys", { title: "Keys", file: asset("keys/keys.html"), menu: true }],
-  ["/permissions", { title: "Permissions", file: asset("ledger/permissions.html"), menu: true }],
+  ["/home", { title: "Home", file: asset("overview/overview.html"), menu: true, first: true, order: 1 }],
+  ["/workflows", { title: "Workflows", file: asset("workflow-sdk/workflows.html"), menu: true, order: 2 }],
+  ["/runs", { title: "Runs", file: asset("workflow-sdk/runs.html"), menu: true, order: 3 }],
+  ["/schedules", { title: "Schedules", file: asset("workflow-sdk/schedules.html"), menu: true, order: 4 }],
+  ["/tables", { title: "Data", file: asset("postgres/tables.html"), menu: true, order: 5 }],
+  ["/keys", { title: "Connections", file: asset("keys/keys.html"), menu: true, order: 7 }],
+  ["/permissions", { title: "Permissions", file: asset("ledger/permissions.html"), menu: true, order: 9 }],
+  // Not in the menu: Home's old address (an agent's show({ page: "needs" }) still lands on Home), Changes and People.
+  ["/needs", { title: "Home", file: asset("overview/overview.html") }],
+  ["/changes", { title: "Changes", file: asset("changes/changes.html") }],
   ["/people", { title: "People", file: asset("door/people.html") }],
 ])
 let appDocument: string | undefined
@@ -169,7 +197,7 @@ export const pages = () => {
       return { list: () => [...all].map(([path, p]) => ({ path, title: p.title })), render: web, head: (title) => head(fb.base, title) } satisfies Pages
     },
     docs: `## The page, for people
-People read, find their way, understand, and see what needs them, on a phone or a desktop. The page is at the address \`flowbound dev\` prints (http://localhost:4111). Tabs: \`/needs\` (Needs you: each yes that waits, a key that is missing), \`/runs\` (what ran, what failed and why), \`/tables\` (results, each cell with its source, age and cost; upload a CSV; download one), \`/workflows\` (your summary and diagram of each workflow, and its code), \`/changes\` (saved changes, checks, preview and Publish), \`/keys\` (keys are typed only there), \`/permissions\` (the mode and caps, and what this month has used).
+People read, find their way, understand, and see what needs them, on a phone or a desktop. The page is at the address \`flowbound dev\` prints (http://localhost:4111). The menu: \`/home\` (Home: what needs attention, such as a yes that waits or a missing key, recent runs, this month's spend, and a Get started list on a first day), \`/workflows\` (workflows in their folders; each with the Mermaid diagram you wrote, its code, runs and data), \`/runs\` (what ran, what failed and why), \`/schedules\` (every schedule and webhook), \`/tables\` (Data: results, each cell with its source, age and cost), \`/keys\` (Connections: keys are typed only there), \`/permissions\` (the mode and caps). \`/changes\` (saved changes, checks, preview and Publish) is reached from the line under the menu.
 When the person needs a view, return the run, table or workflow from MCP execute and call show with the suggested arguments. Skip show if they ask for no app. The run view updates live. Open it once and say it will show the outcome. Leave the link to the app's Open web page button. In text-only chats, give them the returned page link. A yes is never a button on the page: the person tells you, and you pass it on.
 A plugin's own page is one HTML file (\`pages: { "/path": { title, file, menu: true } }\`) with one script, \`fb.page("/path", async (root, params) => { ... })\`. Build it from the shared parts so it looks and behaves like the rest: \`fb.ui.head\`, \`fb.ui.status\`, \`fb.ui.facts\`, \`fb.ui.table\`, \`fb.ui.empty\`, \`fb.ui.note\`, \`fb.ui.field\`, buttons with \`class="btn"\`, and \`fb.call\`, \`fb.act\`, \`fb.confirm\`, \`fb.say\`, \`fb.poll\`. Only those parts are styled: other class names do nothing.`,
   })

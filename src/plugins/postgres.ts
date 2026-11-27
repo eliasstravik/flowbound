@@ -551,7 +551,7 @@ export const postgres = (opts: { url?: string } = {}) => {
         print: (r) => (r.rows.length ? toCsv([Object.keys(r.rows[0]), ...r.rows.map((x: any) => Object.values(x))]).trimEnd() : `${r.count} rows changed`),
       },
     },
-    pages: { "/tables": { title: "Tables", file: asset("postgres/tables.html"), menu: true, order: 3 } },
+    pages: { "/tables": { title: "Data", file: asset("postgres/tables.html"), menu: true, order: 5 } },
     docs: asset("postgres/postgres.md"),
   })
 }
