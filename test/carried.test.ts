@@ -159,7 +159,7 @@ test("a saved key can be taken away on the page; the check-up then says which wo
   // Remove: the page's own call, an empty value. The agent's door cannot do it.
   assert.match(await p.fb("set-key fakedata", { fails: true }), /flowbound <command>/)
   assert.equal((await p.page("set-key", { name: "fakedata", value: "" })).result.hasKey, false)
-  assert.match(await p.fb("keys"), /FakeData\s+no key yet/)
+  assert.match(await p.fb("keys"), /FAKEDATA_KEY\s+missing/)
   assert.ok(await says(/^FakeData has no key, and Find sales heads needs it/))
   await p.page("set-key", { name: "fakedata", value: "sk-test-123" })
 })

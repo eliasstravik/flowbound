@@ -140,7 +140,7 @@ ${
 <header class="top">${brand}${place}<button class="btn ml-auto" data-variant="ghost" data-size="icon" type="button" id="menu-open" aria-label="Menu" aria-haspopup="dialog" data-icon="menu"></button></header>
 <dialog class="drawer" id="menu" aria-label="Menu"><div><div class="flex h-10 items-center gap-1"><button class="btn" data-variant="ghost" data-size="icon" type="button" data-close aria-label="Close the menu" data-icon="x"></button>${brand}</div><nav class="menu" aria-label="Pages">${links}${changes}</nav>${me}</div></dialog>
 <main id="main" tabindex="-1"><div class="page">
-${app ? '<div class="actions" id="app-actions" hidden></div>' : ""}
+${app ? '<header class="app-bar" id="app-actions" hidden><b>Flowbound</b><span id="app-title"></span></header><div id="app-loading" class="loading" role="status" aria-label="Loading"><span class="skeleton w-2/5"></span><span class="skeleton w-full"></span><span class="skeleton w-4/5"></span><span class="skeleton w-2/3"></span></div>' : ""}
 <div id="trouble" class="alert" data-variant="destructive" role="alert" hidden></div>
 ${shown.map(([p, x]) => `<section data-page="${p}" hidden>\n${read(x.file)}\n</section>`).join("\n")}
 </div></main>

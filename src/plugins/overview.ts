@@ -44,7 +44,7 @@ export const overview = () => {
       agent: async () =>
         agentSeen || (!fb.live && hasClients(fb.root)) || (fb.live && fb.tools.tokens ? ((await fb.call("tokens", {}, { kind: "system", name: "Flowbound", via: "page" })) as unknown[]).length > 0 : false),
       sample: async () => (await q("select 1 from fb_workflow_sdk.runs where workflow = any($1) and state = 'done' limit 1", [SAMPLES]).catch(() => [])).length > 0,
-      key: async () => (fb.tools.keys ? ((await fb.call("keys", {}, { kind: "system", name: "Flowbound", via: "page" })) as { cards: { hasKey?: boolean }[] }).cards.some((k) => k.hasKey) : false),
+      key: async () => (fb.tools.keys ? ((await fb.call("keys", {}, { kind: "system", name: "Flowbound", via: "page" })) as { connections: { hasKey?: boolean }[] }).connections.some((k) => k.hasKey) : false),
     }
     for (const f of FIRSTS)
       if (!done.has(f.id) && (await now[f.id]!().catch(() => false))) {

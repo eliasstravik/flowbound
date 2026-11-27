@@ -379,6 +379,13 @@
 [data-embedded][data-mode="inline"] .page :is(section[data-page], [data-view]) {
   gap: 0.75rem;
 }
-#app-actions {
-  justify-content: flex-end;
+/* In a chat: a bar headed Flowbound with the page's name, then Expand and Open in Flowbound. No menu, no path back up. */
+.app-bar {
+  @apply flex flex-wrap items-center gap-x-3 gap-y-2;
+}
+.app-bar > #app-title {
+  @apply text-muted-foreground min-w-0 flex-1 truncate;
+}
+[data-embedded][data-mode="inline"] :is(.page-head .crumb, nav.path) {
+  display: none;
 }

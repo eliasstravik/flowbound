@@ -288,12 +288,11 @@ test("the company's own Google: an outsider is refused, signing in gives nothing
       ["maya@acme.example"],
     )
 
-    // A colleague signs in: he works there, and that alone gives him nothing.
+    // A colleague signs in: he works at an allowed domain, and that makes him a Viewer: he may look, not change.
     const sam = fb.browser()
-    const waiting = await sam.signIn("sam@acme.example")
-    assert.equal(waiting.status, 403)
-    assert.match(waiting.text, /You are signed in as sam@acme.example. Nobody has given you rights here yet. Ask maya@acme.example./)
-    assert.equal((await sam.tool("look")).status, 403)
+    assert.equal((await sam.signIn("sam@acme.example")).status, 200)
+    assert.equal((await sam.tool("look")).result.who.role, "viewer")
+    assert.equal((await sam.tool("change")).status, 403)
 
     // The manager gives him rights to edit. A member can approve runs, but cannot administer people.
     assert.equal((await maya.tool("set-rights", { email: "sam@acme.example", rights: "member" })).ok, true)
@@ -310,7 +309,7 @@ test("the company's own Google: an outsider is refused, signing in gives nothing
     // Who changed what is kept, with before and after, and cannot be edited.
     const history = (await maya.tool("history")).result
     assert.deepEqual(history.map((h: any) => [h.who, h.through, h.what, h.on, h.before, h.after?.maxUsd ?? h.after]).reverse(), [
-      ["Maya Manager (maya@acme.example)", "page", "rights", "sam@acme.example", "none", "member"],
+      ["Maya Manager (maya@acme.example)", "page", "rights", "sam@acme.example", "viewer", "member"],
       ["Maya Manager (maya@acme.example)", "page", "said yes", "find-sales-heads", null, 5],
     ])
     await assert.rejects(fb.sql("update fb_door.history set who = 'someone else'"), /cannot be changed or deleted/)
@@ -322,6 +321,51 @@ test("the company's own Google: an outsider is refused, signing in gives nothing
     // Signing out ends it.
     await maya.call("/door/out", { method: "POST" })
     assert.equal((await maya.tool("look")).status, 401)
+  } finally {
+    await fb.stop()
+  }
+})
+
+test("allowed domains and invites: Owners keep several domains, anyone at any address can be invited with a role", async () => {
+  const fb = await live({ ...google, issuer: idp.google })
+  try {
+    const maya = fb.browser()
+    assert.equal((await maya.signIn("maya@acme.example")).status, 200)
+    // The first domain comes from the deploy settings.
+    assert.deepEqual((await maya.tool("people")).result.domains, ["acme.example"])
+
+    // Someone at another company is turned away, until an Owner adds that domain; then they come in as a Viewer.
+    assert.equal((await fb.browser().signIn("olle@other.example")).status, 403)
+    assert.deepEqual((await maya.tool("set-domain", { domain: "Other.Example" })).result.domains, ["acme.example", "other.example"])
+    const olle = fb.browser()
+    assert.equal((await olle.signIn("olle@other.example")).status, 200)
+    assert.equal((await olle.tool("look")).result.who.role, "viewer")
+    assert.equal((await maya.tool("set-domain", { domain: "not a domain" })).status, 400)
+
+    // Only Owners edit the domains: an Admin may invite and change roles, not that.
+    assert.equal((await maya.tool("set-rights", { email: "sam@acme.example", rights: "admin" })).ok, true)
+    const sam = fb.browser()
+    assert.equal((await sam.signIn("sam@acme.example")).status, 200)
+    assert.equal((await sam.tool("set-domain", { domain: "evil.example" })).status, 403)
+    assert.equal((await sam.tool("people")).result.isOwner, false)
+
+    // An invite: any address, any domain, with a role. No email is sent; the person signs in with that account.
+    assert.equal((await fb.browser().signIn("pat@gmail.example")).status, 403)
+    assert.equal((await sam.tool("set-rights", { email: "pat@gmail.example", rights: "member" })).ok, true)
+    const before = (await maya.tool("people")).result.people.find((p: any) => p.email === "pat@gmail.example")
+    assert.deepEqual([before.rights, before.invited], ["member", true])
+    const pat = fb.browser()
+    assert.equal((await pat.signIn("pat@gmail.example")).status, 200)
+    assert.equal((await pat.tool("change")).result.who.role, "member")
+    assert.equal((await maya.tool("people")).result.people.find((p: any) => p.email === "pat@gmail.example").invited, false)
+
+    // A domain taken away lets no new person in from it; people already in keep their role.
+    assert.equal((await maya.tool("set-domain", { domain: "other.example", remove: true })).ok, true)
+    assert.equal((await olle.tool("look")).result.who.role, "viewer")
+    await maya.tool("remove-person", { email: "olle@other.example" })
+    assert.equal((await fb.browser().signIn("olle@other.example")).status, 403)
+    const history = (await maya.tool("history")).result.map((h: any) => [h.what, h.on, h.after])
+    assert.ok(history.some((h: any) => h[0] === "allowed domain" && h[1] === "other.example" && h[2] === "removed"))
   } finally {
     await fb.stop()
   }

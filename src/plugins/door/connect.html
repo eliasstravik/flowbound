@@ -1,62 +1,68 @@
 <div data-view></div>
 <script>
+// Agents: how to connect each kind of agent (an address or a command, with Copy), then the connected agents, whose
+// each is, when it was last used, and Remove. You see and remove your own; Admins and Owners see everyone's.
 fb.page("/connect", async (root) => {
   const { h, call, ui } = fb
   const view = root.querySelector("[data-view]")
-  if (!fb.live) {
-    return view.replaceChildren(
-      ui.head({ title: "Agents" }),
-      ui.empty({ title: "Agents here need no token", text: "This Flowbound runs on your own computer, and agents here need no token: they reach it through the flowbound command or its MCP server.", more: h("p", { class: "text-muted-foreground max-w-sm" }, "Signing in is for a live Flowbound, where a chat app or a teammate's agent connects from somewhere else. Go live with: ", h("code", {}, "flowbound deploy")) }))
-  }
-  const all = await call("tokens")
-  const copy = (text) => {
-    const b = h("button", { class: "btn", "data-variant": "outline", "data-size": "sm", type: "button" }, ui.icon("copy"), "Copy")
-    b.onclick = () => fb.act(b, () => fb.copy(text))
+  const head = ui.head({ title: "Agents", sub: "The agents that talk to Flowbound for you. Each acts as its person and can never do more." })
+  const copy = (text, what) => {
+    const b = h("button", { class: "btn", "data-variant": "outline", "data-size": "sm", type: "button", "aria-label": `Copy ${what}` }, ui.icon("copy"), "Copy")
+    b.onclick = () => fb.act(b, async () => (await fb.copy(text), fb.say("Copied.")))
     return b
   }
-  const label = h("input", { class: "input", type: "text", name: "label", placeholder: "which agent it is for", autocomplete: "off", required: true })
-  const out = h("div", { class: "flex flex-col gap-3", hidden: true, "aria-live": "polite" })
-  const make = h("button", { class: "btn", type: "submit" }, "Make a token")
-  const form = h("form", { class: "card", "data-size": "sm", "aria-labelledby": "c-token" },
-    h("header", {}, h("h2", { id: "c-token" }, "An agent that cannot sign in"), h("p", {}, "For a coding agent or a script that runs by itself. The token is yours: what it does is saved under your name, and it stops when you leave.")),
-    h("section", { class: "flex flex-col gap-4" },
-      ui.field("Which agent it is for", label, "It can do what you can, up to starting try-outs and asking for a run. It can't approve spending or see keys."),
-      h("div", { class: "actions" }, make),
-      out))
-  form.onsubmit = (e) => {
-    e.preventDefault()
-    fb.act(make, async () => {
-      const made = await call("make-token", { label: label.value })
-      const field = h("input", { class: "input font-mono", type: "text", name: "token", "aria-label": "The new token", readonly: true, value: made.token, onfocus: (ev) => ev.target.select() })
-      out.replaceChildren(
-        ui.note("This is shown once. Copy it now.", "warn"),
-        h("div", { class: "flex items-center gap-2" }, field, copy(made.token)),
-        h("p", { class: "text-muted-foreground" }, "The agent sends it as: Authorization: Bearer <token>, to this address."),
-        h("pre", {}, made.mcp))
-      out.hidden = false
-      label.value = ""
-      // The new one joins the list at once; the page is not drawn again, so the token shown once stays until it is copied.
-      showList(await call("tokens"))
-    })
+  const way = (who, how, text, what) => [
+    h("td", { class: "wrap align-top" }, h("div", { class: "font-medium" }, who), h("span", { class: "text-muted-foreground block" }, how)),
+    h("td", { class: "wrap align-top" }, h("div", { class: "flex flex-wrap items-center gap-2" }, h("code", { class: "wrap-anywhere" }, text), copy(text, what))),
+  ]
+  const table = (rows, label) => {
+    const t = ui.table(["", ""], rows, { label })
+    t.querySelector("thead").remove()
+    return t
   }
-  const item = (t) => {
-    const b = h("button", { class: "btn", "data-variant": "outline", "data-size": "sm", type: "button" }, "Remove")
-    b.onclick = async () => (await fb.confirm({ title: `Remove ${t.label}?`, text: "It stops working at once. This cannot be taken back.", yes: "Remove", tone: "bad" })) && fb.act(b, async () => (await call("drop-token", { id: t.id }), showList(await call("tokens")), fb.say(`Removed: ${t.label}.`)))
-    return h("li", { class: "flex min-h-12 items-center justify-between gap-3 border-b py-2.5" },
-      h("div", { class: "min-w-0 wrap-anywhere" }, h("div", { class: "font-medium" }, t.label, t.kind === "app" ? "" : " (token)"), h("div", { class: "sub" }, `for ${t.person} · since ${t.made}${t.lastUsed ? ` · last used ${t.lastUsed}` : ""}`)),
-      b)
+
+  if (!fb.live) {
+    // On your own computer: the agent apps here use the Flowbound plugin, and nobody signs in.
+    return view.replaceChildren(
+      head,
+      h("section", { class: "flex flex-col gap-2" },
+        h("h2", {}, "Connect an agent"),
+        table([
+          way("Claude Code, Codex", "Already set up in this folder. To use this computer again after connecting to a company, run once in a terminal", "npx flowbound connect --local", "the command"),
+          way("Claude, ChatGPT", "Chat apps connect to a live Flowbound. Make one with", "npx flowbound deploy", "the command"),
+        ], "Connect an agent")),
+      h("section", { class: "flex flex-col gap-2" },
+        h("h2", {}, "Connected"),
+        h("p", { class: "text-muted-foreground" }, "On your own computer agents need no sign-in: every agent here acts as you.")))
   }
-  const list = h("div", {})
-  const showList = (tokens) => list.replaceChildren(tokens.length ? h("ul", { class: "border-t", role: "list" }, ...tokens.map(item)) : h("p", { class: "text-muted-foreground" }, "Nothing is connected yet."))
-  showList(all)
+
+  const all = await call("tokens")
   const address = `${fb.url}/mcp`
+  const remove = (t) => {
+    const b = h("button", { class: "btn", "data-variant": "outline", "data-size": "sm", type: "button", "aria-label": `Remove ${t.label}, for ${t.person}` }, "Remove")
+    b.onclick = async () => {
+      if (!(await fb.confirm({ title: `Remove ${t.label}?`, text: `It stops working for ${t.mine ? "you" : t.person} at once. To use it again, connect it again.`, yes: "Remove", tone: "bad" }))) return
+      fb.act(b, async () => (await call("drop-token", { id: t.id }), await fb.redraw(), fb.say(`Removed: ${t.label}.`)))
+    }
+    return b
+  }
   view.replaceChildren(
-    ui.head({ title: "Agents" }),
-    h("div", { class: "grid max-w-2xl gap-4" },
-      h("article", { class: "card", "data-size": "sm", "aria-labelledby": "c-chat" },
-        h("header", {}, h("h2", { id: "c-chat" }, "Claude, ChatGPT and other chat apps"), h("p", {}, "Add a custom connector in the app with this address. It sends you here to sign in and allow it; there is no token to copy. From then on it works as you.")),
-        h("section", { class: "flex items-center gap-2" }, h("pre", { class: "min-w-0 flex-1" }, address), copy(address))),
-      form),
-    h("section", { class: "flex max-w-2xl flex-col gap-2" }, h("h2", {}, "Connected"), list))
+    head,
+    h("section", { class: "flex flex-col gap-2" },
+      h("h2", {}, "Connect an agent"),
+      table([
+        way("Claude, ChatGPT", "Add this address as a connector, then sign in", address, "the address"),
+        way("Claude Code, Codex", "Run once in a terminal", `npx flowbound connect ${fb.url}`, "the command"),
+      ], "Connect an agent")),
+    h("section", { class: "flex flex-col gap-2" },
+      h("h2", {}, "Connected"),
+      all.length
+        ? ui.table(["Agent", "For", "Last used"], all.map((t) => [
+            h("td", { class: "wrap align-top font-medium" }, t.label),
+            h("td", { class: "wrap align-top" }, t.mine ? "You" : t.person),
+            h("td", { class: "align-top" }, t.usedAt ? h("span", { title: new Date(t.usedAt).toLocaleString() }, fb.ago(t.usedAt)) : "never", h("div", { class: "pt-1.5" }, remove(t))),
+          ]), { label: "Connected agents" })
+        : h("p", { class: "text-muted-foreground" }, "No agents connected yet.")),
+  )
 })
 </script>

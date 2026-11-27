@@ -5,7 +5,7 @@ import os from "node:os"
 import path from "node:path"
 import type { Who } from "../../core/plugin.ts"
 import { Refused } from "../../core/server.ts"
-import { attributed, authorLine, branchPrefix, type Change, type Check, checkNames, lines, type Repository, type Save, stale } from "./model.ts"
+import { attributed, authorLine, branchPrefix, type Change, type Check, checkNames, lines, type Repository, requester, type Save, stale } from "./model.ts"
 
 type Result = { ok: boolean; out: string }
 function run(cwd: string, command: string, args: string[], env?: NodeJS.ProcessEnv, input?: string): Promise<Result> {
@@ -219,8 +219,8 @@ export class LocalGit implements Repository {
 
   async change(id: string): Promise<Change> {
     const [head, base] = await Promise.all([this.head(this.ref(id)), this.head(this.baseRef)])
-    const title = await this.take(["show", "-s", "--format=%s", head])
-    const common = { id, title, branch: branchPrefix + id, head }
+    const [title, by, body, at] = (await this.take(["show", "-s", "--format=%s%x00%an%x00%b%x00%cI", head])).split("\0")
+    const common = { id, title: title!, branch: branchPrefix + id, head, by: requester(body) ?? by, at: at?.trim() }
     const published = await this.published(id, base)
     if (published) return { ...common, state: "published", published, checks: checkNames.map((name) => ({ name, state: "passed" })) }
     const trial = this.trial(id, base, head, title)

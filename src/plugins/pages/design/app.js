@@ -344,7 +344,12 @@ const fb = (() => {
   /** May the person looking at the page do this? On your own computer: everything. */
   const can = (role) => !boot.who || !boot.who.role || ROLES.indexOf(boot.who.role) >= ROLES.indexOf(role)
   /** The browser tab's name, so two runs open side by side can be told apart. */
-  const title = (text) => (document.title = `${text} · Flowbound`)
+  const title = (text) => {
+    document.title = `${text} · Flowbound`
+    // In a chat the page's name also sits beside "Flowbound" in the view's own bar.
+    const named = document.getElementById("app-title")
+    if (named) named.textContent = text
+  }
 
   // ---- the parts pages are made of ---------------------------------------------------------------------------
   const TONES = { running: "running", done: "ok", active: "ok", saved: "ok", stopped: "bad", failed: "bad", paused: "warn", waiting: "warn", asked: "warn", "needs a yes": "warn", missing: "warn" }

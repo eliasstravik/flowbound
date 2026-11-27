@@ -131,12 +131,31 @@ export const door = (opts: DoorOptions = {}) => {
     if (s.emails.length && !s.emails.includes(email)) return `You signed in as ${email}. That email is not on this Flowbound's list.`
     return undefined
   }
-  /** And as the login just described them: the right company, the right directory, an email it has checked. */
-  const vet = (email: string, claims: Claims): string | undefined => {
+  /** The allowed domains: whose people may sign in, as Viewers. The first come from the settings; Owners edit them on the People tab. */
+  const domains = async (): Promise<string[]> => (await q("select domain from fb_door.domains where not removed order by added_at, domain")).map((r: any) => r.domain)
+  /** Is the login's own word that this account is the company's? Google: its Workspace domain (hd). Microsoft: its directory, and its email's domain when any are listed. */
+  const company = async (email: string, claims: Claims): Promise<string | undefined> => {
+    const allowed = await domains()
+    if (s.kind === "google" && !s.emails.length && !allowed.includes(String(claims.hd ?? "").toLowerCase()))
+      return allowed.length
+        ? `You signed in as ${email}. This Flowbound is for people at ${allowed.join(" or ")}, and for people invited by email.`
+        : `You signed in as ${email}. Only people invited by email may sign in here.`
+    if (s.kind === "microsoft" && String(claims.tid ?? "").toLowerCase() !== s.tenant) return `You signed in as ${email}. This Flowbound is for one company's own directory, and that account is not in it.`
+    if (s.kind === "microsoft" && allowed.length && !allowed.includes(email.split("@")[1] ?? ""))
+      return `You signed in as ${email}. This Flowbound is for people at ${allowed.join(" or ")}, and for people invited by email.`
+    return undefined
+  }
+  /** Someone an Admin or Owner invited by email (or gave a role): they may come in at any domain, with the login's checked email. */
+  const invited = async (email: string, claims: Claims) => {
+    const p = await person(email)
+    return !!p && !p.blocked && p.role !== "none" && claims.verified === true
+  }
+  /** And as the login just described them: the right company, the right directory, or invited; an email it has checked. */
+  const vet = async (email: string, claims: Claims): Promise<string | undefined> => {
     if (listed(email) || email.endsWith(TEAM)) return listed(email)
     if (claims.verified === false) return `The login has not checked that ${email} is yours.`
-    if (s.kind === "google" && s.domains.length && !s.domains.includes(String(claims.hd ?? "").toLowerCase())) return `You signed in as ${email}. This Flowbound is for people at ${s.domains.join(" or ")}.`
-    if (s.kind === "microsoft" && String(claims.tid ?? "").toLowerCase() !== s.tenant) return `You signed in as ${email}. This Flowbound is for one company's own directory, and that account is not in it.`
+    const why = await company(email, claims)
+    if (why && !(await invited(email, claims))) return why
     return undefined
   }
   const fromGroups = (claims: Claims) => {
@@ -159,11 +178,14 @@ export const door = (opts: DoorOptions = {}) => {
   /** After the login vouched: put the person on the list (with nothing, unless the settings or a group say more). */
   const enter = async (u: Signed): Promise<Person | string> => {
     const claims = await engine().claims(u.user)
-    const why = vet(u.email, claims)
+    const why = await vet(u.email, claims)
     if (why) return why
     const was = await person(u.email)
     if (was?.blocked) return `A manager removed ${u.email} from this Flowbound.`
-    const role = fixed(u.email, claims) ?? was?.role ?? (s.defaultRole === "member" ? "member" : "none")
+    // Someone at an allowed domain comes in as a Viewer (a Member where the settings say so); an invited person with their role.
+    const ours = !s.emails.length && s.kind !== "sso" && !(await company(u.email, claims))
+    const first = ours ? (s.defaultRole === "member" ? "member" : "viewer") : "none"
+    const role = fixed(u.email, claims) ?? (was && was.role !== "none" ? was.role : first)
     await q(
       `insert into fb_door.people (email, name, role, checked, checked_at, seen_at) values ($1, $2, $3, $4, now(), now())
        on conflict (email) do update set name = $2, role = $3, checked = $4, checked_at = now(), seen_at = now()`,
@@ -263,8 +285,8 @@ export const door = (opts: DoorOptions = {}) => {
           name: "door",
           label: "Live Flowbound token",
           host: liveUrl()!,
-          key: { header: "authorization", prefix: "Bearer " },
-          hint: "Made on the live Flowbound's Connect page. Lets `--live` commands on this computer reach it.",
+          key: { header: "authorization", prefix: "Bearer ", name: "FLOWBOUND_LIVE_TOKEN" },
+          hint: "A token for an agent on the live Flowbound (its make-token tool). Lets `--live` commands on this computer reach it.",
         }
       : undefined,
     migrations: [
@@ -281,6 +303,8 @@ export const door = (opts: DoorOptions = {}) => {
       ...ENGINE_TABLES,
       `update fb_door.people set role = case role
         when 'view' then 'viewer' when 'edit' then 'member' when 'approve' then 'member' when 'manage' then 'admin' else role end`,
+      // Allowed domains: several, whose people may sign in as Viewers. One taken away stays away, even if the settings name it.
+      "create table fb_door.domains (domain text primary key, added_by text not null, added_at timestamptz not null default now(), removed boolean not null default false)",
     ],
     async start(f) {
       fb = f
@@ -297,6 +321,8 @@ export const door = (opts: DoorOptions = {}) => {
       if (fb.live) {
         const { engine: make } = await import("./door/engine.ts")
         eng = await make({ fb, secret: secret(), login: login(), password: s.password })
+        // The first allowed domains come from the deploy settings; after that, Owners edit them on the People tab.
+        for (const d of s.domains) await q("insert into fb_door.domains (domain, added_by) values ($1, 'the settings') on conflict (domain) do nothing", [d])
       }
       return { live: liveUrl, wrote, engine } satisfies Door & { engine: typeof engine }
     },
@@ -446,8 +472,21 @@ export const door = (opts: DoorOptions = {}) => {
             person: whose(t.person ?? t.made_by),
             made: day(t.made_at),
             lastUsed: t.used_at ? day(t.used_at) : "never",
+            usedAt: t.used_at ? new Date(t.used_at).toISOString() : null,
+            mine: (t.person ?? t.made_by) === mine,
           }))
-          const apps = eng ? (await eng.connections(all ? undefined : (mine ?? "-"))).map((c) => ({ id: `app-${c.id}`, kind: "app", label: c.app, person: whose(c.email), made: day(c.since), lastUsed: "" })) : []
+          const apps = eng
+            ? (await eng.connections(all ? undefined : (mine ?? "-"))).map((c) => ({
+                id: `app-${c.id}`,
+                kind: "app",
+                label: c.app,
+                person: whose(c.email),
+                made: day(c.since),
+                lastUsed: c.used ? day(c.used) : "",
+                usedAt: c.used ? new Date(c.used).toISOString() : null,
+                mine: c.email === mine,
+              }))
+            : []
           return [...apps, ...tokens]
         },
       },
@@ -493,6 +532,7 @@ export const door = (opts: DoorOptions = {}) => {
             you: who.email ?? who.name,
             canManage: can(who, "admin") && who.kind === "person",
             isOwner: can(who, "owner") && who.kind === "person",
+            domains: s.kind === "google" || s.kind === "microsoft" ? await domains() : null,
             people: rows.map((p) => ({
               email: p.checked ? p.email : null,
               name: p.name,
@@ -500,8 +540,25 @@ export const door = (opts: DoorOptions = {}) => {
               checked: p.checked,
               setBy: p.blocked || fixed(p.email, {}) === undefined ? "a manager" : Object.keys(s.groups).length && !s.managers.includes(p.email) ? "their groups" : "the settings",
               lastSeen: p.seen_at ? day(p.seen_at) : "never",
+              invited: !p.seen_at && !p.blocked,
             })),
           }
+        },
+      },
+      "set-domain": {
+        about: "Add or take away an allowed domain: people with a work email there may sign in, as Viewers. Owners only. Taking one away stops new sign-ins from it; people already in keep their role.",
+        by: "people",
+        role: "owner",
+        input: { domain: { about: "the domain, like acme.com", required: true }, remove: { type: "boolean", about: "take it away" } },
+        run: async (i, who) => {
+          if (!fb.live) throw new Refused("Allowed domains are for a live Flowbound.")
+          if (s.kind !== "google" && s.kind !== "microsoft") throw new Refused("Allowed domains are for a Google or Microsoft sign-in. Here the login's own groups say who comes in.")
+          const domain = String(i.domain).trim().toLowerCase().replace(/^@/, "")
+          if (!/^(?=.{3,253}$)([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/.test(domain)) throw new Refused("That is not a domain. Write it like acme.com.")
+          if (i.remove) await q("update fb_door.domains set removed = true where domain = $1", [domain])
+          else await q("insert into fb_door.domains (domain, added_by) values ($1, $2) on conflict (domain) do update set removed = false, added_by = $2", [domain, who.name])
+          await wrote(who, "allowed domain", domain, i.remove ? "allowed" : null, i.remove ? "removed" : "allowed")
+          return { domain, allowed: !i.remove, domains: await domains() }
         },
       },
       "set-rights": {
@@ -583,8 +640,9 @@ export const door = (opts: DoorOptions = {}) => {
         ? [
             {
               what: `${waits.length === 1 ? `${waits[0]} has` : `${waits.length} people have`} signed in and can do nothing yet: nobody has given them rights.`,
-              fix: "A manager gives rights (or removes them) on the People page.",
-              page: "/people",
+              fix: "An Admin or Owner gives them a role (or removes them) on Permissions, People.",
+              page: "/permissions",
+              params: { tab: "people" },
             } satisfies Attention,
           ]
         : []
