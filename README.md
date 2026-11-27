@@ -37,9 +37,9 @@ Claude Code and Codex first need the marketplace: `/plugin marketplace add elias
 
 The plugin starts in **Run here**. To use a company installation, run `npx flowbound connect https://your-company.example` once and restart the agent app. Flowbound opens your browser for work sign-in on the first tool call. Switch back with `npx flowbound connect --local` and restart the app. Cloud chat apps connect directly to the company’s `/mcp` address.
 
-Agents do the work through two MCP tools: `search` finds a tool and its inputs,
+`search` finds Flowbound tools and their inputs.
 `execute` runs a few lines of JavaScript that call tools (`await flowbound.runs({})`), several at once, keeping only
-what is needed. Returning a run, table or workflow from `execute` opens its view inside chat. You can see run progress,
+what is needed. `show` opens a view when it helps the person, using the run, table or workflow ID from `execute`. You can see run progress,
 spending questions, result tables and workflow diagrams, and expand to the app when your chat supports it. Text-only apps still get a
 web link. Embedded views reuse the connector's sign-in.
 

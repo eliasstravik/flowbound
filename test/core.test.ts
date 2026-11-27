@@ -278,7 +278,7 @@ test("schedule() and hook() are lines that need the schedules part, and say what
   assert.throws(() => hook({ id: "new-leads", workflow: "" }), /must name its workflow/)
 })
 
-test("MCP offers search and execute when no app pages are installed", async () => {
+test("MCP tools stay text-only when no app pages are installed", async () => {
   const tools: any[] = [
     { name: "tables", about: "List your tables", input: {} },
     { name: "blitzapi", about: "Call BlitzAPI", input: { path: { about: "the path", required: true } }, price: "$0.0005 a call" },
@@ -288,7 +288,7 @@ test("MCP offers search and execute when no app pages are installed", async () =
   const rpc = (method: string, params?: unknown) => answer({ jsonrpc: "2.0", id: 1, method, params }, behind) as Promise<any>
   assert.deepEqual(
     (await rpc("tools/list")).result.tools.map((t: any) => t.name),
-    ["search", "execute"],
+    ["search", "execute", "show"],
   )
   const found = (await rpc("tools/call", { name: "search", arguments: { query: "blitz" } })).result.content[0].text
   assert.match(found, /blitzapi: Call BlitzAPI\n\s+price: \$0\.0005 a call\n\s+path \(needed\)/)
@@ -298,11 +298,55 @@ test("MCP offers search and execute when no app pages are installed", async () =
   assert.deepEqual(calls, [{ tool: "execute", input: { code: "return 1" } }])
   assert.deepEqual(ran.structuredContent, { result: [1, 2], logs: ["hi"] })
   assert.equal(ran.content[0].text, "hi\n---\n[\n  1,\n  2\n]")
-  assert.match((await rpc("tools/call", { name: "show", arguments: {} })).result.content[0].text, /two MCP tools: search and execute/)
+  assert.match((await rpc("tools/call", { name: "show", arguments: {} })).result.content[0].text, /no pages to show/)
   assert.equal(await answer({ jsonrpc: "2.0", method: "notifications/initialized" }, behind), undefined)
 })
 
-test("MCP execute selects a view for displayable results and keeps other results plain", async () => {
+test("an MCP Apps host frames only a deliberate show call", async () => {
+  const url = "https://example.test"
+  let runs = 0
+  const behind = {
+    about: async () => ({ url, live: true, tools: [] }),
+    call: async (_tool: string, input: unknown) => {
+      if ((input as { code: string }).code === "start run") runs++
+      return { result: { run: runs, page: `${url}/runs?run=${runs}`, state: "running" }, logs: [] }
+    },
+    app: { url, live: true, tools: ["runs"], paths: ["/runs"] },
+  }
+  const rpc = async (method: string, params?: unknown) => ((await answer({ jsonrpc: "2.0", id: 1, method, params }, behind, true)) as any).result
+  const { tools } = await rpc("tools/list")
+  const frames: { tool: string; html: string; result: any }[] = []
+  async function call(name: string, args: object) {
+    const uri = tools.find((tool: any) => tool.name === name)?._meta?.ui?.resourceUri
+    const result = await rpc("tools/call", { name, arguments: args })
+    // A host mounts a frame based on discovery, even for a plain result.
+    if (uri) frames.push({ tool: name, html: (await rpc("resources/read", { uri })).contents[0].text, result })
+    return result
+  }
+
+  await call("search", {})
+  await call("execute", { code: "start run", render: false })
+  await call("execute", { code: "check run", render: false })
+  assert.deepEqual(
+    frames.map(({ tool }) => tool),
+    [],
+    "text-only work leaves no frames",
+  )
+
+  const run = await call("execute", { code: "start run" })
+  assert.equal(frames.length, 0)
+  await call("show", run.structuredContent.show)
+  await call("execute", { code: "refresh run", render: false })
+  assert.deepEqual(
+    frames.map(({ tool }) => tool),
+    ["show"],
+  )
+  assert.match(frames[0].html, /data-page="\/runs"/)
+  assert.deepEqual(frames[0].result._meta.flowbound.view.params, { run: "2" })
+  assert.equal(runs, 2)
+})
+
+test("MCP execute recommends views and show resolves them without doing work", async () => {
   const url = "https://example.test/flowbound"
   const run = { run: 2, page: `${url}/runs?run=2`, state: "running", rows: { done: 1, of: 4 } }
   const waiting = { ...run, state: "waiting", asks: { question: "Run the workflow?" } }
@@ -324,10 +368,12 @@ test("MCP execute selects a view for displayable results and keeps other results
   const { tools } = (await rpc("tools/list")).result
   assert.deepEqual(
     tools.map((t: any) => t.name),
-    ["search", "execute"],
+    ["search", "execute", "show"],
   )
   assert.equal(tools[0]._meta?.ui, undefined)
-  const uri = tools[1]._meta.ui.resourceUri
+  assert.equal(tools[1]._meta, undefined)
+  assert.equal(tools[2].annotations.readOnlyHint, true)
+  const uri = tools[2]._meta.ui.resourceUri
   const {
     contents: [resource],
   } = (await rpc("resources/read", { uri })).result
@@ -336,26 +382,37 @@ test("MCP execute selects a view for displayable results and keeps other results
   assert.match(resource.text, /data-page="\/runs"/)
   assert.match(resource.text, /<body[^>]+ hidden>/)
   assert.doesNotMatch(resource.text, /example\.test/)
-  const call = async (args: object) => (await rpc("tools/call", { name: "execute", arguments: args })).result
-  assert.equal((await call({}))._meta.flowbound.view.path, "/runs")
+  const execute = async (args: object) => (await rpc("tools/call", { name: "execute", arguments: args })).result
+  const show = async (args: object, apps = true) => (await rpc("tools/call", { name: "show", arguments: args }, apps)).result
+  assert.equal((await show({}))._meta.flowbound.view.path, "/runs")
+  const displayed = await show({ run: 2 })
+  assert.deepEqual(displayed._meta.flowbound.view.params, { run: "2" })
+  assert.equal(displayed._meta.flowbound.role, "viewer")
+  assert.notEqual(displayed._meta.flowbound.instance, (await show({ run: 2 }))._meta.flowbound.instance)
+  assert.doesNotMatch(displayed.content[0].text, /example\.test/)
+  assert.deepEqual((await show({ workflow: "sample" }))._meta.flowbound.view.params, { workflow: "sample" })
+  assert.deepEqual((await show({ table: "example & test" }, false)).structuredContent, { link: `${url}/tables?table=example+%26+test` })
+  assert.equal((await show({ page: "keys" })).isError, true)
+  assert.equal((await show({ run: 2, workflow: "sample" })).isError, true)
+  assert.equal((await show({ run: -1 })).isError, true)
   assert.equal(calls, 0)
-  const shown = await call({ code: "run" })
-  assert.deepEqual(shown.structuredContent, { result: { run: 2, view: "live" }, logs: [] })
-  assert.match(shown.content[0].text, /run view in chat is live and will show the outcome/)
-  assert.doesNotMatch(shown.content[0].text, /"rows"|"running"/)
-  assert.ok(!shown.content[0].text.includes(url))
-  assert.deepEqual(shown._meta.flowbound.view.params, { run: "2" })
-  assert.equal(shown._meta.flowbound.role, "viewer")
-  assert.notEqual(shown._meta.flowbound.instance, (await call({ code: "run" }))._meta.flowbound.instance)
-  assert.deepEqual((await call({ code: "waiting" })).structuredContent.result, { run: 2, asks: waiting.asks, view: "live" })
-  assert.deepEqual((await call({ code: "done" })).structuredContent.result.rows, { done: 4, of: 4 })
-  assert.match((await call({ code: "paused" })).content[0].text, /"why": "Too many failures."/)
-  assert.deepEqual((await call({ code: "workflow" }))._meta.flowbound.view.params, { workflow: "sample" })
-  assert.deepEqual((await call({ code: "table" }))._meta.flowbound.view.params, { table: "sample" })
-  assert.deepEqual((await call({ code: "pick" }))._meta.flowbound.view.params, { table: "example & test" })
-  assert.deepEqual((await call({ code: "guide" })).structuredContent, { result: "# Guide", logs: [] })
-  assert.equal((await call({ code: "invalid" }))._meta, undefined)
-  assert.deepEqual((await call({ code: "run", render: false })).structuredContent, { result: run, logs: [] })
+  const ran = await execute({ code: "run" })
+  assert.deepEqual(ran.structuredContent, { result: { run: 2 }, logs: [], show: { run: 2 } })
+  assert.match(ran.content[0].text, /call show with {"run":2}/)
+  assert.match(ran.content[0].text, /Skip show if the person asked for no app/)
+  assert.doesNotMatch(ran.content[0].text, /"rows"|"running"|example\.test/)
+  assert.equal(ran._meta, undefined)
+  assert.deepEqual((await execute({ code: "waiting" })).structuredContent.result, { run: 2, asks: waiting.asks })
+  assert.deepEqual((await execute({ code: "done" })).structuredContent.result.rows, { done: 4, of: 4 })
+  assert.match((await execute({ code: "paused" })).content[0].text, /"why": "Too many failures\."/)
+  assert.deepEqual((await execute({ code: "workflow" })).structuredContent.show, { workflow: "sample" })
+  assert.deepEqual((await execute({ code: "table" })).structuredContent.show, { table: "sample" })
+  assert.deepEqual((await execute({ code: "pick" })).structuredContent.show, { table: "example & test" })
+  assert.deepEqual((await execute({ code: "run", project: "/sample" })).structuredContent.show, { run: 2, project: "/sample" })
+  assert.deepEqual((await execute({ code: "guide" })).structuredContent, { result: "# Guide", logs: [] })
+  assert.equal((await execute({ code: "invalid" })).structuredContent.show, undefined)
+  const { page: _page, ...runWithoutLink } = run
+  assert.deepEqual((await execute({ code: "run", render: false })).structuredContent, { result: runWithoutLink, logs: [] })
   const linked = (await rpc("tools/call", { name: "execute", arguments: { code: "run" } }, false)).result
   assert.deepEqual(linked.structuredContent, { result: run, logs: [], link: run.page })
   assert.ok(linked.content[0].text.includes(run.page))

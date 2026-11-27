@@ -78,12 +78,15 @@ test("two MCP clients set up an empty project once and the last one out stops it
   const server = path.join(project, ".flowbound", "server.json")
   const { url, pid } = JSON.parse(fs.readFileSync(server, "utf8"))
   assert.equal((await fetch(`${url}/keys`)).status, 200)
-  const view = { name: "execute", arguments: { code: 'return { flowboundView: { page: "runs" } }' } }
+  const view = { name: "show", arguments: { page: "runs" } }
   const [linked, embedded] = await Promise.all([first.ask("tools/call", view), second.ask("tools/call", view)])
+  const ran = await second.ask("tools/call", { name: "execute", arguments: { code: 'return { flowboundView: { page: "runs" } }' } })
   assert.equal(linked.structuredContent.link, `${url}/runs`)
   assert.equal(linked._meta, undefined)
   assert.equal(embedded._meta.flowbound.view.path, "/runs")
-  assert.ok(!JSON.stringify([embedded.content, embedded.structuredContent]).includes(url))
+  assert.ok(!JSON.stringify(embedded.content).includes(url))
+  assert.deepEqual(ran.structuredContent.show, view.arguments)
+  assert.equal(ran._meta, undefined)
   await first.stop()
   await second.ask("tools/call", args)
   assert.equal(JSON.parse(fs.readFileSync(server, "utf8")).pid, pid)

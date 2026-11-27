@@ -233,7 +233,7 @@ test("the company plugin signs in through its loopback callback and acts as the 
   t.after(() => client.close())
   assert.deepEqual(
     (await client.listTools()).tools.map((tool) => tool.name),
-    ["search", "execute"],
+    ["search", "execute", "show"],
   )
   const result = await client.callTool({ name: "execute", arguments: { code: "return await flowbound.change({})" } })
   assert.equal(result.isError, undefined)
@@ -406,20 +406,24 @@ test("a chat app signs in as a named person, and can never do more than they can
     const tools = (await fb.rpc(got.access_token, "tools/list", {}, session)).body.result.tools
     assert.deepEqual(
       tools.map((t: any) => t.name),
-      ["search", "execute"],
+      ["search", "execute", "show"],
     )
     const run = (tool: string) => fb.rpc(got.access_token, "tools/call", { name: "execute", arguments: { code: `return await flowbound["${tool}"]({})` } })
-    const uri = tools.find((t: any) => t.name === "execute")._meta.ui.resourceUri
+    const uri = tools.find((t: any) => t.name === "show")._meta.ui.resourceUri
     assert.equal((await fb.rpc(undefined, "resources/read", { uri })).status, 401)
     assert.equal((await fb.rpc(got.access_token, "resources/read", { uri })).body.result.contents[0].uri, uri)
-    const view = { name: "execute", arguments: { code: 'return { flowboundView: { page: "permissions" } }' } }
+    assert.deepEqual(
+      tools.filter((tool: any) => tool._meta?.ui).map((tool: any) => tool.name),
+      ["show"],
+    )
+    const view = { name: "show", arguments: { page: "permissions" } }
     const shown = await fb.rpc(got.access_token, "tools/call", view, session)
     assert.equal(shown.body.result._meta.flowbound.view.path, "/permissions")
     assert.equal(shown.body.result._meta.flowbound.role, "member")
-    assert.equal(shown.body.result.structuredContent.link, undefined)
+    assert.equal(shown.body.result.structuredContent?.link, undefined)
     const plain = await fb.rpc(got.access_token, "initialize", { protocolVersion: "2025-11-25", capabilities: {} })
     assert.equal(plain.headers.get("mcp-session-id"), null)
-    assert.equal((await fb.rpc(got.access_token, "tools/list")).body.result.tools[1]._meta, undefined)
+    assert.ok((await fb.rpc(got.access_token, "tools/list")).body.result.tools.every((tool: any) => !tool._meta))
     const linked = await fb.rpc(got.access_token, "tools/call", view)
     assert.equal(linked.body.result.structuredContent.link, `${U}/permissions`)
     assert.equal(linked.body.result._meta, undefined)
