@@ -217,13 +217,7 @@ fb.page("/workflows", async (root, params) => {
   }
 
   try {
-    if (!window.mermaid)
-      await new Promise((done, fail) => {
-        const s = h("script", { src: fb.mermaid })
-        s.onload = done
-        s.onerror = () => fail(new Error("The diagram drawer did not load."))
-        document.head.append(s)
-      })
+    await fb.mermaid()
     const dark = document.documentElement.classList.contains("dark")
     const c = dark ? { bg: "#0a0a0a", fg: "#ededed", box: "#141414", line: "#8a8a8a", edge: "#3d3d3d" } : { bg: "#ffffff", fg: "#171717", box: "#ffffff", line: "#8f8f8f", edge: "#c9c9c9" }
     const font = 'Geist, ui-sans-serif, system-ui, sans-serif'
@@ -267,7 +261,7 @@ fb.page("/workflows", async (root, params) => {
     }
     mark()
   } catch (e) {
-    stage.replaceChildren(h("p", { class: "text-muted-foreground p-4" }, `The diagram can't be drawn: ${String(e.message || e).split("\n")[0]}. Its code is under Code.`))
+    stage.replaceChildren(h("p", { class: "text-muted-foreground p-4" }, `The diagram can't be drawn: ${String(e.message || e).split("\n")[0].replace(/[.\s]+$/, "")}. Its code is under Code.`))
   }
 })
 </script>

@@ -382,6 +382,13 @@ test("MCP execute recommends views and show resolves them without doing work", a
   assert.match(resource.text, /data-page="\/runs"/)
   assert.match(resource.text, /<body[^>]+ hidden>/)
   assert.doesNotMatch(resource.text, /example\.test/)
+  // The diagram drawer comes through the host as a second ui:// resource, never from the server's own address.
+  assert.match(resource.text, /"mermaid":"ui:\/\/flowbound\/mermaid\.js"/)
+  assert.doesNotMatch(resource.text, /assets\/mermaid\.js/)
+  const drawer = (await rpc("resources/read", { uri: "ui://flowbound/mermaid.js" })).result.contents[0]
+  assert.equal(drawer.mimeType, "text/javascript")
+  assert.match(drawer.text, /window\.mermaid=/)
+  assert.ok((await rpc("resources/read", { uri: "ui://flowbound/mermaid.js" }, false)).result, "an app-capable server still serves it to a view")
   const execute = async (args: object) => (await rpc("tools/call", { name: "execute", arguments: args })).result
   const show = async (args: object, apps = true) => (await rpc("tools/call", { name: "show", arguments: args }, apps)).result
   assert.equal((await show({}))._meta.flowbound.view.path, "/runs")

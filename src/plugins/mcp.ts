@@ -13,7 +13,7 @@ import { type Flowbound, plugin, type Who } from "../core/plugin.ts"
 import { about } from "../core/server.ts"
 import catalog from "./mcp/catalog.json" with { type: "json" }
 import { execute } from "./mcp/execute.ts"
-import { appPages, type Pages, renderApp } from "./pages.ts"
+import { appPages, mermaidScript, type Pages, renderApp } from "./pages.ts"
 
 type About = { url: string; live: boolean; tools: { name: string; about: string; input: Record<string, { type?: string; about: string; required?: boolean }>; price?: string; docs?: string }[] }
 /** What the MCP door needs from the Flowbound behind it. The same two calls locally (over HTTP) and live (in process). */
@@ -27,6 +27,9 @@ type Rpc = { jsonrpc: "2.0"; id?: number | string; method: string; params?: any 
 
 const viewUri = "ui://flowbound/app-v4.html"
 const resource = { uri: viewUri, name: "Flowbound", mimeType: "text/html;profile=mcp-app" }
+// Mermaid, which draws a workflow's diagram, is big: the view asks the host for it only when it draws one, so it
+// needs no server it can reach and nothing outside the view's own sandbox.
+const mermaidUri = "ui://flowbound/mermaid.js"
 const ui = { resourceUri: viewUri, visibility: ["model"] }
 const uiExtension = "io.modelcontextprotocol/ui"
 const sessionHeader = "Mcp-Session-Id"
@@ -113,6 +116,7 @@ export async function answer(msg: Rpc, behind: Behind, showApp = false): Promise
     if (msg.method === "resources/list") return ok({ resources: showApp ? [resource] : [] })
     if (msg.method === "resources/read") {
       const uri = msg.params?.uri
+      if (uri === mermaidUri && (showApp || behind.app)) return ok({ contents: [{ uri, mimeType: "text/javascript", text: mermaidScript() }] })
       if ((uri !== viewUri && uri !== "ui://flowbound/app-v3.html") || (!showApp && !behind.app)) return { jsonrpc: "2.0", id: msg.id, error: { code: -32002, message: "Flowbound has no such resource." } }
       return ok({ contents: [{ uri, mimeType: resource.mimeType, text: renderApp(), _meta: { ui: { csp: {} } } }] })
     }
