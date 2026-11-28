@@ -90,7 +90,7 @@ Host support checked on 27 Nov 2026:
 - Keys on your own computer: `~/.flowbound/<folder name>-<hash of its path>/keys.json`, readable by you only (0600). `FLOWBOUND_HOME` moves it.
 - Pages: plain HTML with Flowbound's own look and one small shared script.
 - Install commands per agent app: see README; each was checked against the app's own manual on 24 Nov 2026, and Claude Code's and Codex's were run.
-- The local port: 4111, then the next free one. The address in use is in `.flowbound/server.json`.
+- The local port: 4111, then the next free one. The address in use is in `.flowbound/server.json`. A shared address (`FLOWBOUND_URL`) and its port are kept in `.flowbound/share.json` for every later start.
 
 ## Core
 - The core is `src/core`: the list, needs and provides, starting in order, the HTTP API over every tool, and the `flowbound` command with `dev`, `plugins`, `docs`. It is about 580 lines, not the 300 the plan aimed for: the HTTP listener, the restart-on-change watcher and plain error messages took the rest. It names no plugin.

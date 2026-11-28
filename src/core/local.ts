@@ -6,6 +6,8 @@ import { fileURLToPath } from "node:url"
 
 const bin = path.join(path.dirname(fileURLToPath(import.meta.url)), `start${path.extname(fileURLToPath(import.meta.url))}`)
 export const stateFile = (root: string) => path.join(root, ".flowbound", "server.json")
+/** The address the person shares this Flowbound at, and its port: kept so every later start uses them too. */
+export const shareFile = (root: string) => path.join(root, ".flowbound", "share.json")
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
 export async function running(root: string): Promise<string | undefined> {

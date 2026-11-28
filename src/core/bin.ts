@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url"
 import { company, connect } from "./connection.ts"
 import { docs } from "./docs.ts"
 import { check, findRoot, readList, table } from "./load.ts"
-import { claim, ensure, hasClients, running, stateFile, stuck, watcherFile } from "./local.ts"
+import { claim, ensure, hasClients, running, shareFile, stateFile, stuck, watcherFile } from "./local.ts"
 import type { Command, CommandLine, Plugin } from "./plugin.ts"
 import { boot, listen } from "./server.ts"
 
@@ -18,7 +18,7 @@ async function serve(root: string, port: number) {
   let stop = async () => {}
   const server = await listen(port, async (bound) => {
     // FLOWBOUND_LIVE=1 is the shared, deployed way of running on a server of your own: the door plugin then guards it.
-    const app = await boot(await readList(root), { root, live: process.env.FLOWBOUND_LIVE === "1", url: process.env.FLOWBOUND_URL ?? `http://localhost:${bound}`, local: `http://localhost:${bound}` })
+    const app = await boot(await readList(root), { root, live: process.env.FLOWBOUND_LIVE === "1", url: process.env.FLOWBOUND_URL || `http://localhost:${bound}`, local: `http://localhost:${bound}` })
     stop = app.stop
     return app.fetch
   }).catch(async (e) => {
@@ -29,6 +29,7 @@ async function serve(root: string, port: number) {
   fs.mkdirSync(path.dirname(state(root)), { recursive: true })
   fs.writeFileSync(state(root), JSON.stringify({ url, pid: process.pid }))
   console.log(`pages at ${url}`)
+  if (process.env.FLOWBOUND_URL) console.log(`shared at ${process.env.FLOWBOUND_URL}`)
   if (process.env.FLOWBOUND_LIVE !== "1") console.log("runs and schedules on while this computer is on\nyes from your phone: npx flowbound deploy")
   const end = async () => {
     await Promise.race([stop(), new Promise((r) => setTimeout(r, 3000))])
@@ -45,12 +46,49 @@ async function serve(root: string, port: number) {
  */
 const heap = () => (/max-old-space-size/.test(process.env.NODE_OPTIONS ?? "") ? [] : [`--max-old-space-size=${Math.floor(Number(process.env.FLOWBOUND_HEAP_MB)) || 768}`])
 
-/** `flowbound dev`: one child serves; a change to the list, a plugin or a workflow restarts it. */
-async function dev(root: string, args: string[]) {
+/**
+ * The address the person shares this Flowbound at (FLOWBOUND_URL) and the port the share points to, kept in
+ * .flowbound/share.json. A server the MCP server or an agent starts later without them still gives links that open on
+ * the person's phone, and its pages still load under the shared path. FLOWBOUND_URL set to nothing, or to a localhost
+ * address, forgets it. A Flowbound already running picks a new address up by restarting.
+ */
+function share(root: string, args: string[]) {
+  const given = process.env.FLOWBOUND_URL
+  if (given === undefined) return
+  const file = shareFile(root)
+  const url = given.trim().replace(/\/+$/, "")
+  let local = !url
+  try {
+    local ||= ["localhost", "127.0.0.1", "[::1]"].includes(new URL(url).hostname)
+  } catch {
+    local = true
+  }
+  if (local) return fs.rmSync(file, { force: true })
   const at = args.indexOf("--port")
-  const port = Number(at >= 0 ? args[at + 1] : (process.env.FLOWBOUND_PORT ?? 4111))
+  const port = Number(at >= 0 ? args[at + 1] : process.env.FLOWBOUND_PORT) || undefined
+  fs.mkdirSync(path.dirname(file), { recursive: true })
+  fs.writeFileSync(file, JSON.stringify({ url, port }))
+}
+const kept = (root: string): { url?: string; port?: number } => {
+  try {
+    const s = JSON.parse(fs.readFileSync(shareFile(root), "utf8"))
+    return { url: typeof s.url === "string" && s.url ? s.url : undefined, port: Number(s.port) || undefined }
+  } catch {
+    return {}
+  }
+}
+
+/** `flowbound dev`: one child serves; a change to the list, a plugin, a workflow or the shared address restarts it. */
+async function dev(root: string, args: string[]) {
+  const live = process.env.FLOWBOUND_LIVE === "1"
+  if (!process.env.FLOWBOUND_CHILD && !live) share(root, args)
+  const at = args.indexOf("--port")
+  const port = Number(at >= 0 ? args[at + 1] : (process.env.FLOWBOUND_PORT ?? (live ? undefined : kept(root).port) ?? 4111))
   if (process.env.FLOWBOUND_CHILD) return serve(root, port)
-  if (await running(root)) return console.log(`Already running: pages at ${JSON.parse(fs.readFileSync(state(root), "utf8")).url}`)
+  if (await running(root)) {
+    const shared = live ? undefined : kept(root).url
+    return console.log(`Already running: pages at ${JSON.parse(fs.readFileSync(state(root), "utf8")).url}${shared ? `\nshared at ${shared}` : ""}`)
+  }
   if (stuck(root)) return console.log(`Already running, but stopped on a problem:\n${stuck(root)}`)
   const release = claim(watcherFile(root))
   if (!release) return console.log("Already running: another `flowbound dev` is starting it.")
@@ -63,7 +101,10 @@ async function dev(root: string, args: string[]) {
   fs.rmSync(state(root), { force: true })
   const start = () => {
     if (closing) return
-    child = spawn(process.execPath, [...heap(), self, "dev"], { cwd: root, stdio: "inherit", env: { ...process.env, FLOWBOUND_CHILD: "1", FLOWBOUND_PORT: String(free.port) } })
+    // On your own computer the address comes from the share file, read again at every start: a later `flowbound dev`
+    // with another FLOWBOUND_URL changes it for this one too.
+    const env = { ...process.env, FLOWBOUND_CHILD: "1", FLOWBOUND_PORT: String(free.port), ...(live ? {} : { FLOWBOUND_URL: kept(root).url ?? "" }) }
+    child = spawn(process.execPath, [...heap(), self, "dev"], { cwd: root, stdio: "inherit", env })
     child.on("exit", (code, signal) => {
       if (closing || restarting) return
       // Killed from outside (the computer slept, something pulled the plug): bring it straight back.
@@ -90,7 +131,7 @@ async function dev(root: string, args: string[]) {
   // file, which is how most editors and agents save, and a missed edit would leave an old workflow running.
   const seen = () => {
     const out = new Map<string, string>()
-    for (const name of ["flowbound.config.ts", "plugins", "workflows"]) {
+    for (const name of ["flowbound.config.ts", "plugins", "workflows", path.join(".flowbound", "share.json")]) {
       const target = path.join(root, name)
       if (!fs.existsSync(target)) continue
       const files = fs.statSync(target).isDirectory() ? (fs.readdirSync(target, { recursive: true }) as string[]).map((f) => path.join(name, f)) : [name]

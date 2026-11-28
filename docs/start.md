@@ -63,7 +63,9 @@ Read `changes` for the precise inputs, roles, and the owner's one-time setup. On
 in Git is `staging/` and its workflow paths in the connector still start with `workflows/`.
 
 The app inside chat uses the same connection you use. Pages on the local machine use port 4111 by default. Deploy or set
-`FLOWBOUND_URL` to the address the person can reach to share links across devices. The signed-in website is where
+`FLOWBOUND_URL` to the address the person can reach to share links across devices; a private share under a path
+(https://host/flowbound) works too. Flowbound keeps that address and port for every later start, also one the MCP
+server makes, and `FLOWBOUND_URL=` (empty) forgets it. The signed-in website is where
 people change keys and access. A CSV can be imported from any path. Write the workflow from the provider's
 manual before its key is in, then make the real call once it is.
 
