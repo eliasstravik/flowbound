@@ -36,6 +36,8 @@ const ICONS = { "arrow-down": arrowDown, "arrow-up": arrowUp, "arrow-up-right": 
 const fb = (() => {
   const boot = window.FB
   const bridge = window.FB_BRIDGE
+  // Mermaid, once it is loading: every diagram after the first waits on the same load.
+  let mermaid
   const renders = {}
   const templates = {}
   let ids = 0
@@ -683,8 +685,25 @@ const fb = (() => {
     get live() { return boot.live },
     get url() { return boot.url },
     get who() { return boot.who },
-    /** Where Mermaid is, for a page that draws a diagram. */
-    get mermaid() { return bridge ? `${boot.url}/assets/mermaid.js` : boot.mermaid },
+    /** Loads Mermaid once, for a page that draws a diagram: in a chat through the host, on the web from /assets. */
+    mermaid() {
+      if (window.mermaid) return Promise.resolve(window.mermaid)
+      return (mermaid ??= (bridge
+        ? bridge.script(boot.mermaid)
+        : new Promise((done, fail) => {
+            const s = h("script", { src: boot.mermaid })
+            s.onload = done
+            s.onerror = () => fail(new Error("The diagram drawer did not load"))
+            document.head.append(s)
+          })
+      ).then(
+        () => window.mermaid ?? Promise.reject(new Error("The diagram drawer did not load")),
+        (error) => {
+          mermaid = undefined
+          throw error
+        },
+      ))
+    },
     embedded: !!bridge,
     compact: () => !!bridge && document.body.dataset.mode === "inline",
     supports,

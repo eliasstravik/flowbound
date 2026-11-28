@@ -128,6 +128,15 @@ window.FB_BRIDGE = {
     const code = `return await flowbound[${JSON.stringify(name)}](${JSON.stringify(input ?? {})})`
     return (await tool("execute", { code, render: false })).result
   },
+  /** Runs a script Flowbound serves as a ui:// resource, read through the host: no server to reach, nothing outside the sandbox. */
+  async script(uri) {
+    const { contents } = await app.readServerResource({ uri })
+    const text = contents?.find((item) => typeof item.text === "string")?.text
+    if (!text) throw new Error("The chat did not hand over the diagram drawer")
+    const s = document.createElement("script")
+    s.textContent = text
+    document.head.append(s)
+  },
   async open(url) {
     if ((await app.openLink({ url })).isError) throw new Error("The chat could not open this link.")
   },

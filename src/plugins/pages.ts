@@ -88,7 +88,7 @@ const render = (
     url: url,
     base: base,
     page: path ?? null,
-    mermaid: app ? `${url}/assets/mermaid.js` : at(base, "mermaid.js"),
+    mermaid: app ? "ui://flowbound/mermaid.js" : at(base, "mermaid.js"),
     who: who ? { name: who.name, kind: who.kind, checked: who.checked !== false, role: who.role ?? null } : null,
   }
   // Where you set things up (Connections, Agents, Permissions) sits under a line, after what you look at. Home's count
@@ -168,6 +168,8 @@ export const appPages = new Map<string, Page>([
   ["/people", { title: "People", file: asset("door/people.html") }],
 ])
 let appDocument: string | undefined
+/** Mermaid's script, for the view inside a chat, which reads it through the host (resources/read). */
+export const mermaidScript = () => get("mermaid.js").body.toString("utf8")
 export const renderApp = () => (appDocument ??= render(appPages, { app: true }))
 
 export const pages = () => {
