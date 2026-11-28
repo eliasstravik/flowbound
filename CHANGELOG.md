@@ -2,9 +2,21 @@
 
 What changed in each version, in the words of what you will notice. Newest first.
 
-## Unreleased
+## 0.1.2
 
-- The HubSpot card is removed. A connection is a name you choose and a key; to write to another tool, add it as a provider and say which calls write (see the README).
+A whole new interface.
+
+- **Home** shows what needs you, recent runs and this month's spend, with a Get started list on your first day.
+- **Workflows** can sit in folders. Each has a page with a diagram you can tap, its code, its runs and its data. Schedules have their own page.
+- **Runs** is a plain list. A run's page shows every row; tap one to see its steps, what each cost, or why it failed.
+- **Data** shows every table in its workflow's folder, with each answer's source, age and cost.
+- **Context** is a new page with your agent's files.
+- **Connections** is one list of your keys: a name you choose and a key.
+- **Agents** is a new page: how to connect an agent, and which ones are connected.
+- **People** (under Permissions) lets owners and admins invite colleagues and set their roles.
+- **The in-chat view** is headed Flowbound with an Open button, and shows the whole app when expanded.
+- In chat, one live run card opens only when it helps, and keeps updating on its own.
+- The built-in CRM card is gone. To write to another tool, add it as a provider and say which calls write (see the README).
 
 ## 0.1.1
 
